@@ -137,3 +137,7 @@ Thumbs.db
 /scripts/support-v10.6-style.css
 /templates/
 /v10.3-overlay/
+
+# Per-installation Docker configuration, certificates and backup artifacts.
+/installation/
+/backups/

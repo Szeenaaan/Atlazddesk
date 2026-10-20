@@ -40,3 +40,19 @@ Use a Node.js version supporting the tests’ TypeScript imports. The build runs
 ## Latest local baseline
 
 Before documentation consolidation: 136 backend tests passed (758 assertions), all five frontend test files passed, and the production build passed with a large-bundle warning. The stale contract test label was corrected to the existing `Contracts` navigation label. These results do not verify deployment or production browser behavior.
+
+## Portable Compose release validation
+
+The deployment host needs only Docker Engine/Desktop, BuildKit/buildx and Compose; PHP, Node.js and Python are not host installation requirements. The source commands above are for development environments.
+
+Validate without printing resolved environment secrets:
+
+```sh
+docker compose --env-file .env.example config --quiet
+docker compose --env-file .env.example -f infra/docker-compose.yml config --quiet
+docker compose build app web
+```
+
+On an isolated Docker host/project, follow README clean installation steps using disposable volumes and a trusted test certificate. Verify service health, actual HTTPS CSRF cookies/login/MFA, role scopes, upload access checks, queue processing and scheduler heartbeat. Recreate the stack without deleting volumes and verify the database, uploads and original key persist. Rehearse an upgrade against restored test data; confirm the setup helper refuses existing configuration. Also test certificate renewal/reload and a full backup/restore.
+
+Current Docker-preparation regression: 139 backend tests passed (781 assertions), all five frontend test files passed, and the production frontend build passed with a large-chunk warning. Both Compose entry points pass Docker Compose 2.39.4 validation; installer key/credential consistency, HTTPS origin validation and overwrite refusal pass; PHP helper and shell syntax checks pass. Full image builds were attempted but blocked because the workspace has no Docker daemon/buildx. No container runtime, Linux/Windows install, TLS login, or data persistence test is claimed complete. Run the build and isolated lifecycle checks before publishing this Docker release. Major dependency tags are version-line pinned; resolved image digests should be recorded after successful builds.
