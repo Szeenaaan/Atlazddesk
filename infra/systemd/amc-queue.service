@@ -1,0 +1,19 @@
+[Unit]
+Description=AtlasDesk Laravel Redis Queue Worker
+After=network.target redis-server.service mariadb.service
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/amc-platform/backend-overlay
+ExecStart=/usr/bin/php artisan queue:work redis --queue=notifications,maintenance,default --sleep=3 --tries=3 --timeout=60 --max-time=3600
+Restart=always
+RestartSec=5
+TimeoutStopSec=75
+StandardOutput=journal
+StandardError=journal
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
