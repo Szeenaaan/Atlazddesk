@@ -1,5 +1,5 @@
 [Unit]
-Description=AtlasDesk Laravel Scheduler
+Description=Atlazddesk Laravel Scheduler
 After=network.target redis-server.service mariadb.service
 
 [Service]

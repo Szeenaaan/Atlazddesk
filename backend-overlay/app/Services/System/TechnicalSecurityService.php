@@ -157,14 +157,14 @@ final class TechnicalSecurityService
 
     public function sendSecurityCode(User $user, string $code): void
     {
-        $this->deliver($user->email, 'AtlasDesk verification code',
-            'Your AtlasDesk verification code is: '.$code.'. It expires in five minutes. Do not share it.');
+        $this->deliver($user->email, 'Atlazddesk verification code',
+            'Your Atlazddesk verification code is: '.$code.'. It expires in five minutes. Do not share it.');
     }
 
     public function sendTest(Request $request): void
     {
         $this->confirmPassword($request->user(), $request->input('current_password', ''));
-        $this->deliver($request->user()->email, 'AtlasDesk technical delivery test',
+        $this->deliver($request->user()->email, 'Atlazddesk technical delivery test',
             'Your technical mail provider accepted a delivery test. No customer data is included.');
         AmcAudit::record($request, 'system.technical_mail.test_accepted', $request->user());
     }

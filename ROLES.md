@@ -1,6 +1,6 @@
-# AtlasDesk roles
+# Atlazddesk roles
 
-AtlasDesk is self-hosted per contractor. The technical owner and business operator have separate responsibilities. No hidden vendor/support account is created.
+Atlazddesk is self-hosted per contractor. The technical owner and business operator have separate responsibilities. No hidden vendor/support account is created.
 
 | Role | Responsibilities | Boundary |
 |---|---|---|

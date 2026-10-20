@@ -14,7 +14,7 @@
 .profile > div b, .profile > div small { white-space:nowrap; text-overflow:ellipsis; overflow:hidden; max-width:100%; }
 .profile > button, .profile > .avatar { flex-shrink:0; }
 
-/* Configurable MFA, consistent with AtlasDesk panels. */
+/* Configurable MFA, consistent with Atlazddesk panels. */
 .mfa-config-panel { padding:24px; margin-top:20px; }
 .mfa-config-panel p { font-size:13px; color:#777d91; line-height:1.6; }
 .mfa-switch { display:flex!important; align-items:center; flex-direction:row!important; justify-content:space-between; gap:20px; padding:14px 0; border-bottom:1px solid #eee; }

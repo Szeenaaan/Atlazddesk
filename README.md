@@ -1,6 +1,6 @@
-# AtlasDesk
+# Atlazddesk
 
-AtlasDesk is a self-hosted support and maintenance workspace for service contractors and their customers. It manages tickets, assets, AMC contracts, technician assignments, work reports, notifications, and account security.
+Atlazddesk is a self-hosted support and maintenance workspace for service contractors and their customers. It manages tickets, assets, AMC contracts, technician assignments, work reports, notifications, and account security.
 
 ## Source layout
 

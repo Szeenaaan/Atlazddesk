@@ -21,7 +21,7 @@ type AuditRow = { id: number; created_at: string; user_id: number | null; event:
 type FailedJob = { uuid: string; connection: string; queue: string; failed_at: string };
 
 type Tab = 'overview' | 'performance' | 'failures' | 'audit' | 'configuration' | 'logs';
-const fallbackSettings: Settings = { installation_label: 'AtlasDesk', support_email: '', queue_warning_depth: 100, disk_warning_percent: 15, country_code: '', timezone: 'UTC' };
+const fallbackSettings: Settings = { installation_label: 'Atlazddesk', support_email: '', queue_warning_depth: 100, disk_warning_percent: 15, country_code: '', timezone: 'UTC' };
 
 export default function SystemSupport({ initialTab = 'overview', retentionSettings }: { initialTab?: Tab; retentionSettings?: ReactNode }) {
   const [tab, setTab] = useState<Tab>(initialTab);

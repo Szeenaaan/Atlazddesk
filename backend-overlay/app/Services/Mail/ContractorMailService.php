@@ -49,8 +49,8 @@ final class ContractorMailService
     /** MFA/security delivery is independent of marketing/incident notification switches. */
     public function sendSecurityCode(User $recipient, string $code): void
     {
-        $this->send($recipient, 'AtlasDesk verification code',
-            'Your AtlasDesk verification code is: '.$code.'. It expires in five minutes. Do not share it.');
+        $this->send($recipient, 'Atlazddesk verification code',
+            'Your Atlazddesk verification code is: '.$code.'. It expires in five minutes. Do not share it.');
     }
 
     /** Explicit provider dispatch for an isolated technical mail route. */
@@ -61,7 +61,7 @@ final class ContractorMailService
 
     public function sendTest(AmcMailProvider $provider, string $recipientEmail): void
     {
-        $this->deliver($provider, $recipientEmail, 'AtlasDesk email delivery test',
+        $this->deliver($provider, $recipientEmail, 'Atlazddesk email delivery test',
             'This is a configuration test for this installation. No client data is included.');
     }
 

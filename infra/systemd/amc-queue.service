@@ -1,5 +1,5 @@
 [Unit]
-Description=AtlasDesk Laravel Redis Queue Worker
+Description=Atlazddesk Laravel Redis Queue Worker
 After=network.target redis-server.service mariadb.service
 
 [Service]

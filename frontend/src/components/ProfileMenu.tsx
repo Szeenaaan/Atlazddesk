@@ -25,7 +25,7 @@ export default function ProfileMenu({ name, email, role, onNavigate, onLogout }:
       {role === 'admin' && <button role="menuitem" onClick={() => nav('Email Delivery')}><Settings size={16}/> Email delivery</button>}
       {role === 'super_admin' && <button role="menuitem" onClick={() => nav('System Support')}><Settings size={16}/> System support</button>}
       {role === 'super_admin' && <button role="menuitem" onClick={() => nav('Admin Accounts')}><UserCircle size={16}/> Contractor admins</button>}
-      <button role="menuitem" onClick={() => nav('About')}><Info size={16}/> About AtlasDesk</button>
+      <button role="menuitem" onClick={() => nav('About')}><Info size={16}/> About Atlazddesk</button>
       <button className="logout-action" role="menuitem" onClick={() => { setOpen(false); onLogout(); }}><LogOut size={16}/> Sign out</button>
     </div>}
   </div>;

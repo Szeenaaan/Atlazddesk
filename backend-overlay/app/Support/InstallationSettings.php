@@ -11,7 +11,7 @@ final class InstallationSettings
     {
         $stored = DB::table('amc_installation_settings')->pluck('value', 'key');
         return [
-            'installation_label' => (string) ($stored['installation_label'] ?? config('app.name', 'AtlasDesk')),
+            'installation_label' => (string) ($stored['installation_label'] ?? config('app.name', 'Atlazddesk')),
             'support_email' => (string) ($stored['support_email'] ?? ''),
             'queue_warning_depth' => (int) ($stored['queue_warning_depth'] ?? 100),
             'disk_warning_percent' => (int) ($stored['disk_warning_percent'] ?? 15),

@@ -47,7 +47,7 @@ class DispatchTicketNotice implements ShouldQueue
                 'message'=>"Ticket {$ticket->ticket_number} • {$this->event}",
             ]);
             try {
-                $mail->sendNotification($recipient, 'AtlasDesk ticket update',
+                $mail->sendNotification($recipient, 'Atlazddesk ticket update',
                     "Ticket {$ticket->ticket_number} has an update ({$this->event}). Sign in to view it securely.");
             } catch (\Throwable $e) {
                 Log::error('amc.notification_failure', ['ticket_id'=>$ticket->id, 'recipient_id'=>$recipient->id, 'exception'=>$e::class]);

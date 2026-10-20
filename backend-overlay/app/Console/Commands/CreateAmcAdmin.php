@@ -21,7 +21,7 @@ class CreateAmcAdmin extends Command
             return self::FAILURE;
         }
         $email = (string) ($this->argument('email') ?: $this->ask('Administrator email'));
-        $name = (string) $this->ask('Administrator name', 'AtlasDesk Administrator');
+        $name = (string) $this->ask('Administrator name', 'Atlazddesk Administrator');
         $password = (string) $this->secret('Password (minimum 14 characters, mixed case, numbers, symbols)');
         $confirmation = (string) $this->secret('Confirm password');
         $validator = Validator::make(compact('email','password','confirmation'), [

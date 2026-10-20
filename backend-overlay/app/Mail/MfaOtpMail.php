@@ -16,7 +16,7 @@ final class MfaOtpMail extends Mailable
 
     public function envelope(): Envelope
     {
-        return new Envelope(subject: 'Your AtlasDesk security code');
+        return new Envelope(subject: 'Your Atlazddesk security code');
     }
 
     public function content(): Content

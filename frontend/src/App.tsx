@@ -29,7 +29,7 @@ import SearchableSelect, { type SelectOption } from './components/SearchableSele
 import { canViewPage } from './auth/rolePermissions';
 import { formatInstallationDate, formatInstallationDateTime, formatInstallationTime, setInstallationTimezone } from './utils/installationTime';
 import { statusOptions } from './tickets/statusTransitions';
-const AMC_BRAND_NAME = String(import.meta.env.VITE_APP_NAME || 'AtlasDesk').trim() || 'AtlasDesk';
+const AMC_BRAND_NAME = String(import.meta.env.VITE_APP_NAME || 'Atlazddesk').trim() || 'Atlazddesk';
 const WORKSPACE_LABELS: Record<Role, [string, string]> = {
     super_admin: ['Technical administration', 'Diagnostics & configuration'],
     admin: ['Contractor operations', 'Clients & field services'],
@@ -240,7 +240,7 @@ function App() {
             const lines = [['Ticket', 'Subject', 'Customer', 'Priority', 'Status', 'Assigned'],
                 ...visibleTickets.map(t => [t.ticket_number, t.subject, t.customer, t.priority, t.status, t.assignee])]
                 .map(row => row.map(safe).join(',')).join('\n');
-            downloadBlob(new Blob([lines], { type: 'text/csv' }), 'atlasdesk-demo-tickets.csv');
+            downloadBlob(new Blob([lines], { type: 'text/csv' }), 'atlazddesk-demo-tickets.csv');
             return;
         }
         try {
@@ -468,7 +468,7 @@ function App() {
         return null;
     };
     if (restoring)
-        return <div className="login-bg"><div className="login-panel"><h2>Connecting to AtlasDesk...</h2></div></div>;
+        return <div className="login-bg"><div className="login-panel"><h2>Connecting to Atlazddesk...</h2></div></div>;
     if (!logged && mfaPending)
         return <MfaLogin challenge={mfaPending} onComplete={completeSignIn} onCancel={cancelMfa}/>;
     if (!logged)
