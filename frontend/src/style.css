@@ -678,3 +678,11 @@
 .user-management .user-asset-options input[type=checkbox]{width:16px;height:16px;flex:0 0 16px;margin:0;accent-color:#6359e8}
 .user-asset-options small{display:block;margin-top:3px;font-weight:400;color:#85899b}
 .asset-assignment-editor{padding:20px;border:1px solid #e5e7ef;background:#fafbfe;border-radius:10px;margin:20px 0}
+
+.app-version{display:block;font-size:11px;font-weight:500;color:inherit;opacity:.7;margin-top:3px}
+.about-panel{padding:24px;max-width:720px}
+.about-details{display:grid;grid-template-columns:minmax(100px,140px) minmax(0,1fr);gap:16px;margin-top:24px}
+.about-details dt{color:#76798b;font-size:13px}
+.about-details dd{margin:0;overflow-wrap:anywhere;font-size:14px}
+.about-details a{color:#6359e8;text-decoration:underline}
+@media(max-width:480px){.about-panel{padding:18px}.about-details{grid-template-columns:1fr;gap:8px}.about-details dd{margin-bottom:12px}}
