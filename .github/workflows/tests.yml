@@ -1,0 +1,110 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Laravel tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend-overlay
+    services:
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_DATABASE: amc_platform_test
+          MARIADB_USER: amc_platform_user
+          MARIADB_PASSWORD: ci-test-password
+          MARIADB_ROOT_PASSWORD: ci-root-test-password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      APP_ENV: testing
+      APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      APP_DEBUG: 'false'
+      DB_CONNECTION: mysql
+      DB_HOST: 127.0.0.1
+      DB_PORT: '3306'
+      DB_DATABASE: amc_platform_test
+      DB_USERNAME: amc_platform_user
+      DB_PASSWORD: ci-test-password
+      DB_URL: ''
+      DB_SOCKET: ''
+      CACHE_STORE: array
+      SESSION_DRIVER: array
+      QUEUE_CONNECTION: sync
+      MAIL_MAILER: array
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, pdo_mysql, dom, xml, curl
+          tools: composer:v2
+          coverage: none
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Clear cached configuration
+        run: php artisan config:clear
+      - name: Verify isolated test database before running tests
+        run: |
+          php <<'PHP'
+          <?php
+          require 'vendor/autoload.php';
+          $app = require 'bootstrap/app.php';
+          $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+          $config = $app['config'];
+          if ($app->configurationIsCached()
+              || $app->environment() !== 'testing'
+              || $config->get('database.default') !== 'mysql'
+              || $config->get('database.connections.mysql.database') !== 'amc_platform_test'
+              || !empty($config->get('database.connections.mysql.url'))
+              || !empty(env('DB_URL'))
+              || $config->get('database.connections.mysql.host') !== '127.0.0.1'
+              || (string) $config->get('database.connections.mysql.port') !== '3306'
+              || !empty($config->get('database.connections.mysql.unix_socket'))) {
+              throw new RuntimeException('Unsafe test database configuration; refusing to run tests.');
+          }
+          $connection = $app['db']->connection('mysql');
+          if ($connection->getDatabaseName() !== 'amc_platform_test'
+              || $connection->selectOne('SELECT DATABASE() AS db')->db !== 'amc_platform_test') {
+              throw new RuntimeException('Resolved database is not amc_platform_test; refusing to run tests.');
+          }
+          echo "Verified uncached testing environment, mysql connection, no DB_URL, and amc_platform_test database.\n";
+          PHP
+      - name: Run Laravel tests
+        run: php artisan test
+
+  frontend:
+    name: Frontend tests and build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: node --test tests/*.test.mjs
+      - run: npm run build
