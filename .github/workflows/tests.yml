@@ -52,8 +52,8 @@ jobs:
           persist-credentials: false
       - uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.3'
-          extensions: mbstring, pdo_mysql, dom, xml, curl
+          php-version: '8.4'
+          extensions: ctype, dom, fileinfo, filter, hash, iconv, json, libxml, mbstring, openssl, pcre, phar, session, tokenizer, xml, xmlwriter, pdo_mysql, curl
           tools: composer:v2
           coverage: none
       - name: Install Composer dependencies
