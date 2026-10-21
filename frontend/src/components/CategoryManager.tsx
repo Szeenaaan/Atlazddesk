@@ -1,3 +1,5 @@
+import { Field } from './ui';
+import { Button, Input } from './ui';
 import { useEffect, useState } from 'react';
 import { client } from '../api/client';
 export default function CategoryManager({ onChange }: { onChange: () => void }) {
@@ -17,7 +19,7 @@ export default function CategoryManager({ onChange }: { onChange: () => void }) 
   }
   return <details className="panel category-manager contractor-forms"><summary>Manage categories</summary>
     {error && <p className="amc-field-error" role="alert">{error}</p>}
-    <form className="category-create" onSubmit={e => { e.preventDefault(); void save(); }}><label>Category name<input required maxLength={100} disabled={saving} value={name} onChange={e => setName(e.target.value)}/></label><button disabled={saving} className="btn btn-primary">Add category</button></form>
-    {rows.map(r => <div className="category-row" key={r.id}><input aria-label={`Category name: ${r.name}`} disabled={saving} value={r.name} maxLength={100} onChange={e => setRows(all => all.map(c => c.id === r.id ? { ...c, name: e.target.value } : c))}/><button disabled={saving} className="btn btn-secondary" onClick={() => void save(r.id)}>Save</button><button disabled={saving} className="btn btn-secondary" onClick={() => void save(r.id, !r.is_active)}>{r.is_active ? 'Deactivate' : 'Activate'}</button></div>)}
+    <form className="category-create" onSubmit={e => { e.preventDefault(); void save(); }}><Field>Category name<Input required maxLength={100} disabled={saving} value={name} onChange={e => setName(e.target.value)}/></Field><Button disabled={saving} className="btn btn-primary">Add category</Button></form>
+    {rows.map(r => <div className="category-row" key={r.id}><Input aria-label={`Category name: ${r.name}`} disabled={saving} value={r.name} maxLength={100} onChange={e => setRows(all => all.map(c => c.id === r.id ? { ...c, name: e.target.value } : c))}/><Button disabled={saving} className="btn btn-secondary" onClick={() => void save(r.id)}>Save</Button><Button disabled={saving} className="btn btn-secondary" onClick={() => void save(r.id, !r.is_active)}>{r.is_active ? 'Deactivate' : 'Activate'}</Button></div>)}
   </details>;
 }

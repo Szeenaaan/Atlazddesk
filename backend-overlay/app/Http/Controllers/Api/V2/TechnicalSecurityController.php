@@ -24,7 +24,7 @@ final class TechnicalSecurityController extends Controller
         $data = $request->validate([
             'totp_enabled' => ['sometimes', 'required', 'boolean'],
             'email_enabled' => ['sometimes', 'required', 'boolean'],
-            'current_password' => ['required', 'string'],
+            'current_password' => ['required', 'string', 'max:1024'],
         ]);
         abort_if(! array_key_exists('totp_enabled', $data) && ! array_key_exists('email_enabled', $data), 422,
             'Select at least one setting.');
@@ -46,7 +46,7 @@ final class TechnicalSecurityController extends Controller
             'credentials.username' => ['sometimes', 'nullable', 'string', 'max:255'],
             'credentials.password' => ['sometimes', 'nullable', 'string', 'max:1024'],
             'credentials.api_key' => ['sometimes', 'string', 'max:2048'],
-            'current_password' => ['required', 'string'],
+            'current_password' => ['required', 'string', 'max:1024'],
         ]);
         return $this->respond('Technical email settings updated.', $this->security->updateMail($request, $data));
     }
@@ -54,7 +54,7 @@ final class TechnicalSecurityController extends Controller
     public function testMail(Request $request)
     {
         $this->authorizeTechnical($request);
-        $request->validate(['current_password' => ['required', 'string']]);
+        $request->validate(['current_password' => ['required', 'string', 'max:1024']]);
         $this->security->sendTest($request);
         return $this->respond('Provider accepted the test. Check your inbox to confirm delivery.');
     }

@@ -1,3 +1,7 @@
+import { CloseButton } from './ui';
+import { Field } from './ui';
+import { Dialog } from './ui/Dialog';
+import { Button, Input } from './ui';
 import { useState } from 'react';
 import { client } from '../api/client';
 
@@ -32,17 +36,17 @@ export default function ClientOnboarding({ onClose, onCreated }: Props) {
       setError(errors ? Object.values(errors).flat().join(' ') : e.response?.data?.message || 'Client registration failed.');
     } finally { setBusy(false); }
   }
-  return <div className="overlay" onMouseDown={onClose}><div className="modal onboarding-modal" onMouseDown={e => e.stopPropagation()}>
-    <div className="drawer-top"><span>Register client + Customer Admin</span><button type="button" onClick={onClose} aria-label="Close">×</button></div>
+  return <Dialog label="Register client" onClose={onClose}><div className="modal onboarding-modal" onMouseDown={e => e.stopPropagation()}>
+    <div className="drawer-top"><span>Register client + Customer Admin</span><CloseButton type="button" onClick={onClose} aria-label="Close"/></div>
     <form onSubmit={submit}>
-      <div className="modal-body onboarding-fields">{fields.map(f => <label key={f.key}>{f.label}
-        <input type={f.type || 'text'} required={f.required} maxLength={f.type === 'password' ? 200 : 255}
-          minLength={f.type === 'password' ? 12 : undefined} autoComplete={f.type === 'password' ? 'new-password' : 'off'}
+      <div className="modal-body onboarding-fields">{fields.map(f => <Field key={f.key}>{f.label}
+        <Input type={f.type || 'text'} required={f.required} maxLength={f.type === 'password' ? 200 : 255}
+          minLength={f.type === 'password' ? 8 : undefined} autoComplete={f.type === 'password' ? 'new-password' : 'off'}
           value={form[f.key]} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}/>
-      </label>)}
-      <p className="hint">The client and login account are committed in one database transaction. Credentials are not emailed automatically.</p>
+      </Field>)}
+      <p className="hint">Share the initial login credentials securely. They are not emailed automatically.</p>
       {error && <p className="error" role="alert">{error}</p>}</div>
-      <div className="modal-actions"><button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
-        <button type="submit" className="btn btn-primary" disabled={busy}>{busy ? 'Registering…' : 'Register client'}</button></div>
-    </form></div></div>;
+      <div className="modal-actions"><Button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</Button>
+        <Button type="submit" className="btn btn-primary" disabled={busy}>{busy ? 'Registering…' : 'Register client'}</Button></div>
+    </form></div></Dialog>;
 }

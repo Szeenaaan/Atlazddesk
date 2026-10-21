@@ -1,3 +1,4 @@
+import { Button, InlineNotice, UIState } from './ui';
 import { useEffect, useState } from 'react';
 import { client } from '../api/client';
 import UserAssetPicker from './UserAssetPicker';
@@ -13,8 +14,8 @@ export default function UserAssetEditor({ user, onClose }: { user: { id: number;
     try { await client.put(`/users/${user.id}/assets`, { asset_ids: ids }); onClose(); }
     catch (e: any) { setError(e.response?.data?.message || 'Unable to save assignments.'); }
     finally { setBusy(false); }
-  }}><h3>Assign assets — {user.name}</h3>{error && <p className="error" role="alert">{error}</p>}
-    {!loading && <UserAssetPicker customerId={user.customer_id} value={ids} onChange={setIds} disabled={busy}/>}
-    <div className="asset-edit-actions"><button className="btn btn-primary" disabled={loading || busy}>{busy ? 'Saving…' : 'Save assignments'}</button><button type="button" className="btn btn-secondary" disabled={busy} onClick={onClose}>Cancel</button></div>
+  }}>{error && <InlineNotice tone="error">{error}</InlineNotice>}{loading && !error && <UIState tone="loading">Loading assignments…</UIState>}
+    {!loading && <UserAssetPicker label="Assets" customerId={user.customer_id} value={ids} onChange={setIds} disabled={busy}/>}
+    <div className="asset-edit-actions"><Button className="btn btn-primary" disabled={loading || busy}>{busy ? 'Saving…' : 'Save assignments'}</Button><Button type="button" className="btn btn-secondary" disabled={busy} onClick={onClose}>Cancel</Button></div>
   </form>;
 }

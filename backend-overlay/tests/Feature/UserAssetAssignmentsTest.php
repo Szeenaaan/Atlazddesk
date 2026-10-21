@@ -52,8 +52,21 @@ class UserAssetAssignmentsTest extends TestCase {
         $this->getJson('/api/v2/tickets/'.$ticket)->assertOk();
         $this->postJson('/api/v2/tickets',$body)->assertUnprocessable();
         $body['asset_id']=null;
-        $this->postJson('/api/v2/tickets',$body)->assertCreated();
+        $this->postJson('/api/v2/tickets',$body)->assertUnprocessable()->assertJsonValidationErrors('asset_id');
     }
+    public function test_new_tickets_require_an_asset_for_each_creating_role(): void {
+        [$a,$b,$category,$assets,$user,$admin] = $this->fixtures();
+        $priority = TicketPriority::create(['name'=>'Medium','slug'=>'medium','level'=>2]);
+        $customerAdmin = User::factory()->create(['role'=>'customer_admin','customer_id'=>$a->id,'status'=>'active']);
+        foreach ([$admin, $customerAdmin, $user] as $actor) {
+            $body = ['subject'=>'Asset needed','description'=>'Repair request','category_id'=>$category->id,'priority_id'=>$priority->id];
+            if ($actor->role === 'admin') $body['customer_id'] = $a->id;
+            $this->actingAs($actor)->postJson('/api/v2/tickets', $body)->assertUnprocessable()->assertJsonValidationErrors('asset_id');
+            $this->postJson('/api/v2/tickets', [...$body, 'asset_id'=>null])->assertUnprocessable()->assertJsonValidationErrors('asset_id');
+        }
+        $this->assertDatabaseCount('tickets', 0);
+    }
+
     public function test_creation_with_assignments_is_atomic_and_tenant_scoped(): void {
         [$a,$b,$category,$assets,$user,$admin]=$this->fixtures();
         $body=['name'=>'Reception','email'=>'reception@example.test','role'=>'customer_user','customer_id'=>$a->id,'password'=>'Temporary#12345','password_confirmation'=>'Temporary#12345','asset_ids'=>[$assets[2]->id]];

@@ -1,3 +1,8 @@
+import { Field, InlineNotice } from './ui';
+import { Tabs } from './ui';
+import { Button, Card, Input } from './ui';
+import SearchableDropdown from './SearchableDropdown';
+import SortableTable from './SortableTable';
 import { useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Activity, AlertTriangle, CheckCircle2, Download, RefreshCw, Search, ShieldCheck, Wrench } from 'lucide-react';
@@ -78,7 +83,13 @@ export default function SystemSupport({ initialTab = 'overview', retentionSettin
     let cancelled = false;
     client.get<{ data: string[] }>('/system/support/timezones', { params: { country } })
       .then(({ data }) => {
-        if (!cancelled) setZones(data.data);
+        if (!cancelled) {
+          setZones(data.data);
+          setSettings(current => current.country_code !== country ? current : {
+            ...current,
+            timezone: data.data.includes(current.timezone) ? current.timezone : data.data.length === 1 ? data.data[0] : '',
+          });
+        }
       }).catch(e => { if (!cancelled) setError(getError(e)); });
     return () => { cancelled = true; };
   }, [settings.country_code]);
@@ -103,31 +114,30 @@ export default function SystemSupport({ initialTab = 'overview', retentionSettin
     e.preventDefault(); setLoading(true); setNotice(''); setError('');
     try {
       const { data } = await client.put<{ data: Settings }>('/system/support/settings', { ...settings, current_password: password });
-      setSettings(data.data); setInstallationTimezone(data.data.timezone); setPassword(''); setNotice('Installation preferences saved and audited.');
+      setSettings(data.data); setInstallationTimezone(data.data.timezone, data.data.country_code); setPassword(''); setNotice('Installation preferences saved and audited.');
     } catch (e) { setError(getError(e)); }
     finally { setLoading(false); }
   }
 
   return <div className="system-support">
-    <section className="panel support-intro">
-      <div className="support-intro-head"><div><h3>Technical support console</h3><p>Diagnostics for this contractor's own installation. No access to customer records, ticket management, server shell, or other contractors' VPSs.</p></div><ShieldCheck size={25}/></div>
+    <Card className="panel support-intro">
+      <div className="support-intro-head"><div><h3>Technical support console</h3><p>Diagnostics for this contractor's own installation. No access to customer records, ticket management, server shell, or other contractors' VPSs.</p></div><ShieldCheck size={24}/></div>
       <div className="support-actions">
-        {tab !== 'performance' && tab !== 'logs' && <button type="button" className="btn btn-secondary" disabled={loading} onClick={() => void load(tab, { event: eventFilter, request_id: requestFilter, q: appliedJobSearch })}><RefreshCw size={15}/> Refresh</button>}
-        <button type="button" className="btn btn-secondary" disabled={loading} onClick={() => void exportReport()}><Download size={15}/> Export safe diagnostics</button>
+        {tab !== 'performance' && tab !== 'logs' && <Button type="button" className="btn btn-secondary" disabled={loading} onClick={() => void load(tab, { event: eventFilter, request_id: requestFilter, q: appliedJobSearch })}><RefreshCw size={16}/> Refresh</Button>}
+        <Button type="button" className="btn btn-secondary" disabled={loading} onClick={() => void exportReport()}><Download size={16}/> Export safe diagnostics</Button>
       </div>
-    </section>
-    <div className="support-tabs" role="tablist" aria-label="System support sections">
-      {([['overview','Health & runtime'],['performance','Metrics & traces'],['failures','Failed jobs'],['logs','System logs'],['audit','Audit history'],['configuration','Configuration']] as const).map(([key,title]) =>
-        <button key={key} type="button" role="tab" aria-selected={tab===key} className={tab===key ? 'active' : ''} onClick={() => { setTab(key); setError(''); setNotice(''); }}>{title}</button>)}
-    </div>
-    {error && <div className="workspace-alert" role="alert">{error}</div>}
-    {notice && <p className="success-note" role="status">{notice}</p>}
+    </Card>
+    <Tabs label="System support sections" value={tab} items={[
+      ['overview','Health & runtime'],['performance','Metrics & traces'],['failures','Failed jobs'],['logs','System logs'],['audit','Audit history'],['configuration','Configuration'],
+    ]} onChange={key => {setTab(key);setError('');setNotice('');}}/>
+    {error && <InlineNotice tone="error">{error}</InlineNotice>}
+    {notice && <InlineNotice tone="success">{notice}</InlineNotice>}
     {loading && <p className="hint" role="status">Checking installation…</p>}
 
     {tab === 'overview' && overview && <>
       <div className="support-checks">
         {Object.entries(overview.checks).map(([name, check]) => <div className="panel support-check" key={name}>
-          <div className="support-check-head">{check.status === 'healthy' ? <CheckCircle2 size={19} color="#218c62"/> : <AlertTriangle size={19} color={check.status === 'unhealthy' ? '#c13d49' : '#b78225'}/>}<b>{name.replaceAll('_',' ')}</b><span className={'support-status ' + check.status}>{check.status}</span></div>
+          <div className="support-check-head">{check.status === 'healthy' ? <CheckCircle2 size={20} color="var(--palette-success-text)"/> : <AlertTriangle size={20} color={check.status === 'unhealthy' ? 'var(--palette-error)' : 'var(--palette-warning-text)'}/>}<b>{name.replaceAll('_',' ')}</b><span className={'support-status ' + check.status}>{check.status}</span></div>
           <p>{check.detail}</p>
           {check.pending !== undefined && check.pending !== null && <small>Pending: {check.pending}</small>}
           {check.count !== undefined && <small>Count: {check.count}</small>}
@@ -135,18 +145,18 @@ export default function SystemSupport({ initialTab = 'overview', retentionSettin
           {check.last_seen_seconds_ago !== undefined && <small>Scheduler age: {check.last_seen_seconds_ago === null ? 'unknown' : `${check.last_seen_seconds_ago}s`}</small>}
         </div>)}
       </div>
-      <section className="panel support-section"><div className="support-section-title"><Activity size={18}/><h3>Runtime information</h3></div>
+      <Card className="panel support-section"><div className="support-section-title"><Activity size={16}/><h3>Runtime information</h3></div>
         <div className="support-runtime">{Object.entries(overview.runtime).map(([key, value]) => <div key={key}><span>{key.replaceAll('_',' ')}</span><b>{value === null ? 'Unavailable' : String(value)}</b></div>)}</div>
         <p className="hint">Generated {formatInstallationDateTime(overview.generated_at)}. Configuration values are intentionally limited to non-secret metadata.</p>
-      </section>
-      <section className="panel support-section"><h3>What this console cannot verify</h3><ul>{overview.limitations.map(x => <li key={x}>{x}</li>)}</ul><p>For VPS outages, failed backups, PHP-FPM restarts, firewall issues, disk corruption, or full server logs, use authorized SSH and independent monitoring.</p></section>
+      </Card>
+      <Card className="panel support-section"><h3>What this console cannot verify</h3><ul>{overview.limitations.map(x => <li key={x}>{x}</li>)}</ul><p>For VPS outages, failed backups, PHP-FPM restarts, firewall issues, disk corruption, or full server logs, use authorized SSH and independent monitoring.</p></Card>
     </>}
 
     {tab === 'performance' && <SystemPerformance />}
 
     {tab === 'logs' && <SystemLogs />}
 
-    {tab === 'failures' && <section className="panel support-section"><div className="support-section-title"><AlertTriangle size={18}/><h3>Recent failed jobs</h3></div>
+    {tab === 'failures' && <Card className="panel support-section"><div className="support-section-title"><AlertTriangle size={16}/><h3>Recent failed jobs</h3></div>
       <p>Read-only metadata for the 50 most recent failed jobs. Exception traces, job payloads, and client data are intentionally hidden. Job retry is disabled here to prevent duplicate notifications or maintenance operations.</p>
       <form className="support-search-form" role="search" onSubmit={e => {
         e.preventDefault();
@@ -156,57 +166,57 @@ export default function SystemSupport({ initialTab = 'overview', retentionSettin
         if (q === appliedJobSearch) void load('failures', { event: '', request_id: '', q });
         else setAppliedJobSearch(q);
       }}>
-        <label htmlFor="amc-failed-job-search">Search failed jobs</label>
+        <Field htmlFor="amc-failed-job-search">Search failed jobs</Field>
         <div className="support-search-line">
-          <input id="amc-failed-job-search" type="search" maxLength={100} value={jobSearch}
+          <Input id="amc-failed-job-search" type="search" maxLength={100} value={jobSearch}
             placeholder="Job UUID, connection or queue" onChange={e => setJobSearch(e.target.value)}/>
-          <button type="submit" className="btn btn-secondary" disabled={loading}>Search</button>
-          <button type="button" className="btn btn-secondary" disabled={loading || (!jobSearch && !appliedJobSearch)} onClick={() => {
+          <Button type="submit" className="btn btn-secondary" disabled={loading}>Search</Button>
+          <Button type="button" className="btn btn-secondary" disabled={loading || (!jobSearch && !appliedJobSearch)} onClick={() => {
             setJobSearch(''); setError('');
             if (appliedJobSearch === '') void load('failures', { event: '', request_id: '', q: '' });
             else setAppliedJobSearch('');
-          }}>Clear</button>
+          }}>Clear</Button>
         </div>
       </form>
-      <div className="table-scroll"><table><thead><tr><th>Failure UUID</th><th>Connection</th><th>Queue</th><th>Failed at</th></tr></thead><tbody>{failedJobs.map(job => <tr key={job.uuid}><td><code>{job.uuid}</code></td><td>{job.connection}</td><td>{job.queue}</td><td>{job.failed_at}</td></tr>)}</tbody></table></div>
+      <div className="table-scroll"><SortableTable><thead><tr><th>Failure UUID</th><th>Connection</th><th>Queue</th><th>Failed at</th></tr></thead><tbody>{failedJobs.map(job => <tr key={job.uuid}><td><code>{job.uuid}</code></td><td>{job.connection}</td><td>{job.queue}</td><td>{job.failed_at}</td></tr>)}</tbody></SortableTable></div>
       {!failedJobs.length && !loading && <p>{appliedJobSearch ? 'No failed jobs match your search.' : 'No failed jobs found.'}</p>}
-    </section>}
+    </Card>}
 
-    {tab === 'audit' && <section className="panel support-section"><div className="support-section-title"><Search size={18}/><h3>Activity audit</h3></div>
+    {tab === 'audit' && <Card className="panel support-section"><div className="support-section-title"><Search size={16}/><h3>Activity audit</h3></div>
       <form className="support-filters" onSubmit={e => { e.preventDefault(); void load('audit', { event: eventFilter, request_id: requestFilter }); }}>
-        <label>Event<input value={eventFilter} maxLength={100} placeholder="e.g. system.support_settings.updated" onChange={e => setEventFilter(e.target.value)}/></label>
-        <label>Request ID<input value={requestFilter} maxLength={100} onChange={e => setRequestFilter(e.target.value)}/></label>
-        <button type="submit" className="btn btn-secondary" disabled={loading}>Search</button>
+        <Field>Event<Input value={eventFilter} maxLength={100} placeholder="e.g. system.support_settings.updated" onChange={e => setEventFilter(e.target.value)}/></Field>
+        <Field>Request ID<Input value={requestFilter} maxLength={100} onChange={e => setRequestFilter(e.target.value)}/></Field>
+        <Button type="submit" className="btn btn-secondary" disabled={loading}>Search</Button>
       </form>
       <p>Most recent 30 matching events. Sensitive event properties and user-agent details are not shown.</p>
-      <div className="table-scroll"><table><thead><tr><th>Date</th><th>Event</th><th>Actor ID</th><th>Request ID</th></tr></thead><tbody>{audit.map(item => <tr key={item.id}><td>{item.created_at}</td><td>{item.event}</td><td>{item.user_id ?? 'System'}</td><td><code>{item.request_id || '—'}</code></td></tr>)}</tbody></table></div>
-    </section>}
+      <div className="table-scroll"><SortableTable><thead><tr><th>Date</th><th>Event</th><th>Actor ID</th><th>Request ID</th></tr></thead><tbody>{audit.map(item => <tr key={item.id}><td>{item.created_at}</td><td>{item.event}</td><td>{item.user_id ?? 'System'}</td><td><code>{item.request_id || '—'}</code></td></tr>)}</tbody></SortableTable></div>
+    </Card>}
 
     {tab === 'configuration' && <div className="support-config-grid">
-      <section className="panel support-section"><div className="support-section-title"><Wrench size={18}/><h3>Installation settings</h3></div>
+      <Card className="panel support-section"><div className="support-section-title"><Wrench size={16}/><h3>Installation settings</h3></div>
         <p>Nonsecret settings stored in this installation's database. These do not change VPS services, SMTP credentials, or contractor business records.</p>
         <form className="support-form" onSubmit={e => void saveSettings(e)}>
-          <label>Installation label<input required minLength={2} maxLength={90} value={settings.installation_label} onChange={e => setSettings(p => ({ ...p, installation_label: e.target.value }))}/></label>
-          <label>Technical support email (optional)<input type="email" value={settings.support_email} onChange={e => setSettings(p => ({ ...p, support_email: e.target.value }))}/></label>
-          <label>Country
-            <select value={settings.country_code} onChange={e => setSettings(p => ({ ...p, country_code: e.target.value, timezone: e.target.value ? '' : 'UTC' }))}>
+          <Field>Installation label<Input required minLength={2} maxLength={90} value={settings.installation_label} onChange={e => setSettings(p => ({ ...p, installation_label: e.target.value }))}/></Field>
+          <Field>Technical support email (optional)<Input type="email" value={settings.support_email} onChange={e => setSettings(p => ({ ...p, support_email: e.target.value }))}/></Field>
+          <Field>Country
+            <SearchableDropdown value={settings.country_code} onChange={e => { const country = e.target.value; setZones(country ? [] : ['UTC']); setSettings(p => ({ ...p, country_code: country, timezone: country ? '' : 'UTC' })); }}>
               <option value="">No country selected (UTC)</option>
               {countries.map(c => <option key={c.code} value={c.code}>{c.name}</option>)}
-            </select>
-          </label>
-          <label>Display timezone
-            <select required value={settings.timezone} onChange={e => setSettings(p => ({ ...p, timezone: e.target.value }))}>
+            </SearchableDropdown>
+          </Field>
+          <Field>Display timezone
+            <SearchableDropdown required value={settings.timezone} onChange={e => setSettings(p => ({ ...p, timezone: e.target.value }))}>
               {!zones.includes(settings.timezone) && <option value="" disabled>Select a timezone</option>}
               {zones.map(z => <option key={z} value={z}>{z.replaceAll('_', ' ')}</option>)}
-            </select>
-          </label>
-          <p className="hint">All timestamps and background schedules remain UTC. This timezone controls dates shown in the application.</p>
-          <label>Queue backlog warning threshold<input type="number" required min={1} max={100000} value={settings.queue_warning_depth} onChange={e => setSettings(p => ({ ...p, queue_warning_depth: Number(e.target.value) }))}/></label>
-          <label>Free disk space warning threshold (%)<input type="number" required min={1} max={70} value={settings.disk_warning_percent} onChange={e => setSettings(p => ({ ...p, disk_warning_percent: Number(e.target.value) }))}/></label>
-          <label>Confirm Super Admin password<input type="password" autoComplete="current-password" required value={password} onChange={e => setPassword(e.target.value)}/></label>
-          <button className="btn btn-primary" type="submit" disabled={loading}>Save settings</button>
+            </SearchableDropdown>
+          </Field>
+          <p className="hint">All timestamps and background schedules remain UTC. Select a timezone and save settings below to apply it to all users. This controls display only.</p>
+          <Field>Queue backlog warning threshold<Input type="number" required min={1} max={100000} value={settings.queue_warning_depth} onChange={e => setSettings(p => ({ ...p, queue_warning_depth: Number(e.target.value) }))}/></Field>
+          <Field>Free disk space warning threshold (%)<Input type="number" required min={1} max={70} value={settings.disk_warning_percent} onChange={e => setSettings(p => ({ ...p, disk_warning_percent: Number(e.target.value) }))}/></Field>
+          <Field>Confirm Super Admin password<Input type="password" autoComplete="current-password" required value={password} onChange={e => setPassword(e.target.value)}/></Field>
+          <Button className="btn btn-primary" type="submit" disabled={loading || !settings.timezone || !zones.includes(settings.timezone)}>Save settings</Button>
         </form>
-      </section>
+      </Card>
       <TechnicalSecuritySettings />
       {/* AMC-V1011-CONFIG-ONLY-20261019: configuration-only retention */}
       {retentionSettings}

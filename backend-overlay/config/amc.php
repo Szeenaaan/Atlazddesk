@@ -1,6 +1,8 @@
 <?php
 
 return [
+    'frontend_url' => env('FRONTEND_URL', ''),
+    'maintenance_enabled' => (bool) env('AMC_MAINTENANCE_ENABLED', false),
     'api_timeout_seconds' => (int) env('AMC_API_TIMEOUT', 25),
     'slow_query_ms' => (int) env('AMC_SLOW_QUERY_MS', 500),
     'slow_request_ms' => (int) env('AMC_SLOW_REQUEST_MS', 1000),

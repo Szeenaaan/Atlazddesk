@@ -16,6 +16,8 @@ final class ContractorAdminController extends Controller
 
     public function index(Request $request): JsonResponse
     {
+        abort_unless($request->user()?->role === 'super_admin', 403);
+        $request->validate(['page' => ['sometimes', 'integer', 'min:1', 'max:1000000']]);
         return ApiResponse::from($this->service->list($request), private: true);
     }
 
@@ -25,7 +27,7 @@ final class ContractorAdminController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')],
-            'password' => ['required', 'confirmed', Password::min(14)->mixedCase()->numbers()->symbols()],
+            'password' => ['required', 'string', 'max:1024', 'confirmed', Password::min(8)->mixedCase()->numbers()->symbols()],
         ]);
 
         return ApiResponse::from($this->service->create($request, $data), private: true);

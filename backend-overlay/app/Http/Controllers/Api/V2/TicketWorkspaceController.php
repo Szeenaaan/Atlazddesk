@@ -18,7 +18,7 @@ class TicketWorkspaceController extends Controller
 
     public function index(Request $request)
     {
-        $request->validate(['per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
+        $request->validate(['page' => ['sometimes', 'integer', 'min:1', 'max:1000000'], 'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
             'search' => ['sometimes', 'string', 'max:100'],
             'status' => ['sometimes', 'string', 'max:40'],
             'priority' => ['sometimes', 'string', 'max:30']]);
@@ -34,7 +34,7 @@ class TicketWorkspaceController extends Controller
         if ($request->filled('priority')) {
             $query->whereHas('priority', fn ($priority) => $priority->where('name', $request->input('priority')));
         }
-        return AmcTicketResource::collection($query->latest()->paginate($request->integer('per_page', 25)));
+        return AmcTicketResource::collection(\App\Support\GridSort::apply($query, $request, ['ticket_number', 'created_at'], ['customer' => ['customer', 'company_name'], 'priority' => ['priority', 'level'], 'status' => ['status', 'name'], 'assignee' => ['assignee', 'name']], 'created_at')->paginate($request->integer('per_page', 25)));
     }
 
     /** A dedicated inbox endpoint makes assignment-only technician access explicit. */
@@ -58,9 +58,9 @@ class TicketWorkspaceController extends Controller
             'customer_id' => AmcAccess::isCustomer($request->user())
                 ? ['prohibited'] : ['required', 'integer', 'exists:customers,id'],
             'location_id' => ['nullable', 'integer', 'exists:locations,id'],
-            'category_id' => ['required', 'integer', 'exists:ticket_categories,id'],
-            'priority_id' => ['required', 'integer', 'exists:ticket_priorities,id'],
-            'asset_id' => ['nullable', 'integer', 'exists:assets,id'],
+            'category_id' => ['required', 'integer', Rule::exists('ticket_categories', 'id')->where('is_active', true)],
+            'priority_id' => ['required', 'integer', Rule::exists('ticket_priorities', 'id')->where('is_active', true)],
+            'asset_id' => ['required', 'integer', 'exists:assets,id'],
         ]);
         $ticket = $this->service->create($request, $data);
         return (new AmcTicketResource(TicketQueries::visible($request->user())->findOrFail($ticket->id)))
@@ -71,7 +71,7 @@ class TicketWorkspaceController extends Controller
     {
         $model = TicketQueries::withDetails($request->user())->findOrFail($ticket);
         $data = $request->validate([
-            'status' => ['sometimes', 'string', 'max:40'],
+            'status' => ['sometimes', 'required', 'string', 'max:40'],
             'assigned_to' => ['sometimes', 'nullable', 'integer', 'exists:users,id'],
         ]);
         abort_unless($data !== [], 422, 'No changes supplied.');
@@ -95,7 +95,7 @@ class TicketWorkspaceController extends Controller
                 $model->update(['first_response_at' => now()]);
             }
             AmcAudit::record($request, 'ticket.commented', $model, ['is_internal' => $internal]);
-            if (! $internal) DispatchTicketNotice::dispatch($model->id, 'commented')->afterCommit();
+            DispatchTicketNotice::dispatch($model->id, $internal ? 'internal_note' : 'commented', null, $comment->id, $request->user()->id)->afterCommit();
             return $comment;
         });
         return response()->json(['data' => ['id' => $comment->id]], 201);

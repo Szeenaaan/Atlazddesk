@@ -1,3 +1,6 @@
+import { Field } from './ui';
+import { Button, Card, Checkbox, Input } from './ui';
+import SearchableDropdown from './SearchableDropdown';
 import { useEffect, useState } from 'react';
 import { client } from '../api/client';
 import { getApiErrorMessage } from '../api/contracts';
@@ -126,7 +129,7 @@ export default function EmailDeliverySettings({ customers }: { customers: Record
   }
 
   const providers = data?.providers ?? [];
-  return <section className="panel amc-mail-settings">
+  return <Card className="panel amc-mail-settings">
     <h3>Email delivery providers</h3>
 
     {error && <p className="error" role="alert">{error}</p>}
@@ -135,17 +138,17 @@ export default function EmailDeliverySettings({ customers }: { customers: Record
       <div className="mail-section">
         <h4>Installation default</h4>
         <div className="mail-form-grid">
-          <label>Default email provider
-            <select value={data.default_provider_id ?? ''} onChange={e => setData(previous => previous && ({ ...previous, default_provider_id: e.target.value ? Number(e.target.value) : null }))}>
+          <Field>Default email provider
+            <SearchableDropdown value={data.default_provider_id ?? ''} onChange={e => setData(previous => previous && ({ ...previous, default_provider_id: e.target.value ? Number(e.target.value) : null }))}>
               <option value="">Not configured</option>
               {providers.filter(p => p.is_active).map(p => <option key={p.id} value={p.id}>{p.name} ({p.driver})</option>)}
-            </select>
-          </label>
-          <label className="mfa-switch"><span><b>Ticket and AMC email notifications</b></span>
-            <input type="checkbox" checked={data.notifications_enabled} onChange={e => setData(previous => previous && ({ ...previous, notifications_enabled: e.target.checked }))}/>
-          </label>
+            </SearchableDropdown>
+          </Field>
+          <Field className="mfa-switch"><span><b>Ticket and AMC email notifications</b></span>
+            <Checkbox type="checkbox" checked={data.notifications_enabled} onChange={e => setData(previous => previous && ({ ...previous, notifications_enabled: e.target.checked }))}/>
+          </Field>
         </div>
-        <button type="button" className="btn btn-primary" disabled={busy} onClick={() => setDefault(data.default_provider_id, data.notifications_enabled)}>Save email defaults</button>
+        <Button type="button" className="btn btn-primary" disabled={busy} onClick={() => setDefault(data.default_provider_id, data.notifications_enabled)}>Save email defaults</Button>
       </div>
       <div className="mail-section">
         <h4>Configured providers</h4>
@@ -153,66 +156,66 @@ export default function EmailDeliverySettings({ customers }: { customers: Record
           : <div className="mail-providers">{providers.map(provider => <div className="mail-provider-row" key={provider.id}>
             <div><b>{provider.name}</b><small>{provider.driver.toUpperCase()} · {provider.from_email} · {provider.is_active ? 'Active' : 'Disabled'}</small></div>
             <div className="mail-provider-actions">
-              <button type="button" className="btn btn-secondary" disabled={busy || !provider.is_active} onClick={() => testProvider(provider.id)}>Test</button>
-              <button type="button" className="btn btn-secondary" disabled={busy} onClick={() => { setEditingKeyId(provider.id); setReplacementKey(''); }}>Replace secret</button>
-              <button type="button" className="btn btn-secondary" disabled={busy} onClick={() => toggleProvider(provider)}>{provider.is_active ? 'Disable' : 'Enable'}</button>
+              <Button type="button" className="btn btn-secondary" disabled={busy || !provider.is_active} onClick={() => testProvider(provider.id)}>Test</Button>
+              <Button type="button" className="btn btn-secondary" disabled={busy} onClick={() => { setEditingKeyId(provider.id); setReplacementKey(''); }}>Replace secret</Button>
+              <Button type="button" className="btn btn-secondary" disabled={busy} onClick={() => toggleProvider(provider)}>{provider.is_active ? 'Disable' : 'Enable'}</Button>
             </div>
             {editingKeyId === provider.id && <div className="mail-replace-secret">
-              <label>New {provider.driver === 'smtp' ? 'SMTP password' : 'API key'}
-                <input type="password" autoComplete="off" value={replacementKey} onChange={e => setReplacementKey(e.target.value)}/>
-              </label>
-              <button type="button" className="btn btn-primary" disabled={!replacementKey || busy} onClick={() => rotateSecret(provider)}>Save new secret</button>
-              <button type="button" className="btn btn-secondary" onClick={() => { setEditingKeyId(null); setReplacementKey(''); }}>Cancel</button>
+              <Field>New {provider.driver === 'smtp' ? 'SMTP password' : 'API key'}
+                <Input type="password" autoComplete="off" value={replacementKey} onChange={e => setReplacementKey(e.target.value)}/>
+              </Field>
+              <Button type="button" className="btn btn-primary" disabled={!replacementKey || busy} onClick={() => rotateSecret(provider)}>Save new secret</Button>
+              <Button type="button" className="btn btn-secondary" onClick={() => { setEditingKeyId(null); setReplacementKey(''); }}>Cancel</Button>
             </div>}
           </div>)}</div>}
       </div>
       <div className="mail-section">
         <h4>Add a provider</h4>
         <div className="mail-form-grid">
-          <label>Provider name<input value={name} maxLength={120} onChange={e => setName(e.target.value)}/></label>
-          <label>Transport<select value={driver} onChange={e => { setDriver(e.target.value as Driver); setSecret(''); }}>
+          <Field>Provider name<Input value={name} maxLength={120} onChange={e => setName(e.target.value)}/></Field>
+          <Field>Transport<SearchableDropdown value={driver} onChange={e => { setDriver(e.target.value as Driver); setSecret(''); }}>
             <option value="resend">Resend API</option><option value="postmark">Postmark API</option><option value="smtp">SMTP</option>
-          </select></label>
-          <label>From email<input type="email" value={fromEmail} onChange={e => setFromEmail(e.target.value)}/></label>
-          <label>From display name<input value={fromName} onChange={e => setFromName(e.target.value)}/></label>
+          </SearchableDropdown></Field>
+          <Field>From email<Input type="email" value={fromEmail} onChange={e => setFromEmail(e.target.value)}/></Field>
+          <Field>From display name<Input value={fromName} onChange={e => setFromName(e.target.value)}/></Field>
           {driver === 'smtp' && <>
-            <label>SMTP hostname<input value={host} onChange={e => setHost(e.target.value)}/></label>
-            <label>SMTP port<input type="number" min={1} max={65535} value={port} onChange={e => setPort(e.target.value)}/></label>
-            <label>Encryption<select value={encryption} onChange={e => setEncryption(e.target.value)}><option value="tls">STARTTLS</option><option value="ssl">TLS (implicit)</option></select></label>
-            <label>SMTP username<input value={username} onChange={e => setUsername(e.target.value)}/></label>
+            <Field>SMTP hostname<Input value={host} onChange={e => setHost(e.target.value)}/></Field>
+            <Field>SMTP port<Input type="number" min={1} max={65535} value={port} onChange={e => setPort(e.target.value)}/></Field>
+            <Field>Encryption<SearchableDropdown value={encryption} onChange={e => setEncryption(e.target.value)}><option value="tls">STARTTLS</option><option value="ssl">TLS (implicit)</option></SearchableDropdown></Field>
+            <Field>SMTP username<Input value={username} onChange={e => setUsername(e.target.value)}/></Field>
           </>}
-          <label>{driver === 'smtp' ? 'SMTP password' : 'Provider API key'}
-            <input type="password" autoComplete="off" value={secret} onChange={e => setSecret(e.target.value)}/></label>
+          <Field>{driver === 'smtp' ? 'SMTP password' : 'Provider API key'}
+            <Input type="password" autoComplete="off" value={secret} onChange={e => setSecret(e.target.value)}/></Field>
         </div>
-        <button type="button" className="btn btn-primary" disabled={busy || !name || !fromName || !fromEmail || !secret} onClick={createProvider}>Add provider</button>
+        <Button type="button" className="btn btn-primary" disabled={busy || !name || !fromName || !fromEmail || !secret} onClick={createProvider}>Add provider</Button>
       </div>
       <div className="mail-section">
         <h4>Client-specific email routing</h4>
-    
-        <label>Client organization<select value={customerId} onChange={e => setCustomerId(e.target.value)}>
+
+        <Field>Client organization<SearchableDropdown value={customerId} onChange={e => setCustomerId(e.target.value)}>
           <option value="">Select a client</option>
           {customers.map(c => <option key={c.id} value={c.id}>{String(c.company_name || c.name || `Client ${c.id}`)}</option>)}
-        </select></label>
+        </SearchableDropdown></Field>
         {clientRoute && <div className="mail-form-grid">
-          <label>Delivery provider<select value={clientRoute.provider_id ?? ''} onChange={e => setClientRoute(r => r && ({ ...r, provider_id: e.target.value ? Number(e.target.value) : null }))}>
+          <Field>Delivery provider<SearchableDropdown value={clientRoute.provider_id ?? ''} onChange={e => setClientRoute(r => r && ({ ...r, provider_id: e.target.value ? Number(e.target.value) : null }))}>
             <option value="">Use installation default</option>
             {providers.filter(p => p.is_active).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select></label>
-          <label>Email notifications<select value={clientRoute.notifications_enabled === null ? 'inherit' : clientRoute.notifications_enabled ? 'yes' : 'no'}
+          </SearchableDropdown></Field>
+          <Field>Email notifications<SearchableDropdown value={clientRoute.notifications_enabled === null ? 'inherit' : clientRoute.notifications_enabled ? 'yes' : 'no'}
             onChange={e => setClientRoute(r => r && ({ ...r, notifications_enabled: e.target.value === 'inherit' ? null : e.target.value === 'yes' }))}>
             <option value="inherit">Inherit installation default</option>
             <option value="yes">Enabled for this client</option>
             <option value="no">Disabled for this client</option>
-          </select></label>
-          <button type="button" className="btn btn-primary" disabled={busy} onClick={saveClient}>Save client routing</button>
+          </SearchableDropdown></Field>
+          <Button type="button" className="btn btn-primary" disabled={busy} onClick={saveClient}>Save client routing</Button>
         </div>}
       </div>
       <div className="mail-section">
-        <label>Confirm changes with your current password
-          <input type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)}/>
-        </label>
-    
+        <Field>Confirm changes with your current password
+          <Input type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)}/>
+        </Field>
+
       </div>
     </>}
-  </section>;
+  </Card>;
 }

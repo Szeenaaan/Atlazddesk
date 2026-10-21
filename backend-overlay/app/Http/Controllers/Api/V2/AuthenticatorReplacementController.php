@@ -83,7 +83,7 @@ final class AuthenticatorReplacementController extends Controller
     public function confirm(Request $request)
     {
         $user = $this->account($request);
-        $input = $request->validate(['code' => ['required', 'regex:/^\d{6}$/D']]);
+        $input = $request->validate(['code' => ['required', 'string', 'regex:/^\d{6}$/D']]);
         $session = $request->session();
         abort_unless((int) $session->get('amc_totp_replace_user', 0) === (int) $user->id
             && (int) $session->get('amc_totp_replace_until', 0) >= time()

@@ -7,6 +7,7 @@ use App\Models\{Customer, Asset, AmcContract, PreventiveMaintenance, User, Locat
 use App\Support\{AmcAccess, AmcAudit};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 
 class DirectoryWriteController extends Controller
@@ -49,10 +50,13 @@ class DirectoryWriteController extends Controller
                 'customer_id' => ['required','integer','exists:customers,id'],
                 'contract_number' => ['required','string','max:80',Rule::unique('amc_contracts','contract_number')->ignore($id)],
                 'sla_policy_id' => ['nullable','integer','exists:sla_policies,id'],
-                'start_date' => ['required','date'], 'end_date' => ['required','date','after_or_equal:start_date'],
+                'service_ids' => ['sometimes','array','max:200'],
+                'service_ids.*' => ['required','integer','distinct','exists:amc_services,id'],
+                'notes' => ['nullable','string','max:10000'],
+                'start_date' => ['required','date_format:Y-m-d'], 'end_date' => ['required','date_format:Y-m-d'],
                 'contract_type' => ['required','string','max:80'],
-                'contract_value' => ['nullable','numeric','min:0','max:999999999999.99'],
-                'currency' => ['sometimes','string','size:3'],
+                'contract_value' => ['nullable','numeric','decimal:0,2','min:0','max:999999999999.99'],
+                'currency' => ['sometimes','required','string','regex:/^[A-Z]{3}$/D'],
                 'status' => ['sometimes',Rule::in(['active','inactive','expired'])],
             ],
             'maintenance' => [
@@ -62,15 +66,29 @@ class DirectoryWriteController extends Controller
                 'assigned_to' => ['nullable','integer','exists:users,id'],
                 'title' => ['required','string','max:255'], 'description' => ['nullable','string','max:5000'],
                 'frequency' => ['required',Rule::in(['daily','weekly','monthly','quarterly','yearly'])],
-                'next_due_date' => ['required','date'],
+                'next_due_date' => ['required','date_format:Y-m-d'],
                 'status' => ['sometimes',Rule::in(['active','paused','completed'])],
             ],
         };
     }
 
-    private function verifyRelations(string $resource, array $data): void
+    private function verifyRelations(string $resource, array $data, ?AmcContract $currentContract = null): void
     {
         if ($resource === 'customers') return;
+        if ($resource === 'contracts') {
+            if (!empty($data['sla_policy_id']) && (int) $currentContract?->sla_policy_id !== (int) $data['sla_policy_id']) {
+                Validator::make($data, ['sla_policy_id' => [Rule::exists('sla_policies', 'id')->where('is_active', true)]])->validate();
+            }
+            if (isset($data['service_ids'])) {
+                $existing = $currentContract?->services()->pluck('amc_services.id')->all() ?? [];
+                $added = array_values(array_diff($data['service_ids'], $existing));
+                Validator::make(['service_ids' => $added], ['service_ids.*' => [Rule::exists('amc_services', 'id')->where('is_active', true)]])->validate();
+            }
+            Validator::make($data, [
+                'start_date' => ['required', 'date'],
+                'end_date' => ['required', 'date', 'after_or_equal:start_date'],
+            ])->validate();
+        }
         $customerId = $data['customer_id'];
         foreach (['asset_id' => Asset::class, 'location_id' => Location::class] as $field => $model) {
             if (! empty($data[$field])) {
@@ -100,7 +118,10 @@ class DirectoryWriteController extends Controller
         }
         $this->verifyRelations($resource, $data);
         $record = DB::transaction(function () use ($request, $class, $data, $resource) {
+            $services = $data['service_ids'] ?? [];
+            unset($data['service_ids']);
             $record = $class::create($data);
+            if ($resource === 'contracts') $record->services()->sync($services);
             AmcAudit::record($request, $resource.'.created', $record);
             return $record;
         });
@@ -121,7 +142,8 @@ class DirectoryWriteController extends Controller
         $record = $query->findOrFail($id);
         $rules = $this->rules($resource, $record->id);
         foreach ($rules as &$rule) {
-            $rule = array_map(fn ($r) => $r === 'required' ? 'sometimes' : $r, $rule);
+            // PATCH may omit required fields, but cannot clear non-null database columns.
+            if (in_array('required', $rule, true)) array_unshift($rule, 'sometimes');
         }
         unset($rule);
         if ($actor->role === 'customer_admin') $rules['customer_id'] = ['prohibited'];
@@ -129,7 +151,12 @@ class DirectoryWriteController extends Controller
         if ($resource === 'assets' && isset($data['customer_id']) && (int) $data['customer_id'] !== (int) $record->customer_id) {
             abort_if(DB::table('asset_user')->where('asset_id', $record->id)->exists(), 422, 'Remove user assignments before transferring this asset to another customer.');
         }
-        $this->verifyRelations($resource, array_merge($record->toArray(), $data));
+        $relations = $record->toArray();
+        if ($resource === 'contracts') {
+            $relations['start_date'] = $record->start_date->format('Y-m-d');
+            $relations['end_date'] = $record->end_date->format('Y-m-d');
+        }
+        $this->verifyRelations($resource, array_merge($relations, $data), $resource === 'contracts' ? $record : null);
         DB::transaction(function () use ($request, $resource, $record, $data) {
             if ($resource === 'assets') {
                 $record = Asset::whereKey($record->id)->lockForUpdate()->firstOrFail();
@@ -137,8 +164,11 @@ class DirectoryWriteController extends Controller
                     abort_if(DB::table('asset_user')->where('asset_id', $record->id)->exists(), 422, 'Remove user assignments before transferring this asset.');
                 }
             }
+            $services = $data['service_ids'] ?? null;
+            unset($data['service_ids']);
             $record->update($data);
-            AmcAudit::record($request, $resource.'.updated', $record, ['fields'=>array_keys($data)]);
+            if ($resource === 'contracts' && $services !== null) $record->services()->sync($services);
+            AmcAudit::record($request, $resource.'.updated', $record, ['fields'=>array_merge(array_keys($data), $resource === 'contracts' && $services !== null ? ['service_ids'] : [])]);
         });
         return response()->json(['data' => $record->fresh()]);
     }

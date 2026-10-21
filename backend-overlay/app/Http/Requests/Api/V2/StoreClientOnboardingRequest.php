@@ -25,7 +25,7 @@ final class StoreClientOnboardingRequest extends FormRequest
             'country' => ['nullable','string','max:100'],
             'customer_admin_name' => ['required','string','max:255'],
             'customer_admin_email' => ['required','email','max:255',Rule::unique('users','email')],
-            'customer_admin_password' => ['required','confirmed', Password::min(12)->mixedCase()->numbers()->symbols()],
+            'customer_admin_password' => ['required','string', 'max:1024', 'confirmed', Password::min(8)->mixedCase()->numbers()->symbols()],
         ];
     }
 }

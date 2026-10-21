@@ -10,7 +10,7 @@ class IncidentsController extends Controller
     public function index(Request $request)
     {
         abort_unless(AmcAccess::isSuperAdmin($request->user()), 403);
-        $filter=$request->validate(['state'=>['sometimes','in:open,resolved'],'kind'=>['sometimes','string','max:32']]);
+        $filter=$request->validate(['page'=>['sometimes','integer','min:1','max:1000000'], 'state'=>['sometimes','in:open,resolved'],'kind'=>['sometimes','string','max:32']]);
         return AmcIncident::query()->when(isset($filter['state']), fn($q)=>$filter['state']==='open'?$q->whereNull('resolved_at'):$q->whereNotNull('resolved_at'))
             ->when(isset($filter['kind']), fn($q)=>$q->where('kind',$filter['kind']))
             ->orderByDesc('last_seen_at')->paginate(25);

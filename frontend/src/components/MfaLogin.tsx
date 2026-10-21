@@ -1,3 +1,5 @@
+import { Field } from './ui';
+import { Button, Checkbox, Input } from './ui';
 import { useState, type FormEvent } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { client } from '../api/client';
@@ -127,9 +129,9 @@ export default function MfaLogin({ challenge, onComplete, onCancel }: Props) {
       <h2>Save your recovery codes</h2>
       <p>These codes are displayed once. Store them securely before continuing.</p>
       <pre className="mfa-recovery">{recoveryCodes.join('\n')}</pre>
-      <button type="button" className="btn btn-primary wide" onClick={continueAfterRecovery}>
+      <Button type="button" className="btn btn-primary wide" onClick={continueAfterRecovery}>
         I saved my recovery codes — Continue
-      </button>
+      </Button>
     </section> : <>
       <p className="mfa-notice" role="status">
         Step {Math.min(finished + 1, Math.max(required.length, 1))} of {Math.max(required.length, 1)} · {factorName}
@@ -139,39 +141,39 @@ export default function MfaLogin({ challenge, onComplete, onCancel }: Props) {
       </p>}
       {current === 'totp' && needsSetup && !secret && <>
         <p>You must enroll your own authenticator before accessing the dashboard.</p>
-        <button type="button" className="btn btn-secondary wide" disabled={busy} onClick={setupAuthenticator}>Generate my authenticator key</button>
+        <Button type="button" className="btn btn-secondary wide" disabled={busy} onClick={setupAuthenticator}>Generate my authenticator key</Button>
       </>}
       {current === 'totp' && secret && <div className="mfa-instructions">
         <p>Scan with Google Authenticator or another compatible app, or enter this time-based setup key manually.</p>
         {uri && <div className="mfa-qr"><QRCodeSVG value={uri} size={176} /></div>}
         <code className="mfa-secret">{secret}</code>
-        <button className="btn btn-secondary wide" type="button" disabled={busy} onClick={copyKey}>Copy setup key</button>
+        <Button className="btn btn-secondary wide" type="button" disabled={busy} onClick={copyKey}>Copy setup key</Button>
       </div>}
       {current === 'email' && <>
         <p>{needsSetup ? 'Verify your registered email to activate Email OTP.' : 'Enter a one-time code from your registered email.'}</p>
-        <button className="btn btn-secondary wide" type="button" disabled={busy} onClick={sendEmail}>Send email verification code</button>
+        <Button className="btn btn-secondary wide" type="button" disabled={busy} onClick={sendEmail}>Send email verification code</Button>
       </>}
       {(current === 'email' || !needsSetup || Boolean(secret)) && <form onSubmit={verify}>
-        {canUseRecovery && (current === 'totp' || required.length === 1) && !secret && <label>
-          <input type="checkbox" checked={useRecovery} onChange={e => { setUseRecovery(e.target.checked); setCode(''); }} />
+        {canUseRecovery && (current === 'totp' || required.length === 1) && !secret && <Field>
+          <Checkbox type="checkbox" checked={useRecovery} onChange={e => { setUseRecovery(e.target.checked); setCode(''); }} />
           Use a one-time recovery code instead
-        </label>}
-        <label>{useRecovery ? 'Recovery code' : 'Six-digit verification code'}
-          <input autoFocus required type="text" inputMode={useRecovery ? 'text' : 'numeric'}
+        </Field>}
+        <Field>{useRecovery ? 'Recovery code' : 'Six-digit verification code'}
+          <Input autoFocus required type="text" inputMode={useRecovery ? 'text' : 'numeric'}
             autoComplete="one-time-code" value={code} maxLength={useRecovery ? 30 : 6}
             onChange={e => setCode(e.target.value)} />
           {error && <span className="amc-field-error" role="alert">{error}</span>}
-        </label>
-        <button type="submit" className="btn btn-primary wide" disabled={busy}>
+        </Field>
+        <Button type="submit" className="btn btn-primary wide" disabled={busy}>
           {busy ? 'Verifying…' : remaining.length > 1 ? 'Verify and continue' : 'Verify and sign in'}
-        </button>
+        </Button>
       </form>}
       {error && !(current === 'email' || !needsSetup || Boolean(secret)) && <p className="amc-field-error" role="alert">{error}</p>}
       <FeedbackToast feedback={feedback} onDismiss={() => setFeedback(null)}/>
-      <button type="button" className="btn btn-secondary wide" disabled={busy}
+      <Button type="button" className="btn btn-secondary wide" disabled={busy}
         onClick={() => void client.post('/auth/mfa/cancel').catch(() => undefined).finally(onCancel)}>
         Cancel sign-in
-      </button>
+      </Button>
     </>}
   </div></div>;
 }

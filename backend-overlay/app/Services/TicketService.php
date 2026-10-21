@@ -6,7 +6,7 @@ use App\Jobs\DispatchTicketNotice;
 use App\Models\{AmcContract, SlaPolicy, Ticket, TicketAssignment, TicketStatus, User};
 use App\Support\{AmcAudit, AmcAccess};
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\{DB, Validator};
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -29,6 +29,7 @@ class TicketService
     {
         $user = $request->user();
         $customerId = AmcAccess::customerId($user, $data['customer_id'] ?? null);
+        Validator::make($data, ['asset_id' => ['required', 'integer', 'exists:assets,id']])->validate();
         if (! empty($data['asset_id'])) {
             abort_unless(\App\Models\Asset::whereKey($data['asset_id'])
                 ->where('customer_id', $customerId)->exists(), 422, 'Asset must belong to customer.');
@@ -40,7 +41,7 @@ class TicketService
             }
             $compatible = (int) $asset->category_id === (int) $data['category_id'];
             if (! $compatible) throw ValidationException::withMessages([
-                'asset_id' => 'Asset must belong to the selected ticket category.',
+                'asset_id' => 'Asset must match the selected category.',
             ]);
         }
         if (! empty($data['location_id'])) {
@@ -126,9 +127,9 @@ class TicketService
                 $ticket->save();
                 AmcAudit::record($request, 'ticket.updated', $ticket, $changes);
                 if (array_key_exists('assigned_to', $changes) && $ticket->assigned_to) {
-                    DispatchTicketNotice::dispatch($ticket->id, 'assigned', (int) $ticket->assigned_to)->afterCommit();
+                    DispatchTicketNotice::dispatch($ticket->id, 'assigned', (int) $ticket->assigned_to, null, $user->id, (string) \Illuminate\Support\Str::uuid())->afterCommit();
                 }
-                DispatchTicketNotice::dispatch($ticket->id, 'updated')->afterCommit();
+                else DispatchTicketNotice::dispatch($ticket->id, 'updated', null, null, $user->id, (string) \Illuminate\Support\Str::uuid())->afterCommit();
             }
             return $ticket;
         });

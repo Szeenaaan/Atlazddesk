@@ -37,7 +37,7 @@ final class ContractorMailSettingsController extends Controller
     public function removeProvider(Request $request, AmcMailProvider $provider)
     {
         $this->authorizeAdmin($request);
-        $data = $request->validate(['current_password' => ['required', 'string']]);
+        $data = $request->validate(['current_password' => ['required', 'string', 'max:1024']]);
         return ApiResponse::from($this->service->removeProvider($request, $provider, $data['current_password']), true);
     }
 
@@ -47,7 +47,7 @@ final class ContractorMailSettingsController extends Controller
         $data = $request->validate([
             'default_provider_id' => ['nullable', 'integer', 'exists:amc_mail_providers,id'],
             'notifications_enabled' => ['required', 'boolean'],
-            'current_password' => ['required', 'string'],
+            'current_password' => ['required', 'string', 'max:1024'],
         ]);
         return ApiResponse::from($this->service->setDefault($request, $data), true);
     }
@@ -64,7 +64,7 @@ final class ContractorMailSettingsController extends Controller
         $data = $request->validate([
             'provider_id' => ['nullable', 'integer', 'exists:amc_mail_providers,id'],
             'notifications_enabled' => ['nullable', 'boolean'],
-            'current_password' => ['required', 'string'],
+            'current_password' => ['required', 'string', 'max:1024'],
         ]);
         return ApiResponse::from($this->service->saveClient($request, $customer, $data), true);
     }
@@ -72,7 +72,7 @@ final class ContractorMailSettingsController extends Controller
     public function testProvider(Request $request, AmcMailProvider $provider)
     {
         $this->authorizeAdmin($request);
-        $data = $request->validate(['current_password' => ['required', 'string']]);
+        $data = $request->validate(['current_password' => ['required', 'string', 'max:1024']]);
         return ApiResponse::from($this->service->testProvider($request, $provider, $data['current_password']), true);
     }
 
@@ -85,7 +85,7 @@ final class ContractorMailSettingsController extends Controller
     {
         $required = $creating ? 'required' : 'sometimes';
         return [
-            'current_password' => ['required', 'string'],
+            'current_password' => ['required', 'string', 'max:1024'],
             'name' => [$required, 'string', 'max:120'],
             'driver' => [$required, Rule::in(['smtp', 'resend', 'postmark'])],
             'from_email' => [$required, 'email', 'max:255'],

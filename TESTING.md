@@ -56,3 +56,45 @@ docker compose build app web
 On an isolated Docker host/project, follow README clean installation steps using disposable volumes and a trusted test certificate. Verify service health, actual HTTPS CSRF cookies/login/MFA, role scopes, upload access checks, queue processing and scheduler heartbeat. Recreate the stack without deleting volumes and verify the database, uploads and original key persist. Rehearse an upgrade against restored test data; confirm the setup helper refuses existing configuration. Also test certificate renewal/reload and a full backup/restore.
 
 Current Docker-preparation regression: 139 backend tests passed (781 assertions), all five frontend test files passed, and the production frontend build passed with a large-chunk warning. Both Compose entry points pass Docker Compose 2.39.4 validation; installer key/credential consistency, HTTPS origin validation and overwrite refusal pass; PHP helper and shell syntax checks pass. Full image builds were attempted but blocked because the workspace has no Docker daemon/buildx. No container runtime, Linux/Windows install, TLS login, or data persistence test is claimed complete. Run the build and isolated lifecycle checks before publishing this Docker release. Major dependency tags are version-line pinned; resolved image digests should be recorded after successful builds.
+
+## UI consistency checks
+
+The UI uses one stylesheet entry (`frontend/src/styles/index.css`), theme tokens,
+shared primitives in `frontend/src/components/ui`, and the existing searchable
+select, sortable table, drawer, and feedback components. Conventions are in
+`AGENTS.md`. Thin borders/focus rings are exceptions to the 4px spacing grid.
+
+Run the frontend checks and production build from the repository root:
+
+```sh
+node --experimental-strip-types --test frontend/tests/*.test.mjs
+npm run build --prefix frontend
+```
+
+Optional browser regression runners are `frontend/tests/browser/ui-pages.cjs`
+, `frontend/tests/browser/ui-interactions.cjs`, and
+`frontend/tests/browser/ui-records.cjs`. They require Playwright with
+Chromium installed in a separate tooling directory; set `PLAYWRIGHT_MODULE` to
+that installation's `playwright` package path if it is not on Node's module path.
+Start a **local-only** Vite production preview on port 4173, then run each script
+with Node. `UI_BASE_URL` overrides the preview URL and `UI_REPORT_DIR` overrides
+the output directory (the default is the OS temporary directory).
+
+These runners intercept API traffic with explicit test fixtures. They test all
+five role navigation sets at 1440×1000 and 390×844 in light/dark themes, plus
+form selection/validation payloads, menu placement, dialog keyboard behavior,
+System Support tabs, entity drawers, category forms, customer/category asset filtering,
+and MFA/recovery layouts. They never authenticate against
+or write records to the development database. Their fixture coverage does not
+prove real SMTP, live MFA delivery, file persistence, or production deployment.
+Disabled Maintenance is reviewed in source; the runners do not enable it.
+Laravel regressions must still run separately against the verified
+`amc_platform_test` database as specified above.
+
+The UI consistency pass was validated with 12 frontend test files, the production
+build, and 167 Laravel tests (1234 assertions). Mocked browser checks passed:
+164 role/page layouts, 64 interactions, and 36 entity/form checks. Live SMTP,
+real MFA delivery, file persistence, production deployment, and disabled
+Maintenance runtime behavior were not exercised. Selected screenshots were
+manually reviewed; automated visits do not imply every possible UI state was
+visually inspected.

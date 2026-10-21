@@ -1,3 +1,7 @@
+import { Field, InlineNotice } from './ui';
+import { formatInstallationDateTime } from '../utils/installationTime';
+import { Button, Card, Input } from './ui';
+import SearchableDropdown from './SearchableDropdown';
 import { useCallback, useEffect, useState } from 'react';
 import { AlertCircle, AlertTriangle, CheckCircle2, RefreshCw } from 'lucide-react';
 import { client } from '../api/client';
@@ -34,7 +38,7 @@ function safeDate(value: string): string {
   // Laravel timestamps without a timezone suffix are persisted in UTC.
   const utc = /(?:Z|[+-]\d\d:\d\d)$/.test(value) ? value : value.replace(' ', 'T') + 'Z';
   const date = new Date(utc);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+  return Number.isNaN(date.getTime()) ? value : formatInstallationDateTime(date);
 }
 
 export default function SystemLogs() {
@@ -62,7 +66,7 @@ export default function SystemLogs() {
 
   useEffect(() => { void load(); }, [load]);
 
-  return <section className="panel support-section support-log-explorer">
+  return <Card className="panel support-section support-log-explorer">
     <div className="support-section-title">
       <h3>System logs</h3>
     </div>
@@ -74,43 +78,43 @@ export default function SystemLogs() {
       setError('');
       if (q === appliedSearch) void load(); else setAppliedSearch(q);
     }}>
-      <label htmlFor="amc-log-search">Search technical events</label>
+      <Field htmlFor="amc-log-search">Search technical events</Field>
       <div className="support-search-line">
-        <input id="amc-log-search" type="search" maxLength={100} value={search}
+        <Input id="amc-log-search" type="search" maxLength={100} value={search}
           placeholder="Event, exception class, request ID or job UUID"
           onChange={e => setSearch(e.target.value)}/>
-        <button className="btn btn-secondary" type="submit" disabled={loading}>Search</button>
-        <button className="btn btn-secondary" type="button" disabled={loading || (!search && !appliedSearch)} onClick={() => {
+        <Button className="btn btn-secondary" type="submit" disabled={loading}>Search</Button>
+        <Button className="btn btn-secondary" type="button" disabled={loading || (!search && !appliedSearch)} onClick={() => {
           setSearch(''); setError('');
           if (appliedSearch === '') void load(); else setAppliedSearch('');
-        }}>Clear</button>
+        }}>Clear</Button>
       </div>
     </form>
     <div className="support-log-controls">
-      <label>Category
-        <select value={category} onChange={e => setCategory(e.target.value as Category)}>
+      <Field>Category
+        <SearchableDropdown value={category} onChange={e => setCategory(e.target.value as Category)}>
           {categories.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
-        </select>
-      </label>
-      <label>Severity
-        <select value={level} onChange={e => setLevel(e.target.value as Level)}>
+        </SearchableDropdown>
+      </Field>
+      <Field>Severity
+        <SearchableDropdown value={level} onChange={e => setLevel(e.target.value as Level)}>
           {levels.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
-        </select>
-      </label>
-      <button className="btn btn-secondary" type="button" onClick={() => void load()} disabled={loading}>
+        </SearchableDropdown>
+      </Field>
+      <Button className="btn btn-secondary" type="button" onClick={() => void load()} disabled={loading}>
         <RefreshCw size={16}/> Refresh
-      </button>
+      </Button>
     </div>
-    {error && <p className="support-log-error" role="alert">{error}</p>}
+    {error && <InlineNotice tone="error">{error}</InlineNotice>}
     {loading && <p role="status" className="hint">Loading system logs…</p>}
     <div className="support-log-list" aria-live="polite">
       {entries.map(entry => <article className="support-log-row" key={entry.id}>
         <div className="support-log-status" aria-label={entry.level}>
           {entry.level === 'error' || entry.level === 'critical'
-            ? <AlertCircle size={18} className="support-log-icon-error" />
+            ? <AlertCircle size={16} className="support-log-icon-error" />
             : entry.level === 'warning'
-              ? <AlertTriangle size={18} className="support-log-icon-warning" />
-              : <CheckCircle2 size={18} className="support-log-icon-info" />}
+              ? <AlertTriangle size={16} className="support-log-icon-warning" />
+              : <CheckCircle2 size={16} className="support-log-icon-info" />}
         </div>
         <div className="support-log-body">
           <div className="support-log-message">{entry.message}</div>
@@ -126,5 +130,5 @@ export default function SystemLogs() {
     </div>
     {!loading && !error && !entries.length && <p className="support-log-empty">{appliedSearch ? 'No technical events match this search in the current reporting window.' : 'No technical events in the current reporting window.'}</p>}
     <p className="hint">Displays at most 100 events from the past 30 days. For full server-level diagnostics, use authorized VPS access.</p>
-  </section>;
+  </Card>;
 }

@@ -32,7 +32,7 @@ final class RetentionSettingsController extends Controller
         $this->authorizeScope($request, $scope);
         $allowed = array_keys(array_filter(RetentionService::CATEGORIES, fn ($d) => $d['scope'] === $scope));
         $validated = $request->validate([
-            'current_password' => ['required', 'string'],
+            'current_password' => ['required', 'string', 'max:1024'],
             'policies' => ['required', 'array', 'size:'.count($allowed)],
             'policies.*.category' => ['required', 'string', Rule::in($allowed)],
             'policies.*.enabled' => ['required', 'boolean'],

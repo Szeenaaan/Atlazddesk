@@ -28,7 +28,7 @@ final class SecuritySettingsController extends Controller
         $data = $request->validate([
             'totp_enabled' => ['sometimes', 'required', 'boolean'],
             'email_enabled' => ['sometimes', 'required', 'boolean'],
-            'current_password' => ['required', 'string'],
+            'current_password' => ['required', 'string', 'max:1024'],
         ]);
         abort_if(! array_key_exists('totp_enabled', $data) && ! array_key_exists('email_enabled', $data),
             422, 'Choose at least one setting.');

@@ -11,3 +11,20 @@
 - Deliver patches with read-only dry run, source guards and backups. Deployment verification remains separate from local test results.
 
 - Customer users may have zero or multiple assigned customer-owned assets; shared assets can be assigned to multiple users. Contractor Admin and own Customer Admin manage assignments. Customer-user asset reads and new ticket associations require assignment; ticket ownership remains independent.
+
+## Shared UI system
+
+- Import application CSS only from `frontend/src/styles/index.css` in `main.tsx`. Cascade order is `tokens`, `screens`, `components`; do not add another override stylesheet, component-local CSS import, or `!important` rule.
+- `styles/tokens.css` owns theme palettes, semantic colors, typography, spacing, radii, shadows and control dimensions. Use semantic `--color-*` variables in new components; keep meaningful error/warning/success distinctions. Use the existing `data-theme` toggle for both themes.
+- Spacing follows 4px multiples: 8px label gaps, 12px action gaps, 16px field gaps, 24px sections/card padding. Controls are at least 44px tall; body/input text is 16px, labels/table/helper text at least 14px, headings 20/24px. Thin borders and focus rings are optical exceptions. Responsive boundaries are 480, 600, 800, 1152 and 1280px; CSS custom properties cannot be used inside media query conditions.
+- Reuse `components/ui` Button, Field, Input, Textarea, Checkbox, Switch, FileUpload, Card, Badge, Tabs, Pagination, FilterRow and UIState. Native props, refs, form validation and event types must pass through unchanged. Do not give submit buttons a new implicit behavior.
+- Reuse SearchableDropdown/SearchableSelect, SortableTable, SlidingDrawer, FeedbackToast and the native Dialog/ConfirmationDialog primitives. Dropdown menus render in the active dialog or body to avoid clipping. Dialogs must preserve focus containment, Escape handling and focus restoration. Use ConfirmationDialog for an existing confirmation flow, not to introduce new approval steps.
+- Keep screen-specific layout in `styles/screens.css`; edit shared control/state rules in `styles/components.css`. Search wrappers own their border; their inner inputs must remain borderless. Keep keyboard focus visible. Avoid fixed text widths that clip long names or translations.
+- System Support Configuration is vertical. Retention/cleanup UI is mounted only in System Support → Configuration. Maintenance is hidden by default and appears for Contractor Admin when `AMC_MAINTENANCE_ENABLED=true`; technicians have no independent asset directory; ticket asset context remains available within authorized assigned tickets.
+- UI browser checks may mock API responses without writing business records. Report mocked browser coverage separately from real Laravel regression results; never claim unvisited screens or live authentication workflows were verified.
+
+- Shared table headers use sentence case, 14px/20px text, consistent padding, and square corners. Use `InlineNotice` for inline information/errors/success; keep semantic tones and avoid nested decorative cards. Empty data tables must explain the empty result.
+
+- Typography minimum is 14px for small/helper/status/table text, 16px/24px for body/controls, 20px/28px section headings and 24px/32px page titles. Use tokens even for chart labels; never reduce helper or responsive text below 14px. Spacing remains on the 4px grid; font sizes follow this type scale.
+
+- Use shared `CloseButton` for dialog/drawer/popover/toast dismissal: 44px target, 24px icon, 8px padding, accessible label and visible focus. Preserve responsive mobile-navigation visibility when styling its close control.

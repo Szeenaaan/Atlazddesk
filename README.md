@@ -152,6 +152,12 @@ The upload archive is written to the shared logs volume so the `app` container c
 
 Restore into a separate project/volume set first: import the SQL using the MariaDB container client, restore uploads with a one-off app/tar container, and restore Redis using the database vendor’s documented procedure. A Redis RDB snapshot must not be blindly copied into a volume containing newer AOF files: Redis may replay AOF instead. Preserve or restore a consistent Redis AOF volume, or initialize a clean Redis volume from the snapshot with an explicit recovery plan. Verify encryption using the original APP_KEY and test pending jobs/session behavior. Never replace live volumes without a verified recovery procedure.
 
+## Contract configuration
+
+Contractor Admin can create contracts from Contracts and edit existing contracts from their detail drawer. Contract type is a frontend dropdown stored in the existing `contract_type` field; existing custom values remain selectable. Choose an SLA policy, inspect its response/resolution targets, and explicitly select covered services. The Contracts page and editor provide Manage SLA policies & covered services for creating and updating the existing catalogs. No new table is used for contract types.
+
+Catalogs can be marked inactive to remove them from new selection while preserving existing links. No policy or service is automatically attached to a new contract. A contract without an SLA link uses the existing ticket-creation fallback policy. SLA targets use elapsed minutes, not business-hour calendars, and policy changes do not recalculate existing ticket deadlines. Contracts and catalog management remain Contractor Admin only.
+
 ## Source maintenance
 
 - `backend-overlay/`: Laravel source, migrations, and tests.
@@ -160,3 +166,9 @@ Restore into a separate project/volume set first: import the SQL using the Maria
 - `Dockerfile`, `.dockerignore`, `compose.yaml`: release build/runtime definition.
 
 Real env files, installation secrets/certificates, uploads, logs, caches, dependencies, and builds stay outside Git and the image context. See [TESTING.md](TESTING.md) for source tests and container validation status.
+
+## Application maintenance screen
+
+From `backend-overlay`, `php artisan down` blocks business requests and displays the frontend maintenance screen on every SPA entry URL. `php artisan up` restores access. Open browsers check availability every 15 seconds and on focus, and switch immediately on an API maintenance response. The public `/api/maintenance-status` endpoint exposes only a boolean and remains reachable while down. Do not use a prerendered `artisan down --render` response with this availability check.
+
+This is separate from the optional scheduled-work Maintenance page, which appears for Contractor Admin when `AMC_MAINTENANCE_ENABLED=true` in the backend environment (run `php artisan config:clear` after changing it).

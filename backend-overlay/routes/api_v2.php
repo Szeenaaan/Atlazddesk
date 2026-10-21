@@ -31,7 +31,15 @@ Route::prefix('v2')->middleware(['auth:sanctum','amc.active','amc.role','amc.bou
     Route::get('/categories', [\App\Http\Controllers\Api\V2\CategoriesController::class, 'index']);
     Route::post('/categories', [\App\Http\Controllers\Api\V2\CategoriesController::class, 'store'])->middleware('throttle:amc-write');
     Route::patch('/categories/{id}', [\App\Http\Controllers\Api\V2\CategoriesController::class, 'update'])->middleware('throttle:amc-write')->whereNumber('id');
+    Route::get('/contract-options', [\App\Http\Controllers\Api\V2\ContractCatalogController::class, 'index']);
+    Route::post('/sla-policies', [\App\Http\Controllers\Api\V2\ContractCatalogController::class, 'storePolicy'])->middleware('throttle:amc-write');
+    Route::patch('/sla-policies/{id}', [\App\Http\Controllers\Api\V2\ContractCatalogController::class, 'updatePolicy'])->middleware('throttle:amc-write')->whereNumber('id');
+    Route::post('/contract-services', [\App\Http\Controllers\Api\V2\ContractCatalogController::class, 'storeService'])->middleware('throttle:amc-write');
+    Route::patch('/contract-services/{id}', [\App\Http\Controllers\Api\V2\ContractCatalogController::class, 'updateService'])->middleware('throttle:amc-write')->whereNumber('id');
     Route::get('/lookups', [DirectoryController::class,'lookups']);
+    Route::get('/contracts/{id}/documents', [\App\Http\Controllers\Api\V2\ContractDocumentsController::class, 'index'])->whereNumber('id');
+    Route::post('/contracts/{id}/documents', [\App\Http\Controllers\Api\V2\ContractDocumentsController::class, 'store'])->middleware('throttle:amc-write')->whereNumber('id');
+    Route::get('/contracts/{id}/documents/{document}', [\App\Http\Controllers\Api\V2\ContractDocumentsController::class, 'show'])->whereNumber(['id', 'document']);
     Route::get('/directory/{resource}', [DirectoryController::class,'index']);
     Route::get('/directory/{resource}/{id}', [DirectoryController::class,'show'])->whereNumber('id');
     Route::post('/directory/{resource}', [DirectoryWriteController::class,'store'])->middleware('throttle:amc-write');
@@ -111,6 +119,8 @@ Route::prefix('v2')->middleware(['auth:sanctum','amc.active','amc.role','amc.bou
     Route::get('/users/{id}/assets', [\App\Http\Controllers\Api\V2\UserAssetsController::class,'show'])->whereNumber('id');
     Route::put('/users/{id}/assets', [\App\Http\Controllers\Api\V2\UserAssetsController::class,'update'])->middleware('throttle:amc-write')->whereNumber('id');
     Route::get('/users', [UsersController::class,'index']);
+    Route::get('/users/{id}', [UsersController::class,'show'])->whereNumber('id');
+    Route::delete('/users/{id}', [UsersController::class,'destroy'])->middleware('throttle:amc-write')->whereNumber('id');
     Route::post('/users', [UsersController::class,'store'])->middleware('throttle:amc-write');
     Route::patch('/users/{id}/status', [UsersController::class,'changeStatus'])
         ->middleware('throttle:amc-write')->whereNumber('id');

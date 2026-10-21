@@ -48,6 +48,11 @@ final class ApiExceptionFormatter
             'message' => $message,
         ];
 
+        if ($status === 503 && app()->isDownForMaintenance()) {
+            $payload['code'] = 'APPLICATION_MAINTENANCE';
+            $payload['message'] = 'The application is temporarily unavailable for maintenance.';
+        }
+
         if ($error instanceof ValidationException) {
             $payload['errors'] = $error->errors();
         }
