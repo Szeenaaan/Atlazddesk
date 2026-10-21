@@ -40,3 +40,19 @@
 **/*.key
 **/*.pem
 **/auth.json
+
+# Reject scratch/backup files even inside an allowed source directory.
+**/*~
+**/*.orig
+**/*.rej
+**/*.tmp
+**/*.temp
+**/*.swp
+**/*.swo
+**/*.p12
+**/*.pfx
+**/.DS_Store
+**/Thumbs.db
+**/playwright-report/**
+**/test-results/**
+**/blob-report/**

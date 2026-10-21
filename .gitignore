@@ -141,3 +141,14 @@ Thumbs.db
 # Per-installation Docker configuration, certificates and backup artifacts.
 /installation/
 /backups/
+
+# Local environment loaders, browser test output, and database backup artifacts.
+.envrc
+.envrc.*
+**/playwright-report/
+**/test-results/
+**/blob-report/
+*.dump
+*.sql.bz2
+*.sql.xz
+*.rdb
