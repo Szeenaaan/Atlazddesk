@@ -9,30 +9,34 @@ export default function MaintenanceGate({children}: {children: ReactNode}) {
   useEffect(() => {
     let disposed = false;
     let checking = false;
-    const controller = new AbortController();
+    let generation = 0;
+    let controller: AbortController | null = null;
     const check = async () => {
       if (checking) return;
       checking = true;
+      const requestGeneration = generation;
+      controller = new AbortController();
+      const timeout = window.setTimeout(() => controller?.abort(), 10000);
       try {
         const response = await fetch('/api/maintenance-status', {cache: 'no-store', headers: {Accept: 'application/json'}, signal: controller.signal});
         if (!response.ok) throw new Error('Status unavailable');
         const data = await response.json();
         if (typeof data.maintenance !== 'boolean') throw new Error('Invalid status');
-        if (!disposed) {
+        if (!disposed && requestGeneration === generation) {
           setState(data.maintenance ? 'maintenance' : 'ready');
           if (data.maintenance && location.pathname !== '/maintenance') history.replaceState(null, '', '/maintenance');
           if (!data.maintenance && location.pathname === '/maintenance') history.replaceState(null, '', '/');
         }
-      } catch { if (!disposed) setState(current => current === 'ready' || current === 'maintenance' ? current : 'error'); }
-      finally {checking = false;}
+      } catch { if (!disposed && requestGeneration === generation) setState(current => current === 'ready' || current === 'maintenance' ? current : 'error'); }
+      finally {window.clearTimeout(timeout);checking = false;}
     };
-    const down = () => {setState('maintenance');history.replaceState(null, '', '/maintenance');};
+    const down = () => {generation++;setState('maintenance');history.replaceState(null, '', '/maintenance');};
     void check();
     const timer = window.setInterval(check, 15000);
     window.addEventListener('focus', check);
     window.addEventListener('popstate', check);
     window.addEventListener('application-maintenance', down);
-    return () => {disposed = true;controller.abort();clearInterval(timer);window.removeEventListener('focus', check);window.removeEventListener('popstate', check);window.removeEventListener('application-maintenance', down);};
+    return () => {disposed = true;controller?.abort();clearInterval(timer);window.removeEventListener('focus', check);window.removeEventListener('popstate', check);window.removeEventListener('application-maintenance', down);};
   }, [retry]);
   if (state === 'ready') return children;
   return <main className="maintenance-screen"><Card>

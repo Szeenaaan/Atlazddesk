@@ -28,3 +28,7 @@
 - Typography minimum is 14px for small/helper/status/table text, 16px/24px for body/controls, 20px/28px section headings and 24px/32px page titles. Use tokens even for chart labels; never reduce helper or responsive text below 14px. Spacing remains on the 4px grid; font sizes follow this type scale.
 
 - Use shared `CloseButton` for dialog/drawer/popover/toast dismissal: 44px target, 24px icon, 8px padding, accessible label and visible focus. Preserve responsive mobile-navigation visibility when styling its close control.
+
+- Keep TypeScript unused-local/parameter checks enabled. Run `npm run typecheck`, `npm test`, and `npm run build` from `frontend`.
+- Notification list, unread count, and mark-read operations must re-check current ticket access, including reassignment and customer boundaries. Private staff events must remain hidden from customer accounts even for legacy notification records.
+- Guard maintenance availability responses against stale requests; every availability fetch must have a timeout and cleanup. A delayed ready response must not override a newer maintenance signal.

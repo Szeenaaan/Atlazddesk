@@ -30,12 +30,14 @@ class DispatchTicketNotice implements ShouldQueue
         // A delayed queue worker must never deliver an old assignment to a newly assigned technician.
         if ($this->event === 'assigned' && $this->assignedTechnicianId !== null
             && (int) $ticket->assigned_to !== $this->assignedTechnicianId) return;
+        $excerpt = null;
         $internal = in_array($this->event, ['internal_note', 'work_logged'], true);
         if ($this->commentId !== null) {
             $comment = $ticket->comments()->find($this->commentId);
             if (! $comment || (bool) $comment->is_internal !== $internal) return;
             // Derive authorship from the stored comment, including older queued jobs.
             $this->actorId = (int) $comment->user_id;
+            $excerpt = Str::limit(Str::squish($comment->comment), 160, '.....');
         } elseif ($this->event === 'internal_note') return;
         $recipients = User::query()->where('status', 'active')->where(function ($query) use ($ticket, $internal) {
             $query->where('role', 'admin')
@@ -55,7 +57,7 @@ class DispatchTicketNotice implements ShouldQueue
                 'user_id'=>$recipient->id, 'ticket_id'=>$ticket->id,
                 'event'=>$this->event,
                 'title'=>$this->event === 'assigned' ? ($recipient->role === 'technician' ? 'Ticket assigned to you' : 'Ticket assignment updated') : 'Ticket update',
-                'message'=>"Ticket {$ticket->ticket_number} • {$this->event}",
+                'message'=>"Ticket {$ticket->ticket_number} • ".($excerpt ?? $this->event),
             ]);
             try {
                 $mail->sendNotification($recipient, 'Atlazddesk ticket update',

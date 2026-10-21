@@ -56,3 +56,13 @@
 **/playwright-report/**
 **/test-results/**
 **/blob-report/**
+
+# Parent-directory allow rules must never admit host runtime/dependency contents.
+backend-overlay/bootstrap/cache/**
+backend-overlay/storage/**
+**/vendor/**
+**/node_modules/**
+frontend/dist/**
+backend-overlay/public/build/**
+backend-overlay/public/hot
+backend-overlay/public/storage/**

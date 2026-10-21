@@ -3,10 +3,21 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 final class AmcUserNotification extends Model
 {
-    protected $fillable = ['user_id','ticket_id','event','title','message','deduplication_key','read_at'];
+    protected $fillable = ['user_id', 'ticket_id', 'event', 'title', 'message', 'deduplication_key', 'read_at'];
+
     protected $hidden = ['deduplication_key'];
-    protected function casts(): array { return ['read_at'=>'datetime']; }
+
+    protected function casts(): array
+    {
+        return ['read_at' => 'datetime'];
+    }
+
+    public function ticket(): BelongsTo
+    {
+        return $this->belongsTo(Ticket::class);
+    }
 }

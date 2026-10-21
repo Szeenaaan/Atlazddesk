@@ -1,10 +1,14 @@
 # syntax=docker/dockerfile:1
 FROM php:8.4-fpm-bookworm AS php-base
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libicu-dev libzip-dev libonig-dev libfcgi-bin unzip ca-certificates \
+    libicu-dev libzip-dev libonig-dev libfcgi-bin unzip ca-certificates curl \
     && docker-php-ext-install -j"$(nproc)" pdo_mysql intl mbstring zip bcmath pcntl opcache \
-    && pecl install redis-6.2.0 && docker-php-ext-enable redis \
     && rm -rf /var/lib/apt/lists/*
+# Keep runtime compilation cached when the upstream extension download is transiently unavailable.
+RUN curl --fail --location --retry 3 --retry-all-errors --retry-delay 5 \
+    --connect-timeout 15 --max-time 90 https://pecl.php.net/get/redis-6.2.0.tgz -o /tmp/redis.tgz \
+    && pecl install /tmp/redis.tgz && docker-php-ext-enable redis \
+    && rm /tmp/redis.tgz
 WORKDIR /var/www/html
 COPY --from=composer:2.8 /usr/bin/composer /usr/local/bin/composer
 

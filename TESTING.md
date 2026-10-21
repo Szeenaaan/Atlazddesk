@@ -98,3 +98,19 @@ real MFA delivery, file persistence, production deployment, and disabled
 Maintenance runtime behavior were not exercised. Selected screenshots were
 manually reviewed; automated visits do not imply every possible UI state was
 visually inspected.
+
+## Final review checks
+
+From `frontend`, run `npm run typecheck`, `npm test`, and `npm run build`. Unused local/parameter checks are enabled. Browser runners are optional tooling; set `PLAYWRIGHT_MODULE` to an installed Playwright module and `UI_BASE_URL` to a local Vite/preview server. `tests/browser/ui-feedback-maintenance.cjs` checks toast dismissal, maintenance response races, timeouts and retry recovery. All browser runners intercept API traffic and must be reported separately from real backend regression results.
+
+Notification regression tests verify delivery privacy and current-access checks after reassignment, including unread counts and mark-read. They also compare the previous count/list query pattern with the authorized list: both use two queries, with results bounded to 30 records. No latency improvement is asserted.
+
+Before Laravel tests, verify effective `mysql` / `amc_platform_test`, empty `DB_URL`, and uncached configuration. If the development installation is down, isolate test maintenance state using `APP_MAINTENANCE_DRIVER=cache APP_MAINTENANCE_STORE=array`; do not run `artisan up` against the development installation just to run tests.
+
+Run `vendor/bin/pint --test` from `backend-overlay` for the full formatting baseline. The final review found pre-existing repository-wide formatting differences; focused formatting checks pass for the changed notification model, service and test. Do not describe the full formatting check as passing.
+
+## Isolated Docker staging verification
+
+The local `installation/staging/` configuration is Git-ignored and uses project `atlazddesk_staging`, loopback ports 8080/8443, independent credentials and named volumes. It does not use development data. Real production-image checks passed for six healthy services, fresh migrations/catalog initialization, HTTPS CSRF/login/session restoration for five roles, queued ticket notifications/internal-note isolation, and database backup restored to a separate staging restore-test database (5 users, 1 ticket). The local certificate was explicitly accepted by browser automation; public certificate trust, real SMTP delivery, MFA device enrollment, attachment scanning and full upload/restore coverage remain separate checks.
+
+The build exposed two corrected issues: transient PECL download failures now have bounded retries in a separately cached layer; `.dockerignore` explicitly excludes host runtime caches/storage and dependencies even under allowed source directories. Never copy host `bootstrap/cache` manifests into a production image.
