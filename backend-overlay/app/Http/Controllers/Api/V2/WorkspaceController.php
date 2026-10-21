@@ -15,18 +15,15 @@ class WorkspaceController extends Controller
         $user = $request->user();
         abort_if(AmcAccess::isSuperAdmin($user), 403, 'Use technical monitoring, not client operations.');
         return response()->json([
+            'features' => ['maintenance_enabled' => (bool) config('amc.maintenance_enabled', false)],
             'user' => $user->only(['id', 'name', 'email', 'role', 'customer_id']),
             'tickets' => AmcTicketResource::collection(TicketQueries::visible($user)->latest()->paginate(50))->resolve(),
-            'customers' => AmcAccess::scopeCustomers(Customer::query(), $user)->limit(100)->get(),
-            'assets' => ($user->role === 'technician'
-                ? Asset::with('type')->whereIn('id', Ticket::where('assigned_to',$user->id)->whereNotNull('asset_id')->select('asset_id'))
-                : AmcAccess::scopeAssets(Asset::with('type'), $user))->limit(100)->get()
+            'customers' => $user->role === 'technician' ? [] : AmcAccess::scopeCustomers(Customer::query(), $user)->limit(100)->get(),
+            'assets' => $user->role === 'technician' ? [] : AmcAccess::scopeAssets(Asset::with('type'), $user)->limit(100)->get()
                 ->map(fn ($a) => [...$a->toArray(), 'type' => $a->type?->name]),
             'contracts' => AmcAccess::isAdmin($user)
                 ? AmcContract::query()->limit(100)->get() : [],
-            'maintenance' => ($user->role === 'technician'
-                ? PreventiveMaintenance::where('assigned_to', $user->id)
-                : AmcAccess::scopeCustomer(PreventiveMaintenance::query(), $user))->limit(100)->get(),
+            'maintenance' => $user->role === 'technician' ? [] : AmcAccess::scopeCustomer(PreventiveMaintenance::query(), $user)->limit(100)->get(),
             'technicians' => AmcAccess::isStaff($user)
                 ? User::where('role', 'technician')->where('status', 'active')->get(['id','name','email','role','status']) : [],
         ]);

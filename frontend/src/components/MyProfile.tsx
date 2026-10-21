@@ -1,3 +1,5 @@
+import { Field } from './ui';
+import { Button, Card, Input } from './ui';
 import { useState } from 'react';
 import { client } from '../api/client';
 
@@ -23,16 +25,16 @@ export default function MyProfile({ user, onUpdate }: { user: User; onUpdate: (u
       setError(errors ? Object.values(errors).flat().join(' ') : e.response?.data?.message || 'Update failed.');
     } finally { setBusy(false); }
   };
-  return <section className="panel user-management">
+  return <Card className="panel user-management">
     <h3>My profile</h3><p>Update your display name or change your password. Role, client assignment and email are managed by your organization.</p>
     <form className="admin-form" onSubmit={save}>
-      <label>Display name<input required value={name} onChange={e => setName(e.target.value)} maxLength={255}/></label>
-      <label>Email<input value={user.email} disabled/></label>
-      <label>Current password (to change password)<input type="password" autoComplete="current-password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)}/></label>
-      <label>New password<input type="password" autoComplete="new-password" value={newPassword} onChange={e => setNewPassword(e.target.value)} minLength={newPassword ? 12 : undefined}/></label>
-      <label>Confirm new password<input type="password" autoComplete="new-password" value={confirmation} onChange={e => setConfirmation(e.target.value)}/></label>
-      <button className="btn btn-primary" disabled={busy}>{busy ? 'Saving…' : 'Save profile'}</button>
+      <Field>Display name<Input required value={name} onChange={e => setName(e.target.value)} maxLength={255}/></Field>
+      <Field>Email<Input value={user.email} disabled/></Field>
+      <Field>Current password (to change password)<Input type="password" autoComplete="current-password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)}/></Field>
+      <Field>New password<Input type="password" autoComplete="new-password" value={newPassword} onChange={e => setNewPassword(e.target.value)} minLength={newPassword ? 8 : undefined}/></Field>
+      <Field>Confirm new password<Input type="password" autoComplete="new-password" value={confirmation} onChange={e => setConfirmation(e.target.value)}/></Field>
+      <Button className="btn btn-primary" disabled={busy}>{busy ? 'Saving…' : 'Save profile'}</Button>
     </form>
     {error && <p className="error" role="alert">{error}</p>}{notice && <p className="success-note" role="status">{notice}</p>}
-  </section>;
+  </Card>;
 }

@@ -1,3 +1,6 @@
+import { Field } from './ui';
+import { Button, Input, Textarea } from './ui';
+import SearchableDropdown from './SearchableDropdown';
 import { formatInstallationDateTime } from '../utils/installationTime';
 import { useEffect, useState } from 'react';
 import { client, DEMO } from '../api/client';
@@ -65,7 +68,7 @@ export default function TicketWorkReports({ ticketId, role, ticketStatus }: Prop
     } finally { setBusy(false); }
   }
   if (!allowed || DEMO) return null;
-  return <section className="ticket-work-reports" aria-label="Technician work reports">
+  return <section id={`ticket-${ticketId}-reports`} className="ticket-work-reports" aria-label="Technician work reports">
     <h3>Technician work reports</h3>
     <p className="muted">Internal contractor records. Work results do not automatically resolve or close the customer ticket.</p>
     {loading && <p className="muted">Loading reports…</p>}
@@ -83,18 +86,18 @@ export default function TicketWorkReports({ ticketId, role, ticketStatus }: Prop
     {role === 'technician' && !closed && <form className="report-form" onSubmit={submit}>
       <h4>Submit a work report</h4>
       <div className="report-form-grid">
-        <label>Work progress<select value={form.progress} onChange={e => setForm(p => ({...p, progress:e.target.value}))}>
+        <Field>Work progress<SearchableDropdown value={form.progress} onChange={e => setForm(p => ({...p, progress:e.target.value}))}>
           {progressStates.map(([value,label]) => <option key={value} value={value}>{label}</option>)}
-        </select></label>
-        <label>Result / finding<select value={form.outcome} onChange={e => setForm(p => ({...p, outcome:e.target.value}))}>
+        </SearchableDropdown></Field>
+        <Field>Result / finding<SearchableDropdown value={form.outcome} onChange={e => setForm(p => ({...p, outcome:e.target.value}))}>
           {outcomes.map(([value,label]) => <option key={value} value={value}>{label}</option>)}
-        </select></label>
+        </SearchableDropdown></Field>
       </div>
-      <label>Problem / diagnosis *<textarea required maxLength={10000} rows={3} value={form.diagnosis} onChange={e => setForm(p => ({...p, diagnosis:e.target.value}))} placeholder="Describe what you found, possible cause, troubleshooting…" /></label>
-      <label>Work performed {form.progress === 'completed' ? '*' : ''}<textarea required={form.progress === 'completed'} maxLength={10000} rows={3} value={form.work_performed} onChange={e => setForm(p => ({...p, work_performed:e.target.value}))} placeholder="Checks, repairs, replacements and tests completed" /></label>
-      <label>Parts needed<input maxLength={500} value={form.parts_required} onChange={e => setForm(p => ({...p, parts_required:e.target.value}))} placeholder="Optional part names or specifications" /></label>
-      <label>Recommendation / follow-up<textarea maxLength={10000} rows={2} value={form.recommendation} onChange={e => setForm(p => ({...p, recommendation:e.target.value}))} placeholder="Replacement, return visit, escalations, risk mitigation" /></label>
-      <button className="btn btn-primary" type="submit" disabled={busy || !form.diagnosis.trim() || (form.progress === 'completed' && !form.work_performed.trim())}>{busy ? 'Submitting…' : 'Submit report'}</button>
+      <Field>Problem / diagnosis *<Textarea required maxLength={10000} rows={3} value={form.diagnosis} onChange={e => setForm(p => ({...p, diagnosis:e.target.value}))} placeholder="Describe what you found, possible cause, troubleshooting…" /></Field>
+      <Field>Work performed {form.progress === 'completed' ? '*' : ''}<Textarea required={form.progress === 'completed'} maxLength={10000} rows={3} value={form.work_performed} onChange={e => setForm(p => ({...p, work_performed:e.target.value}))} placeholder="Checks, repairs, replacements and tests completed" /></Field>
+      <Field>Parts needed<Input maxLength={500} value={form.parts_required} onChange={e => setForm(p => ({...p, parts_required:e.target.value}))} placeholder="Optional part names or specifications" /></Field>
+      <Field>Recommendation / follow-up<Textarea maxLength={10000} rows={2} value={form.recommendation} onChange={e => setForm(p => ({...p, recommendation:e.target.value}))} placeholder="Replacement, return visit, escalations, risk mitigation" /></Field>
+      <Button className="btn btn-primary" type="submit" disabled={busy || !form.diagnosis.trim() || (form.progress === 'completed' && !form.work_performed.trim())}>{busy ? 'Submitting…' : 'Submit report'}</Button>
     </form>}
     {role === 'technician' && closed && <p className="muted">This ticket is closed; no further work reports can be submitted.</p>}
     {success && <p className="success-note" role="status">{success}</p>}

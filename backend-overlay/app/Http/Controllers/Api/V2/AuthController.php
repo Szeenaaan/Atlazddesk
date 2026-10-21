@@ -65,8 +65,8 @@ final class AuthController extends Controller
         $user = $request->user();
         $data = $request->validate([
             'name'=>['required','string','max:255'],
-            'current_password'=>['nullable','required_with:new_password','string'],
-            'new_password'=>['nullable','confirmed', Password::min(12)->mixedCase()->numbers()->symbols()],
+            'current_password'=>['nullable','required_with:new_password','string','max:1024'],
+            'new_password'=>['nullable','string','max:1024','confirmed', Password::min(8)->mixedCase()->numbers()->symbols()],
         ]);
         if (isset($data['new_password'])) {
             abort_unless(Hash::check((string)($data['current_password'] ?? ''), $user->password), 422,

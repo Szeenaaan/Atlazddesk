@@ -1,3 +1,5 @@
+import { Field } from './ui';
+import { Button, Card, Switch, Input } from './ui';
 import { useCallback, useEffect, useState } from 'react';
 import { client } from '../api/client';
 import FeedbackToast, { type Feedback } from './FeedbackToast';
@@ -69,54 +71,54 @@ export default function RetentionSettings({ scope }: { scope: Scope }) {
     } finally { setBusy(false); }
   }
 
-  return <section className="panel amc-retention" aria-label="Data retention and scheduled cleanup">
+  return <Card className="panel amc-retention" aria-label="Data retention and scheduled cleanup">
     <div className="amc-retention-head">
       <div>
         <h3>{scope === 'technical' ? 'Technical data retention' : 'Notification retention'}</h3>
-        
+
       </div>
-      <button className="btn btn-secondary" type="button" disabled={busy} onClick={() => void load()}>Refresh</button>
+      <Button className="btn btn-secondary" type="button" disabled={busy} onClick={() => void load()}>Refresh</Button>
     </div>
     {error && <p className="amc-retention-error" role="alert">{error}</p>}
     <form onSubmit={e => void save(e)}>
       <div className="amc-retention-policies">
         {policies.map(policy => <section className="amc-retention-card" key={policy.category}>
-          <label className="amc-retention-toggle">
+          <Field className="amc-retention-toggle">
             <span><strong>{policy.label}</strong><small>{policy.eligible_count.toLocaleString()} currently eligible for removal</small></span>
-            <input type="checkbox" checked={policy.enabled} disabled={busy}
+            <Switch type="checkbox" checked={policy.enabled} disabled={busy}
               onChange={e => update(policy.category, { enabled: e.target.checked })} />
-          </label>
+          </Field>
           <div className="amc-retention-fields">
-            <label>Keep records for (days)
-              <input type="number" min={policy.minimum_days} max={policy.category === 'rotated_logs' ? 365 : 3650} step={1} required disabled={busy || !policy.enabled}
+            <Field>Keep records for (days)
+              <Input type="number" min={policy.minimum_days} max={policy.category === 'rotated_logs' ? 365 : 3650} step={1} required disabled={busy || !policy.enabled}
                 value={policy.retention_days} onChange={e => update(policy.category, { retention_days: Number(e.target.value) })}/>
-            </label>
-            <label>Run every (days)
-              <input type="number" min={1} max={30} step={1} required disabled={busy || !policy.enabled}
+            </Field>
+            <Field>Run every (days)
+              <Input type="number" min={1} max={30} step={1} required disabled={busy || !policy.enabled}
                 value={policy.run_every_days} onChange={e => update(policy.category, { run_every_days: Number(e.target.value) })}/>
-            </label>
-            <label>Items per batch
-              <input type="number" min={25} max={1000} step={1} required disabled={busy || !policy.enabled}
+            </Field>
+            <Field>Items per batch
+              <Input type="number" min={25} max={1000} step={1} required disabled={busy || !policy.enabled}
                 value={policy.batch_size} onChange={e => update(policy.category, { batch_size: Number(e.target.value) })}/>
-            </label>
-            <label>Max batches per run
-              <input type="number" min={1} max={20} step={1} required disabled={busy || !policy.enabled}
+            </Field>
+            <Field>Max batches per run
+              <Input type="number" min={1} max={20} step={1} required disabled={busy || !policy.enabled}
                 value={policy.max_batches} onChange={e => update(policy.category, { max_batches: Number(e.target.value) })}/>
-            </label>
+            </Field>
           </div>
           <p className="amc-retention-meta">Maximum per run: {(policy.batch_size * policy.max_batches).toLocaleString()} items
             {policy.last_run_at ? ` · Last run: ${new Date(policy.last_run_at).toLocaleString()} · Deleted: ${policy.last_deleted_count}` : ' · Not yet run'}</p>
         </section>)}
       </div>
       {policies.length > 0 && <div className="amc-retention-save">
-        <label>Confirm your current password
-          <input type="password" autoComplete="current-password" required value={password} disabled={busy}
+        <Field>Confirm your current password
+          <Input type="password" autoComplete="current-password" required value={password} disabled={busy}
             onChange={e => { setPassword(e.target.value); setPasswordError(''); }} />
           {passwordError && <span className="amc-retention-error" role="alert">{passwordError}</span>}
-        </label>
-        <button type="submit" className="btn btn-primary" disabled={busy}>{busy ? 'Saving…' : 'Save cleanup settings'}</button>
+        </Field>
+        <Button type="submit" className="btn btn-primary" disabled={busy}>{busy ? 'Saving…' : 'Save cleanup settings'}</Button>
       </div>}
     </form>
     <FeedbackToast feedback={feedback} onDismiss={() => setFeedback(null)} />
-  </section>;
+  </Card>;
 }

@@ -18,13 +18,14 @@ test('contractor Admin can manage client MFA but not system diagnostics', () => 
   assert.equal(canViewPage('admin', 'User Management'), true);
   assert.equal(canViewPage('admin', 'Monitoring'), false);
   assert.equal(canViewPage('admin', 'Settings'), false);
+  assert.equal(canViewPage('admin', 'Maintenance'), false);
 });
 
 test('technician works only in assigned inbox and permitted resources', () => {
   assert.equal(canViewPage('technician', 'My Inbox'), true);
   assert.equal(canViewPage('technician', 'User Management'), false);
   assert.equal(canViewPage('technician', 'Client Security'), false);
-  assert.equal(canViewPage('technician', 'Customers'), false);
+  for (const page of ['Customers', 'Assets', 'My Assets', 'Maintenance']) assert.equal(canViewPage('technician', page), false);
 });
 
 test('customer administrators can manage own client accounts while customer users cannot', () => {
@@ -42,4 +43,10 @@ test('unknown role or screen grants no visibility', () => {
   assert.equal(canViewPage('service_manager', 'Customers'), false);
   assert.equal(canViewPage('admin', 'Backdoor'), false);
   for (const pages of Object.values(ROLE_PAGES)) assert.ok(pages.length > 0);
+});
+
+test('maintenance page follows installation flag and role', () => {
+  assert.equal(canViewPage('admin', 'Maintenance', {maintenance_enabled: true}), true);
+  assert.equal(canViewPage('admin', 'Maintenance', {maintenance_enabled: false}), false);
+  for (const role of ['super_admin','technician','customer_admin','customer_user']) assert.equal(canViewPage(role, 'Maintenance', {maintenance_enabled: true}), false);
 });

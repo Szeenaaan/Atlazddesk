@@ -13,7 +13,7 @@ class AdminOperationsController extends Controller
     public function audit(Request $request)
     {
         abort_unless(AmcAccess::isSuperAdmin($request->user()), 403);
-        $data = $request->validate(['event'=>['sometimes','string','max:100']]);
+        $data = $request->validate(['page'=>['sometimes','integer','min:1','max:1000000'], 'event'=>['sometimes','string','max:100']]);
         $q = ActivityLog::query()->orderByDesc('id');
         if (isset($data['event'])) $q->where('event',$data['event']);
         return response()->json($q->select(['id','event','created_at'])->paginate(25));

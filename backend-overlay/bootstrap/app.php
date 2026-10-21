@@ -13,6 +13,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->preventRequestsDuringMaintenance(except: ['api/maintenance-status']);
         $middleware->statefulApi();
         $middleware->append(RequestContext::class);
         $middleware->append(AmcSecurityHeaders::class);
@@ -32,6 +33,14 @@ return Application::configure(basePath: dirname(__DIR__))
             );
         });
         $exceptions->render(function (\Throwable $error, \Illuminate\Http\Request $request) {
+            if ($error instanceof \Symfony\Component\HttpKernel\Exception\HttpExceptionInterface
+                && $error->getStatusCode() === 503 && app()->isDownForMaintenance()
+                && $request->isMethod('GET') && ! $request->expectsJson()
+                && str_contains((string) $request->header('Accept'), 'text/html')
+                && ! $request->is('maintenance')) {
+                $origin = rtrim((string) config('amc.frontend_url', ''), '/');
+                return redirect()->to($origin.'/maintenance')->header('Cache-Control', 'no-store');
+            }
             return \App\Exceptions\ApiExceptionFormatter::render($error, $request);
         });
     })->create();

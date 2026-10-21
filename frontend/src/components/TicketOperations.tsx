@@ -1,3 +1,5 @@
+import { Field } from './ui';
+import { Button, FileUpload, Input, Textarea } from './ui';
 import { useEffect, useRef, useState } from 'react';
 import { client, DEMO } from '../api/client';
 import type { Role } from '../data';
@@ -14,6 +16,7 @@ export default function TicketOperations({ ticketId, role }: Props) {
   const isCustomer = role.startsWith('customer');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [workLogs, setWorkLogs] = useState<WorkLog[]>([]);
+  const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const [description, setDescription] = useState('');
@@ -33,11 +36,13 @@ export default function TicketOperations({ ticketId, role }: Props) {
         setWorkLogs(logs.data.data);
       }
     } catch {
+      setOperationError(true);
       setMessage('Unable to retrieve ticket operations.');
-    }
+    } finally { setLoading(false); }
   };
 
   useEffect(() => {
+    setLoading(true);
     setAttachments([]);
     setWorkLogs([]);
     setMessage('');
@@ -117,33 +122,35 @@ export default function TicketOperations({ ticketId, role }: Props) {
 
   return (
     <section className="ticket-operations">
-      <h3>Private attachments</h3>
+      <h3 id={`ticket-${ticketId}-attachments`}>Attachments</h3>
+      {loading && <p role="status">Loading attachments and work logs…</p>}
+      {!loading && !operationError && !attachments.length && <p className="muted">No attachments yet.</p>}
 
       <div className="amc-attachment-picker">
-        <input ref={fileRef} id={`ticket-file-${ticketId}`} className="amc-file-input" type="file"
+        <FileUpload ref={fileRef} id={`ticket-file-${ticketId}`} className="amc-file-input" type="file"
           accept=".pdf,.png,.jpg,.jpeg,.txt,.docx,.xlsx" aria-label="Select attachment"
           onChange={e => { setSelectedFile(e.target.files?.[0]?.name || ''); setOperationError(false); setMessage(''); }}/>
-        <button className="btn btn-secondary" type="button" onClick={() => fileRef.current?.click()} disabled={busy}>Choose file</button>
+        <Button className="btn btn-secondary" type="button" onClick={() => fileRef.current?.click()} disabled={busy}>Choose file</Button>
         <span className="amc-attachment-name" title={selectedFile}>{selectedFile || 'No file selected'}</span>
-        <button className="btn btn-primary" type="button" disabled={busy || !selectedFile} onClick={upload}>{busy ? 'Uploading…' : 'Upload'}</button>
+        <Button className="btn btn-primary" type="button" disabled={busy || !selectedFile} onClick={upload}>{busy ? 'Uploading…' : 'Upload'}</Button>
       </div>
       {attachments.map(file => (
         <div className="operation-row" key={file.id}>
           <span>{file.file_name} ({Math.round(file.file_size / 1024)} KB)</span>
-          <button className="btn btn-secondary" onClick={() => download(file)}>Download</button>
+          <Button className="btn btn-secondary" onClick={() => download(file)}>Download</Button>
         </div>
       ))}
       {!isCustomer && (
         <>
-          <h3>Technician work logs</h3>
-          {workLogs.length === 0 && <p className="amc-muted-empty">No work logs recorded.</p>}
+          <h3 id={`ticket-${ticketId}-logs`}>Work logs</h3>
+          {!loading && !operationError && workLogs.length === 0 && <p className="amc-muted-empty">No work logs recorded.</p>}
           <div className="amc-worklog-list">{workLogs.map(log => (
             <div className="amc-worklog-item" key={log.id}><span>{log.description}</span><small>{log.duration_minutes} min</small></div>
           ))}</div>
-          {role === 'technician' && <><label>Start time<input type="datetime-local" value={startTime} onChange={e => setStartTime(e.target.value)} /></label>
-          <label>End time<input type="datetime-local" value={endTime} onChange={e => setEndTime(e.target.value)} /></label>
-          <label>Work description<textarea value={description} onChange={e => setDescription(e.target.value)} /></label>
-          <button className="btn btn-secondary" disabled={busy} onClick={addLog}>Add work log</button></>}
+          {role === 'technician' && <><Field>Start time<Input type="datetime-local" value={startTime} onChange={e => setStartTime(e.target.value)} /></Field>
+          <Field>End time<Input type="datetime-local" value={endTime} onChange={e => setEndTime(e.target.value)} /></Field>
+          <Field>Work description<Textarea value={description} onChange={e => setDescription(e.target.value)} /></Field>
+          <Button className="btn btn-secondary" disabled={busy} onClick={addLog}>Add work log</Button></>}
         </>
       )}
       {message && <p className={operationError ? "amc-field-error" : "amc-operation-feedback"} role={operationError ? "alert" : "status"}>{message}</p>}

@@ -28,7 +28,7 @@ class ContractorDirectoryFixesTest extends TestCase
         $this->postJson('/api/v2/tickets', $body)->assertCreated();
         $asset->update(['category_id' => null]);
         $this->postJson('/api/v2/tickets', $body)->assertUnprocessable();
-        $this->postJson('/api/v2/tickets', array_replace($body, ['asset_id' => null]))->assertCreated();
+        $this->postJson('/api/v2/tickets', array_replace($body, ['asset_id' => null]))->assertUnprocessable()->assertJsonValidationErrors('asset_id');
         $actor = User::factory()->create(['role' => 'customer_user', 'status' => 'active', 'customer_id' => $customer->id]);
         $actor->assignedAssets()->attach($asset->id);
         unset($body['customer_id']);
@@ -50,7 +50,7 @@ class ContractorDirectoryFixesTest extends TestCase
         $this->getJson($query.'&status=retired')->assertOk()->assertJsonPath('total', 0);
         $this->getJson('/api/v2/directory/assets')->assertOk()->assertJsonPath('total', 105);
         $tech = User::factory()->create(['role' => 'technician', 'status' => 'active']);
-        $this->actingAs($tech)->getJson($query)->assertOk()->assertJsonPath('total', 0);
+        $this->actingAs($tech)->getJson($query)->assertForbidden();
     }
 
     public function test_only_contractor_admin_manages_existing_category_catalog_and_asset_classification(): void {

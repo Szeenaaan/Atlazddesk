@@ -1,15 +1,20 @@
 let displayTimezone = 'UTC';
+let displayCountry: string | null = null;
 
 /** Time storage and the Laravel scheduler stay UTC. This only controls presentation. */
-export function setInstallationTimezone(next: string): void {
+export function setInstallationTimezone(next: string, country: string | null = null): void {
   try {
     new Intl.DateTimeFormat('en-GB', { timeZone: next });
     displayTimezone = next;
+    displayCountry = country;
     window.dispatchEvent(new CustomEvent('amc:timezone-updated'));
   } catch {
     displayTimezone = 'UTC';
+    displayCountry = null;
   }
 }
+
+export function getInstallationCountry(): string | null { return displayCountry; }
 
 export function getInstallationTimezone(): string { return displayTimezone; }
 

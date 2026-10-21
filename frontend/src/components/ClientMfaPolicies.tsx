@@ -1,3 +1,6 @@
+import { Field } from './ui';
+import { Button, Card, Switch, Input } from './ui';
+import SearchableDropdown from './SearchableDropdown';
 import { useEffect, useState } from 'react';
 import { client } from '../api/client';
 import type { RecordItem } from '../data';
@@ -62,44 +65,44 @@ export default function ClientMfaPolicies({ customers }: { customers: RecordItem
     finally { setBusy(false); }
   };
   const filteredUsers = users.filter(u => String(u.customer_id) === customer);
-  return <section className="panel mfa-config-panel" aria-label="Client authentication policies">
+  return <Card className="panel mfa-config-panel" aria-label="Client authentication policies">
     <h3>Client MFA management</h3>
     <p>Choose which sign-in factors each client must complete. Manage client email providers in Email Delivery; technical diagnostics remain with Super Admin.</p>
     <div className="policy-selectors">
-      <label>Client company
-        <select value={customer} onChange={e => { setCustomer(e.target.value); setUserId(''); setScope('customer'); }}>
+      <Field>Client company
+        <SearchableDropdown value={customer} onChange={e => { setCustomer(e.target.value); setUserId(''); setScope('customer'); }}>
           <option value="">Choose a client</option>{customers.map(c => <option key={c.id} value={c.id}>{String(c.company_name)}</option>)}
-        </select>
-      </label>
-      <label>Policy level
-        <select value={scope} onChange={e => setScope(e.target.value as 'customer' | 'user')}>
+        </SearchableDropdown>
+      </Field>
+      <Field>Policy level
+        <SearchableDropdown value={scope} onChange={e => setScope(e.target.value as 'customer' | 'user')}>
           <option value="customer">Whole client company</option><option value="user">Individual customer user</option>
-        </select>
-      </label>
-      {scope === 'user' && <label>Customer account
-        <select value={userId} onChange={e => setUserId(e.target.value)}>
+        </SearchableDropdown>
+      </Field>
+      {scope === 'user' && <Field>Customer account
+        <SearchableDropdown value={userId} onChange={e => setUserId(e.target.value)}>
           <option value="">Choose user</option>{filteredUsers.map(u => <option key={u.id} value={u.id}>{u.name} — {u.email}</option>)}
-        </select>
-      </label>}
+        </SearchableDropdown>
+      </Field>}
     </div>
     {(scope === 'customer' ? !!customer : !!userId) && <>
       {scope === 'user' && <p>{override ? 'Custom policy for this account' : 'This user currently inherits the company policy.'}</p>}
-      <label className="mfa-switch"><span><b>Google Authenticator</b><small>Permit time-based authentication on the client account.</small></span>
-        <input type="checkbox" checked={policy.totp_enabled} onChange={e => setPolicy(p => ({ ...p, totp_enabled: e.target.checked }))}/>
-      </label>
-      <label className="mfa-switch"><span><b>Email OTP</b><small>Available only if the installation has working SMTP delivery.</small></span>
-        <input type="checkbox" checked={policy.email_enabled} onChange={e => setPolicy(p => ({ ...p, email_enabled: e.target.checked }))}/>
-      </label>
+      <Field className="mfa-switch"><span><b>Google Authenticator</b><small>Permit time-based authentication on the client account.</small></span>
+        <Switch type="checkbox" checked={policy.totp_enabled} onChange={e => setPolicy(p => ({ ...p, totp_enabled: e.target.checked }))}/>
+      </Field>
+      <Field className="mfa-switch"><span><b>Email OTP</b><small>Available only if the installation has working SMTP delivery.</small></span>
+        <Switch type="checkbox" checked={policy.email_enabled} onChange={e => setPolicy(p => ({ ...p, email_enabled: e.target.checked }))}/>
+      </Field>
       <p className="hint">Email OTP is mandatory when enabled. Google Authenticator is available for voluntary enrollment and becomes mandatory for each enrolled user. Both apply after Google enrollment. Configure and test email delivery first.</p>
-      <label className="mfa-field">Confirm with your Admin password
-        <input type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)}/>
-      </label>
+      <Field className="mfa-field">Confirm with your Admin password
+        <Input type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)}/>
+      </Field>
       <div className="policy-actions">
-        <button type="button" className="btn btn-primary" disabled={!password || busy} onClick={save}>Save policy</button>
-        {scope === 'user' && override && <button type="button" className="btn btn-secondary" disabled={!password || busy} onClick={restore}>Restore company policy</button>}
+        <Button type="button" className="btn btn-primary" disabled={!password || busy} onClick={save}>Save policy</Button>
+        {scope === 'user' && override && <Button type="button" className="btn btn-secondary" disabled={!password || busy} onClick={restore}>Restore company policy</Button>}
       </div>
     </>}
     {message && <p className="success-note" role="status">{message}</p>}
     {error && <p className="error" role="alert">{error}</p>}
-  </section>;
+  </Card>;
 }

@@ -93,7 +93,7 @@ final class ClientMfaPolicyController extends Controller
 
     private function confirmPassword(Request $request): void
     {
-        $request->validate(['current_password'=>['required','string']]);
+        $request->validate(['current_password'=>['required','string', 'max:1024']]);
         abort_unless(Hash::check((string)$request->input('current_password'), $request->user()->password),422,'Current password is incorrect.');
     }
 

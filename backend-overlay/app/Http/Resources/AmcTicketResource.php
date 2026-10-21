@@ -29,6 +29,7 @@ class AmcTicketResource extends JsonResource
             'asset_id' => $this->asset_id,
             'asset' => $this->asset?->name ?? '—',
             'created_at' => $this->created_at?->toIso8601String(),
+            'sla_response_due_at' => $this->sla_response_due_at?->toIso8601String(),
             'sla_resolution_due_at' => $this->sla_resolution_due_at?->toIso8601String(),
             'comments' => $this->whenLoaded('comments', function () use ($request) {
                 $isCustomer = AmcAccess::isCustomer($request->user());

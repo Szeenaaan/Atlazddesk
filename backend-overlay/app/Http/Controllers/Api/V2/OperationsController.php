@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V2;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\DispatchTicketNotice;
 use App\Models\{Ticket, TicketWorkLog, TicketAttachment};
 use App\Support\{AmcAccess, AmcAudit, TicketQueries};
 use Illuminate\Http\Request;
@@ -19,6 +20,7 @@ class OperationsController extends Controller
     {
         $this->ticket($request, $id);
         abort_if(AmcAccess::isCustomer($request->user()), 403);
+        $request->validate(['page' => ['sometimes', 'integer', 'min:1', 'max:1000000']]);
         return TicketWorkLog::where('ticket_id', $id)->latest('id')->paginate(25);
     }
 
@@ -37,6 +39,7 @@ class OperationsController extends Controller
             $log = TicketWorkLog::create([...$data,'ticket_id'=>$id,
                 'user_id'=>$request->user()->id, 'duration_minutes'=>$duration]);
             AmcAudit::record($request, 'ticket.work_logged', $ticket, ['minutes'=>$duration]);
+            DispatchTicketNotice::dispatch($ticket->id, 'work_logged', null, null, $request->user()->id, 'work-log:'.$log->id)->afterCommit();
             return $log;
         });
         return response()->json(['data'=>$log],201);
@@ -53,9 +56,10 @@ class OperationsController extends Controller
     {
         $ticket = $this->ticket($request,$id);
         abort_unless(config('amc.attachments_enabled',false), 503, 'Attachment upload is disabled until malware scanning is configured.');
-        $request->validate(['file'=>['required','file','max:10240','mimes:pdf,png,jpg,jpeg,txt,docx,xlsx']]);
+        $request->validate(['file'=>['required','file','max:10240','extensions:pdf,png,jpg,jpeg,txt,docx,xlsx','mimes:pdf,png,jpg,jpeg,txt,docx,xlsx']]);
         $file = $request->file('file');
         $path = $file->store("ticket-attachments/{$ticket->id}",'local');
+        abort_unless(is_string($path) && $path !== '', 500, 'Attachment could not be stored.');
         try {
             $attachment = DB::transaction(function () use ($file,$path,$ticket,$request) {
                 $attachment = TicketAttachment::create([
@@ -64,6 +68,7 @@ class OperationsController extends Controller
                     'file_path'=>$path,'mime_type'=>$file->getMimeType(),'file_size'=>$file->getSize(),
                 ]);
                 AmcAudit::record($request,'ticket.attachment_uploaded',$ticket,['attachment_id'=>$attachment->id]);
+                DispatchTicketNotice::dispatch($ticket->id, 'attachment_uploaded', null, null, $request->user()->id, 'attachment:'.$attachment->id)->afterCommit();
                 return $attachment;
             });
         } catch (\Throwable $e) {

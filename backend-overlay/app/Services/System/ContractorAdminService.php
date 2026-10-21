@@ -14,9 +14,9 @@ final class ContractorAdminService
     {
         $this->authorize($request);
 
-        $admins = User::query()->where('role', 'admin')
-            ->select('id', 'name', 'email', 'role', 'status', 'created_at')
-            ->orderByDesc('id')->paginate(25);
+        $query = User::query()->where('role', 'admin')
+            ->select('id', 'name', 'email', 'role', 'status', 'created_at');
+        $admins = \App\Support\GridSort::apply($query, $request, ['name', 'email', 'status'])->paginate(25);
 
         return ServiceResult::ok($admins, 'Contractor Admin accounts retrieved.');
     }

@@ -13,7 +13,13 @@ class ReportsController extends Controller
     public function summary(Request $request)
     {
         abort_if(AmcAccess::isSuperAdmin($request->user()), 403);
-        $visible = fn () => AmcAccess::scopeTicket(Ticket::query(), $request->user());
+        $request->validate(['timeframe' => ['sometimes', \Illuminate\Validation\Rule::in(['1h', '4h', 'day', 'week', 'month', 'year'])]]);
+        $period = $request->input('timeframe');
+        $end = now('UTC');
+        $seconds = ['1h' => 3600, '4h' => 14400, 'day' => 86400, 'week' => 604800, 'month' => 2592000, 'year' => 31536000];
+        $start = $period ? $end->copy()->subSeconds($seconds[$period]) : null;
+        $visible = fn () => AmcAccess::scopeTicket(Ticket::query(), $request->user())
+            ->when($start, fn ($query) => $query->where('tickets.created_at', '>=', $start)->where('tickets.created_at', '<=', $end));
         $closed = ['resolved','closed','cancelled'];
         $total = $visible()->count();
         $open = $visible()->whereHas('status', fn ($q)=>$q->where('is_closed', false))->count();
@@ -22,19 +28,31 @@ class ReportsController extends Controller
             ->whereHas('status',fn ($q)=>$q->whereNotIn('slug',$closed))->count();
         $unassigned = $visible()->whereNull('assigned_to')->whereHas('status',fn ($q)=>$q->whereNotIn('slug',$closed))->count();
         $daily = [];
-        for ($i=6;$i>=0;$i--) {
-            $day=now()->startOfDay()->subDays($i);
-            $next=$day->copy()->addDay();
-            $daily[]=[
-                'day'=>$day->format('D'),
-                'tickets'=>$visible()->where('created_at','>=',$day)->where('created_at','<',$next)->count(),
-                'resolved'=>$visible()->where('resolved_at','>=',$day)->where('resolved_at','<',$next)->count(),
+        $buckets = $period ? ['1h' => 12, '4h' => 16, 'day' => 24, 'week' => 7, 'month' => 30, 'year' => 12][$period] : 7;
+        $chartStart = $start ?? $end->copy()->startOfDay()->subDays(6);
+        $step = $period ? $seconds[$period] / $buckets : 86400;
+        for ($i = 0; $i < $buckets; $i++) {
+            $day = $chartStart->copy()->addSeconds((int) ($i * $step));
+            $next = $chartStart->copy()->addSeconds((int) (($i + 1) * $step));
+            $daily[] = [
+                'day' => $day->format('D'), 'at' => $day->toIso8601String(),
+                'tickets' => $visible()->where('created_at', '>=', $day)->where('created_at', $period && $i === $buckets - 1 ? '<=' : '<', $next)->count(),
+                'resolved' => $visible()->where('resolved_at', '>=', $day)->where('resolved_at', $period && $i === $buckets - 1 ? '<=' : '<', $next)->count(),
             ];
         }
+        $priorities = $visible()->join('ticket_priorities', 'tickets.priority_id', '=', 'ticket_priorities.id')
+            ->selectRaw('ticket_priorities.name, COUNT(*) AS total')->groupBy('ticket_priorities.name')->pluck('total', 'name');
+        $recent = $period ? \App\Http\Resources\AmcTicketResource::collection(
+            \App\Support\TicketQueries::visible($request->user())
+                ->where('tickets.created_at', '>=', $start)->where('tickets.created_at', '<=', $end)
+                ->latest('tickets.created_at')->orderByDesc('tickets.id')->limit(5)->get()
+        )->resolve($request) : [];
         return response()->json([
             'total'=>$total,'open'=>$open,'resolved'=>$resolved,'critical_open'=>$critical,'unassigned_open'=>$unassigned,
-            'daily'=>$daily,'generated_at'=>now()->toIso8601String(),
-        ]);
+            'daily'=>$daily,'generated_at'=>$end->toIso8601String(),
+            'priorities'=>$priorities, 'recent_tickets'=>$recent, 'timeframe'=>$period,
+            'from'=>$start?->toIso8601String(), 'to'=>$end->toIso8601String(),
+        ])->header('Cache-Control', 'private, no-store');
     }
 
     public function ticketCsv(Request $request): StreamedResponse

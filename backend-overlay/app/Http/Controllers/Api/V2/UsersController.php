@@ -23,7 +23,7 @@ final class UsersController extends Controller
             'role' => ['sometimes',Rule::in(['admin','technician','customer_admin','customer_user'])],
             'status' => ['sometimes',Rule::in(['active','inactive'])],
             'per_page' => ['sometimes','integer','min:1','max:100'],
-            'page' => ['sometimes','integer','min:1'],
+            'page' => ['sometimes','integer','min:1','max:1000000'],
         ]);
         $query = User::query()->select(['id','name','email','role','customer_id','status','created_at']);
         if (AmcAccess::isAdmin($actor)) $query->where('role', '!=', 'super_admin');
@@ -42,7 +42,26 @@ final class UsersController extends Controller
             $query->where(fn ($q) => $q->where('name','like',"%{$term}%")
                 ->orWhere('email','like',"%{$term}%"));
         }
-        return $query->orderByDesc('id')->paginate($request->integer('per_page',25));
+        return \App\Support\GridSort::apply($query, $request, ['name', 'email', 'role', 'status'], ['customer' => ['customer', 'company_name']])->paginate($request->integer('per_page',25));
+    }
+
+    public function show(Request $request, int $id)
+    {
+        $actor = $request->user();
+        abort_unless(AmcAccess::mayManageUsers($actor), 403);
+        $query = User::query()->whereIn('role', ['admin', 'technician', 'customer_admin', 'customer_user'])
+            ->select(['id', 'name', 'email', 'phone', 'role', 'customer_id', 'status', 'created_at', 'last_login_at', 'email_verified_at']);
+        if ($actor->role === 'customer_admin') {
+            abort_unless($actor->customer_id, 403);
+            $query->where('customer_id', $actor->customer_id)->where('role', 'customer_user');
+        }
+        $user = $query->with('customer:id,company_name')->findOrFail($id);
+        if ($user->role === 'customer_user' && $user->customer_id) {
+            $user->load(['assignedAssets' => fn ($assets) => $assets->where('assets.customer_id', $user->customer_id)
+                ->select(['assets.id', 'assets.name', 'assets.asset_tag'])]);
+        }
+        return response()->json((new \App\Http\Resources\UserDetailsResource($user))->resolve($request))
+            ->header('Cache-Control', 'private, no-store');
     }
 
     public function store(Request $request)
@@ -57,7 +76,7 @@ final class UsersController extends Controller
         $data = $request->validate([
             'name' => ['required','string','max:255'],
             'email' => ['required','email','max:255', Rule::unique('users', 'email')],
-            'password' => ['required','confirmed', Password::min(12)->mixedCase()->numbers()->symbols()],
+            'password' => ['required','string', 'max:1024', 'confirmed', Password::min(8)->mixedCase()->numbers()->symbols()],
             'role' => ['required', Rule::in($allowed)],
             'customer_id' => $actor->role === 'customer_admin'
                 ? ['prohibited'] : ['nullable','integer','exists:customers,id'],
@@ -106,4 +125,32 @@ final class UsersController extends Controller
         AmcAudit::record($request, 'user.status_changed', $user, ['status'=>$user->status]);
         return response()->json(['data'=>$user->only(['id','status'])]);
     }
+    public function destroy(Request $request, int $id)
+    {
+        $actor = $request->user();
+        abort_unless(AmcAccess::mayManageUsers($actor), 403);
+        $query = User::query()->whereIn('role', ['technician', 'customer_admin', 'customer_user']);
+        if ($actor->role === 'customer_admin') {
+            abort_unless($actor->customer_id, 403);
+            $query->where('customer_id', $actor->customer_id)->where('role', 'customer_user');
+        }
+        abort_if($id === $actor->id, 422, 'You cannot delete your own account.');
+        try {
+            \Illuminate\Support\Facades\DB::transaction(function () use ($query, $id, $request) {
+                $user = $query->lockForUpdate()->findOrFail($id);
+                $user->tokens()->delete();
+                // Foreign keys preserve business history; never cascade ticket deletion.
+                $user->delete();
+                \Illuminate\Support\Facades\DB::table('password_reset_tokens')->where('email', $user->email)->delete();
+                AmcAudit::record($request, 'user.deleted', $user);
+            });
+        } catch (\Illuminate\Database\QueryException $error) {
+            if (($error->errorInfo[1] ?? null) === 1451) {
+                abort(422, 'This account is linked to business history and cannot be deleted. Deactivate it instead.');
+            }
+            throw $error;
+        }
+        return response()->json(['message' => 'Account permanently deleted.']);
+    }
+
 }

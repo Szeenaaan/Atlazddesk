@@ -137,3 +137,18 @@ Thumbs.db
 /scripts/support-v10.6-style.css
 /templates/
 /v10.3-overlay/
+
+# Per-installation Docker configuration, certificates and backup artifacts.
+/installation/
+/backups/
+
+# Local environment loaders, browser test output, and database backup artifacts.
+.envrc
+.envrc.*
+**/playwright-report/
+**/test-results/
+**/blob-report/
+*.dump
+*.sql.bz2
+*.sql.xz
+*.rdb

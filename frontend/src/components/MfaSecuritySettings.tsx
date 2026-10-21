@@ -1,3 +1,6 @@
+import { Field } from './ui';
+import { Button, Card, Switch, Input } from './ui';
+import SearchableDropdown from './SearchableDropdown';
 import { useEffect, useState } from 'react';
 import { client } from '../api/client';
 import FeedbackToast, { type Feedback } from './FeedbackToast';
@@ -27,21 +30,21 @@ export function ContractorMfaSettings() {
     } catch (e) { setError(errorText(e)); }
     finally { setBusy(false); }
   };
-  return <section className="panel mfa-config-panel">
+  return <Card className="panel mfa-config-panel">
     <h3>Workforce authentication</h3>
     {!flags ? <p>Loading security configuration…</p> : <>
-      <label className="mfa-switch"><span><b>Allow Google Authenticator enrollment</b></span>
-        <input type="checkbox" checked={flags.totp_enabled} onChange={e => setFlags(f => f && ({ ...f, totp_enabled: e.target.checked }))}/></label>
-      <label className="mfa-switch"><span><b>Require Email OTP</b></span>
-        <input type="checkbox" checked={flags.email_enabled} onChange={e => setFlags(f => f && ({ ...f, email_enabled: e.target.checked }))}/></label>
-      <label className="mfa-field">Confirm with your Contractor Admin password
-        <input type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)}/>
-      </label>
-      <button className="btn btn-primary" type="button" disabled={!password || busy} onClick={save}>{busy ? 'Saving…' : 'Save MFA settings'}</button>
+      <Field className="mfa-switch"><span><b>Allow Google Authenticator enrollment</b></span>
+        <Switch type="checkbox" checked={flags.totp_enabled} onChange={e => setFlags(f => f && ({ ...f, totp_enabled: e.target.checked }))}/></Field>
+      <Field className="mfa-switch"><span><b>Require Email OTP</b></span>
+        <Switch type="checkbox" checked={flags.email_enabled} onChange={e => setFlags(f => f && ({ ...f, email_enabled: e.target.checked }))}/></Field>
+      <Field className="mfa-field">Confirm with your Contractor Admin password
+        <Input type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)}/>
+      </Field>
+      <Button className="btn btn-primary" type="button" disabled={!password || busy} onClick={save}>{busy ? 'Saving…' : 'Save MFA settings'}</Button>
     </>}
     {error && <p className="error" role="alert">{error}</p>}
     {message && <p className="mfa-notice">{message}</p>}
-  </section>;
+  </Card>;
 }
 
 export function MyMfaSettings() {
@@ -136,7 +139,7 @@ export function MyMfaSettings() {
     await client.post('/auth/mfa/email/disable/send', { password: disablePassword });
     setNotice('Email verification code sent.');
   });
-  return <section className="panel mfa-config-panel">
+  return <Card className="panel mfa-config-panel">
     {status && (status.available.totp_enabled || status.available.email_enabled || status.totp_enabled || status.email_enabled) && <h3>My account security</h3>}
     {status && (status.available.totp_enabled || status.available.email_enabled || status.totp_enabled || status.email_enabled) &&
       <p>Manage your sign-in verification methods. Your password is required for enrollment and recovery-code changes.</p>}
@@ -145,51 +148,51 @@ export function MyMfaSettings() {
         {status.available.totp_enabled || status.totp_enabled ? <span>Google Authenticator: <b>{status.totp_enabled ? 'Enrolled' : 'Not enrolled'}</b>{status.totp_enabled && !status.available.totp_enabled && <small> (currently not required)</small>}</span> : null}
         {status.available.email_enabled || status.email_enabled ? <span>Email OTP: <b>{status.email_enabled ? 'Enrolled' : 'Not enrolled'}</b>{status.email_enabled && !status.available.email_enabled && <small> (currently not required)</small>}</span> : null}
       </p>}
-      {(status.available.totp_enabled || status.available.email_enabled || status.totp_enabled || status.email_enabled) && <label className="mfa-field">Current password
-        <input type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)}/>
-      </label>}
+      {(status.available.totp_enabled || status.available.email_enabled || status.totp_enabled || status.email_enabled) && <Field className="mfa-field">Current password
+        <Input type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)}/>
+      </Field>}
       {status.available.totp_enabled && !status.totp_enabled && <div className="mfa-method-card">
         <b>Google Authenticator</b>
-        {!secret ? <button className="btn btn-secondary" type="button" disabled={!password || busy} onClick={setupTotp}>Set up</button>
+        {!secret ? <Button className="btn btn-secondary" type="button" disabled={!password || busy} onClick={setupTotp}>Set up</Button>
           : <><p>Scan this QR code with Google Authenticator, or choose Enter a setup key (time-based) and copy the key below.</p>
             {provisioningUri && <div className="mfa-qr"><QRCodeSVG value={provisioningUri} size={184}/></div>}
-            <code className="mfa-secret">{secret}</code><button className="btn btn-secondary" type="button" onClick={() => { void navigator.clipboard.writeText(secret).then(() => setNotice('Setup key copied.')).catch(() => setError('Unable to copy the key. Select it manually.')); }}>Copy setup key</button>
-            <label className="mfa-field">Six-digit code<input value={code} inputMode="numeric" onChange={e => setCode(e.target.value)}/></label>
-            <button className="btn btn-primary" disabled={busy} onClick={confirmTotp}>Confirm authenticator</button></>}
+            <code className="mfa-secret">{secret}</code><Button className="btn btn-secondary" type="button" onClick={() => { void navigator.clipboard.writeText(secret).then(() => setNotice('Setup key copied.')).catch(() => setError('Unable to copy the key. Select it manually.')); }}>Copy setup key</Button>
+            <Field className="mfa-field">Six-digit code<Input value={code} inputMode="numeric" onChange={e => setCode(e.target.value)}/></Field>
+            <Button className="btn btn-primary" disabled={busy} onClick={confirmTotp}>Confirm authenticator</Button></>}
       </div>}
       {status.available.email_enabled && !status.email_enabled && <div className="mfa-method-card">
         <b>Email OTP</b>
         <p>Send a verification code to your account email, then enter it here.</p>
-        <button className="btn btn-secondary" disabled={!password || busy} onClick={sendEmail}>Send code</button>
-        <label className="mfa-field">Email code<input value={code} inputMode="numeric" onChange={e => setCode(e.target.value)}/></label>
-        <button className="btn btn-primary" disabled={!code || busy} onClick={confirmEmail}>Confirm email OTP</button>
+        <Button className="btn btn-secondary" disabled={!password || busy} onClick={sendEmail}>Send code</Button>
+        <Field className="mfa-field">Email code<Input value={code} inputMode="numeric" onChange={e => setCode(e.target.value)}/></Field>
+        <Button className="btn btn-primary" disabled={!code || busy} onClick={confirmEmail}>Confirm email OTP</Button>
       </div>}
       {status.available.totp_enabled && status.totp_enabled && <div className="mfa-method-card mfa-replace-card">
         <h3>Replace Google Authenticator</h3>
         <p>Moving to a new phone? Replace your own authenticator without switching off the administrator's MFA policy. Your current device works until the new one is confirmed.</p>
         {!replaceSecret ? <div className="mfa-replace-form">
-          <label className="mfa-field">Current password
-            <input type="password" autoComplete="current-password" value={replacePassword} onChange={e => setReplacePassword(e.target.value)}/>
-          </label>
-          <label className="mfa-field">Current authenticator code or unused recovery code
-            <input type="text" autoComplete="one-time-code" value={replaceOldCode} onChange={e => setReplaceOldCode(e.target.value)}/>
-          </label>
-          <button type="button" className="btn btn-secondary" disabled={replaceBusy || !replacePassword || !replaceOldCode} onClick={() => void startReplacement()}>
+          <Field className="mfa-field">Current password
+            <Input type="password" autoComplete="current-password" value={replacePassword} onChange={e => setReplacePassword(e.target.value)}/>
+          </Field>
+          <Field className="mfa-field">Current authenticator code or unused recovery code
+            <Input type="text" autoComplete="one-time-code" value={replaceOldCode} onChange={e => setReplaceOldCode(e.target.value)}/>
+          </Field>
+          <Button type="button" className="btn btn-secondary" disabled={replaceBusy || !replacePassword || !replaceOldCode} onClick={() => void startReplacement()}>
             {replaceBusy ? 'Verifying…' : 'Start authenticator replacement'}
-          </button>
+          </Button>
         </div> : <div className="mfa-replace-form">
           <p>Scan the NEW QR code and enter the code shown by your new authenticator. The existing device remains active until verification succeeds.</p>
           {replaceUri && <div className="mfa-qr"><QRCodeSVG value={replaceUri} size={184}/></div>}
           <code className="mfa-secret">{replaceSecret}</code>
-          <button type="button" className="btn btn-secondary" onClick={() => { void navigator.clipboard.writeText(replaceSecret).catch(() => setReplaceError('Cannot copy automatically. Select the setup key manually.')); }}>Copy new setup key</button>
-          <label className="mfa-field">Six-digit code from your NEW authenticator
-            <input type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={replaceNewCode} onChange={e => setReplaceNewCode(e.target.value)}/>
-          </label>
+          <Button type="button" className="btn btn-secondary" onClick={() => { void navigator.clipboard.writeText(replaceSecret).catch(() => setReplaceError('Cannot copy automatically. Select the setup key manually.')); }}>Copy new setup key</Button>
+          <Field className="mfa-field">Six-digit code from your NEW authenticator
+            <Input type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={replaceNewCode} onChange={e => setReplaceNewCode(e.target.value)}/>
+          </Field>
           <div className="mfa-replace-actions">
-            <button type="button" className="btn btn-primary" disabled={replaceBusy || !/^\d{6}$/.test(replaceNewCode)} onClick={() => void confirmReplacement()}>
+            <Button type="button" className="btn btn-primary" disabled={replaceBusy || !/^\d{6}$/.test(replaceNewCode)} onClick={() => void confirmReplacement()}>
               {replaceBusy ? 'Verifying…' : 'Confirm new authenticator'}
-            </button>
-            <button type="button" className="btn btn-secondary" disabled={replaceBusy} onClick={() => void cancelReplacement()}>Cancel replacement</button>
+            </Button>
+            <Button type="button" className="btn btn-secondary" disabled={replaceBusy} onClick={() => void cancelReplacement()}>Cancel replacement</Button>
           </div>
         </div>}
         {replaceError && <p className="error" role="alert">{replaceError}</p>}
@@ -198,9 +201,9 @@ export function MyMfaSettings() {
         <b>Recovery codes</b>
         <p>{status.recovery_remaining} unused recovery code{status.recovery_remaining === 1 ? '' : 's'} remain.</p>
         <p>Replace your recovery codes after signing in and confirming your password. Old codes will stop working.</p>
-        <button className="btn btn-secondary" type="button" disabled={!password || busy} onClick={regenerateCodes}>
+        <Button className="btn btn-secondary" type="button" disabled={!password || busy} onClick={regenerateCodes}>
           Generate new recovery codes
-        </button>
+        </Button>
       </div>}
       {(!status.available.totp_enabled && !status.available.email_enabled && !status.totp_enabled && !status.email_enabled) && <div className="mfa-policy-empty" role="status">
         <h4>No additional verification methods available</h4>
@@ -209,19 +212,19 @@ export function MyMfaSettings() {
       {(status.totp_enabled || status.email_enabled) && <div className="mfa-method-card">
         <h4>Remove an enrolled method</h4>
         <p>Removing enrollment affects only your account and is allowed only when the administrator policy permits it. To change phones while Google Authenticator is required, use Replace Google Authenticator above.</p>
-        <label>Method<select value={status.totp_enabled ? disableMethod : 'email'} onChange={e => setDisableMethod(e.target.value as 'totp' | 'email')}>
+        <Field>Method<SearchableDropdown value={status.totp_enabled ? disableMethod : 'email'} onChange={e => setDisableMethod(e.target.value as 'totp' | 'email')}>
           {status.totp_enabled && <option value="totp">Google Authenticator</option>}
           {status.email_enabled && <option value="email">Email OTP</option>}
-        </select></label>
-        <label>Current password<input type="password" autoComplete="current-password" value={disablePassword} onChange={e => setDisablePassword(e.target.value)}/></label>
-        {disableMethod === 'email' && !status.totp_enabled && <button type="button" className="btn btn-secondary" disabled={!disablePassword || busy} onClick={sendDisableEmail}>Send disable code</button>}
-        <label>Verification or recovery code<input autoComplete="one-time-code" value={disableCode} onChange={e => setDisableCode(e.target.value)}/></label>
-        <button type="button" className="btn btn-secondary" disabled={!disablePassword || !disableCode || busy} onClick={disableMfa}>Remove selected method</button>
+        </SearchableDropdown></Field>
+        <Field>Current password<Input type="password" autoComplete="current-password" value={disablePassword} onChange={e => setDisablePassword(e.target.value)}/></Field>
+        {disableMethod === 'email' && !status.totp_enabled && <Button type="button" className="btn btn-secondary" disabled={!disablePassword || busy} onClick={sendDisableEmail}>Send disable code</Button>}
+        <Field>Verification or recovery code<Input autoComplete="one-time-code" value={disableCode} onChange={e => setDisableCode(e.target.value)}/></Field>
+        <Button type="button" className="btn btn-secondary" disabled={!disablePassword || !disableCode || busy} onClick={disableMfa}>Remove selected method</Button>
       </div>}
-      {recovery.length > 0 && <div className="mfa-method-card"><b>Save recovery codes now — they will not be shown again.</b><pre className="mfa-recovery">{recovery.join('\n')}</pre><button className="btn btn-secondary" onClick={() => setRecovery([])}>I've saved the codes</button></div>}
+      {recovery.length > 0 && <div className="mfa-method-card"><b>Save recovery codes now — they will not be shown again.</b><pre className="mfa-recovery">{recovery.join('\n')}</pre><Button className="btn btn-secondary" onClick={() => setRecovery([])}>I've saved the codes</Button></div>}
     </>}
     <FeedbackToast feedback={recoveryFeedback} onDismiss={() => setRecoveryFeedback(null)}/>
     {notice && <p className="mfa-notice">{notice}</p>}
     {error && <p className="error" role="alert">{error}</p>}
-  </section>;
+  </Card>;
 }

@@ -24,7 +24,7 @@ final class InstallationTimeController extends Controller
     public function zones(Request $request)
     {
         abort_unless($request->user()?->role === 'super_admin', 403);
-        $validated = $request->validate(['country' => ['required', 'regex:/^[A-Z]{2}$/D']]);
+        $validated = $request->validate(['country' => ['required', 'string', 'regex:/^[A-Z]{2}$/D']]);
         $zones = $this->time->zonesForCountry($validated['country']);
         abort_if($zones === [], 422, 'Country has no supported IANA timezone.');
         return response()->json([

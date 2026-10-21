@@ -11,6 +11,7 @@ class DirectoryController extends Controller
 {
     private const RESOURCES = [
         'customers' => Customer::class,
+        'technicians' => User::class,
         'assets' => Asset::class,
         'contracts' => AmcContract::class,
         'maintenance' => PreventiveMaintenance::class,
@@ -20,13 +21,13 @@ class DirectoryController extends Controller
     {
         abort_unless(isset(self::RESOURCES[$resource]), 404);
         $user = $request->user();
+        if ($resource === 'technicians') {
+            abort_unless(AmcAccess::isAdmin($user), 403);
+            return User::query()->where('role', 'technician')->select(['id', 'name', 'email', 'phone', 'role', 'status', 'last_login_at']);
+        }
         // Commercial AMC contracts are managed by the contractor, not by clients.
         abort_if($resource === 'contracts' && ! AmcAccess::isAdmin($user), 403);
-        if ($user->role === 'technician') {
-            if ($resource === 'maintenance') return PreventiveMaintenance::where('assigned_to', $user->id);
-            if ($resource === 'assets') return Asset::whereIn('id',
-                Ticket::query()->where('assigned_to', $user->id)->whereNotNull('asset_id')->select('asset_id'));
-        }
+        abort_if($user->role === 'technician', 403, 'Use assigned tickets to view work details.');
         if ($resource === 'assets') return AmcAccess::scopeAssets(Asset::query(), $user);
         $query = self::RESOURCES[$resource]::query();
         return $resource === 'customers'
@@ -38,6 +39,7 @@ class DirectoryController extends Controller
     {
         $data = $request->validate([
             'per_page' => ['sometimes','integer','min:1','max:100'],
+            'page' => ['sometimes','integer','min:1','max:1000000'],
             'search' => ['sometimes','string','max:100'],
             'city' => ['sometimes','string','max:255'],
             'status' => ['sometimes','string','max:40'],
@@ -46,6 +48,7 @@ class DirectoryController extends Controller
             'category_id' => ['sometimes','integer','exists:ticket_categories,id'],
         ]);
         $q = $this->query($request, $resource);
+        if (in_array($resource, ['contracts', 'maintenance'], true)) $q->with('customer:id,company_name');
         if ($resource === 'assets') {
             $q->with(['category:id,name', 'customer:id,company_name']);
             foreach (['customer_id', 'asset_type_id'] as $field) {
@@ -54,29 +57,46 @@ class DirectoryController extends Controller
             if (isset($data['category_id'])) $q->where('category_id', $data['category_id']);
         }
         if ($resource === 'customers' && isset($data['city'])) $q->where('city', $data['city']);
-        if (in_array($resource, ['customers', 'assets'], true) && isset($data['status'])) $q->where('status', $data['status']);
+        if (in_array($resource, ['customers', 'assets', 'technicians'], true) && isset($data['status'])) $q->where('status', $data['status']);
         if (! empty($data['search'])) {
             $column = match ($resource) {
-                'customers' => 'company_name', 'assets' => 'name',
+                'customers' => 'company_name', 'assets', 'technicians' => 'name',
                 'contracts' => 'contract_number', default => 'title',
             };
             $search = str_replace(['%','_'], ['\\%','\\_'], $data['search']);
-            $secondary = match ($resource) { 'customers' => 'customer_code', 'assets' => 'asset_tag', default => $column };
+            $secondary = match ($resource) { 'customers' => 'customer_code', 'assets' => 'asset_tag', 'technicians' => 'email', default => $column };
             $q->where(fn ($query) => $query->where($column, 'like', "%{$search}%")->orWhere($secondary, 'like', "%{$search}%"));
         }
-        return response()->json($q->orderByDesc('id')->paginate($request->integer('per_page',25)));
+        $columns = match ($resource) {
+            'customers' => ['company_name', 'customer_code', 'city', 'status'],
+            'assets' => ['name', 'asset_tag', 'status'],
+            'contracts' => ['contract_number', 'contract_type', 'end_date', 'status'],
+            'technicians' => ['name', 'email', 'role', 'status'],
+            default => ['title', 'frequency', 'next_due_date', 'status'],
+        };
+        $relations = $resource === 'customers' || $resource === 'technicians' ? [] : ['customer' => ['customer', 'company_name']];
+        if ($resource === 'assets') $relations['category'] = ['category', 'name'];
+        \App\Support\GridSort::apply($q, $request, $columns, $relations);
+        return response()->json($q->paginate($request->integer('per_page',25)));
     }
 
     public function show(Request $request, string $resource, int $id)
     {
-        return response()->json($this->query($request, $resource)->findOrFail($id));
+        $query = $this->query($request, $resource);
+        if ($resource === 'assets') $query->with(['category:id,name', 'customer:id,company_name', 'location:id,name']);
+        if ($resource === 'contracts') $query->with(['customer:id,company_name', 'slaPolicy:id,name', 'services:id,name,description,is_active']);
+        $record = $query->findOrFail($id);
+        $data = in_array($resource, ['customers', 'assets', 'contracts', 'technicians'], true)
+            ? (new \App\Http\Resources\DirectoryRecordResource($record))->resolve($request)
+            : $record;
+        return response()->json($data)->header('Cache-Control', 'private, no-store');
     }
 
     public function lookups(Request $request)
     {
         $user = $request->user();
         return response()->json([
-            'customers' => AmcAccess::scopeCustomers(Customer::query(), $user)
+            'customers' => $user->role === 'technician' ? [] : AmcAccess::scopeCustomers(Customer::query(), $user)
                 ->orderBy('company_name')->get(['id','company_name']),
             'categories' => TicketCategory::where('is_active', true)->orderBy('name')->get(['id','name']),
             'customer_locations' => AmcAccess::scopeCustomers(Customer::query(), $user)->whereNotNull('city')->distinct()->orderBy('city')->pluck('city'),

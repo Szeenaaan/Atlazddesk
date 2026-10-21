@@ -1,5 +1,6 @@
+import { CloseButton } from './ui';
 import { useEffect, useRef, useState } from 'react';
-import { Info, ChevronDown, LogOut, LockKeyhole, Settings, UserCircle, X } from 'lucide-react';
+import { Info, ChevronDown, LogOut, LockKeyhole, Settings, UserCircle } from 'lucide-react';
 
 type Props = { name: string; email: string; role: string; onNavigate: (page: string) => void; onLogout: () => void };
 export default function ProfileMenu({ name, email, role, onNavigate, onLogout }: Props) {
@@ -15,10 +16,10 @@ export default function ProfileMenu({ name, email, role, onNavigate, onLogout }:
   function nav(page: string) { onNavigate(page); setOpen(false); }
   return <div className="account-menu-wrapper" ref={area}>
     <button type="button" className="account-trigger" aria-label="Account menu" aria-expanded={open} onClick={() => setOpen(v => !v)}>
-      <span className="top-avatar">{name.split(' ').map(w => w[0]).slice(0,2).join('').toUpperCase()}</span><ChevronDown size={15}/>
+      <span className="top-avatar">{name.split(' ').map(w => w[0]).slice(0,2).join('').toUpperCase()}</span><ChevronDown size={16}/>
     </button>
     {open && <div className="account-popover" role="menu" aria-label="Account actions">
-      <div className="account-summary"><UserCircle size={23}/><div><b>{name}</b><small>{email}</small><small>{role.replaceAll('_', ' ')}</small></div><button className="icon-button" aria-label="Close menu" onClick={() => setOpen(false)}><X size={16}/></button></div>
+      <div className="account-summary"><UserCircle size={24}/><div><b>{name}</b><small>{email}</small><small>{role.replaceAll('_', ' ')}</small></div><CloseButton aria-label="Close menu" onClick={() => setOpen(false)}/></div>
       <button role="menuitem" onClick={() => nav('My Profile')}><UserCircle size={16}/> My profile</button>
       <button role="menuitem" onClick={() => nav('My Security')}><LockKeyhole size={16}/> My security</button>
       {role === 'admin' && <button role="menuitem" onClick={() => nav('Authentication')}><Settings size={16}/> Authentication settings</button>}

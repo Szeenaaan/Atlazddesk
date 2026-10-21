@@ -57,6 +57,7 @@ final class SystemSupportController extends Controller
     {
         $this->authorizeTechnical($request);
         $filters = $request->validate([
+            'page' => ['sometimes', 'integer', 'min:1', 'max:1000000'],
             'event' => ['sometimes', 'string', 'max:100'],
             'request_id' => ['sometimes', 'string', 'max:100'],
         ]);
@@ -81,9 +82,9 @@ final class SystemSupportController extends Controller
             'support_email' => ['nullable','email','max:255'],
             'queue_warning_depth' => ['required','integer','min:1','max:100000'],
             'disk_warning_percent' => ['required','integer','min:1','max:70'],
-            'country_code' => ['sometimes', 'nullable', 'regex:/^[A-Z]{2}$/D'],
+            'country_code' => ['sometimes', 'nullable', 'string', 'regex:/^[A-Z]{2}$/D'],
             'timezone' => ['sometimes', 'string', 'max:80'],
-            'current_password' => ['required','string'],
+            'current_password' => ['required','string', 'max:1024'],
         ]);
         $this->confirmPassword($request, $data['current_password']);
         $currentTimezone = $this->timezone->settings();
@@ -115,7 +116,7 @@ final class SystemSupportController extends Controller
     public function testEmail(Request $request)
     {
         $this->authorizeTechnical($request);
-        $data = $request->validate(['current_password' => ['required','string']]);
+        $data = $request->validate(['current_password' => ['required','string', 'max:1024']]);
         $this->confirmPassword($request, $data['current_password']);
         abort_unless($this->technical->mailReady(), 422, 'Configure technical email delivery first.');
         try {

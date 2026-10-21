@@ -44,7 +44,7 @@ final class SystemTelemetryController extends Controller
             'sample_percent' => ['required', 'integer', 'min:0', 'max:100'],
             'retention_days' => ['required', 'integer', 'min:1', 'max:30'],
             'slow_request_ms' => ['required', 'integer', 'min:100', 'max:60000'],
-            'current_password' => ['required', 'string'],
+            'current_password' => ['required', 'string', 'max:1024'],
         ]);
 
         if (! Hash::check($input['current_password'], $request->user()->password)) {

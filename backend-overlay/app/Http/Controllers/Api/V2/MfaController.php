@@ -59,7 +59,7 @@ final class MfaController extends Controller
 
     public function confirmTotp(Request $request)
     {
-        $data = $request->validate(['code' => ['required', 'regex:/^\d{6}$/D']]);
+        $data = $request->validate(['code' => ['required', 'string', 'regex:/^\d{6}$/D']]);
         $pending = ! Auth::guard('web')->check();
         $user = $pending ? $this->mfa->pending($request) : $request->user();
 
@@ -192,7 +192,7 @@ final class MfaController extends Controller
     public function confirmEmailEnrollment(Request $request)
     {
         abort_unless($this->settings->email($request->user()), 403, 'Email OTP is disabled by your administrator.');
-        $data = $request->validate(['code' => ['required','regex:/^\d{6}$/D']]);
+        $data = $request->validate(['code' => ['required','string', 'regex:/^\d{6}$/D']]);
         if (! $this->mfa->consumeEmail($request, $data['code'], 'enroll_email')) $this->mfa->rejectFactor();
         $request->user()->forceFill([
             'mfa_email_enabled' => true,
@@ -210,7 +210,7 @@ final class MfaController extends Controller
     {
         $data = $request->validate([
             'method' => ['required','in:totp,email'],
-            'password' => ['required','string'],
+            'password' => ['required','string', 'max:1024'],
             'code' => ['required','string','max:30'],
         ]);
         $user = $request->user();

@@ -6,7 +6,9 @@ export const APP_VERSION = version;
 export const PRODUCT = {
   name: 'Atlazddesk',
   author: 'Muahmmed Sinan Puthupurakkat',
+  copyrightYear: 2026,
+  license: 'Proprietary software. All rights reserved.',
   company: '',
-  email: '',
-  github: '',
+  email: 'pkodinhi@gmail.com',
+  github: 'https://github.com/Szeenaaan',
 };
