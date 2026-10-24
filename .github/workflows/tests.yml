@@ -149,7 +149,7 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v4
       - name: Validate container update guards
         run: |
           bash -n scripts/auto-update-containers.sh
