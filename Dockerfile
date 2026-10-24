@@ -1,5 +1,7 @@
 # syntax=docker/dockerfile:1
-FROM php:8.4-fpm-bookworm AS php-base
+ARG PHP_IMAGE=php:8.4.27-fpm-bookworm
+ARG NODE_IMAGE=node:24.22.1-bookworm-slim
+FROM ${PHP_IMAGE} AS php-base
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libicu-dev libzip-dev libonig-dev libfcgi-bin unzip ca-certificates curl \
     && docker-php-ext-install -j"$(nproc)" pdo_mysql intl mbstring zip bcmath pcntl opcache \
@@ -27,12 +29,13 @@ COPY infra/docker/php.ini /usr/local/etc/php/conf.d/atlazddesk.ini
 COPY infra/docker/fpm.conf /usr/local/etc/php-fpm.d/zz-atlazddesk.conf
 COPY --chmod=755 infra/docker/entrypoint.sh /usr/local/bin/atlazddesk-entrypoint
 COPY infra/docker/health.php infra/docker/configure.php /opt/atlazddesk/
+COPY scripts/check-php-version.php /opt/atlazddesk/check-php-version.php
 USER www-data
 ENTRYPOINT ["atlazddesk-entrypoint"]
 CMD ["php-fpm", "-F"]
 EXPOSE 9000
 
-FROM node:24-bookworm-slim AS frontend-build
+FROM ${NODE_IMAGE} AS frontend-build
 WORKDIR /build
 COPY frontend/package.json frontend/package-lock.json ./
 COPY frontend/.npmrc ./

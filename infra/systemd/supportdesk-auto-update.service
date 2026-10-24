@@ -1,0 +1,13 @@
+[Unit]
+Description=Apply CI-validated SupportDesk container releases
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/supportdesk/updates.env
+ExecStart=/usr/local/libexec/supportdesk-auto-update --apply
+TimeoutStartSec=15min
+TimeoutStopSec=120
+UMask=0077
