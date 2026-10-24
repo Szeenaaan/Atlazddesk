@@ -175,6 +175,8 @@ From `backend-overlay`, `php artisan down` blocks business requests and displays
 
 This is separate from the optional scheduled-work Maintenance page, which appears for Contractor Admin when `AMC_MAINTENANCE_ENABLED=true` in the backend environment (run `php artisan config:clear` after changing it).
 
+See [Secure ticket uploads](docs/deployment/ticket-upload-security.md) for scanner configuration, deployment checks and rollback.
 
+See [Automatic application updates](docs/deployment/automatic-updates.md) for opt-in tested runtime/dependency updates and one-time server activation.
 
 Browse the [documentation index](docs/README.md) for deployment, UI and verification guides. Local historical files are organized under ignored `notes/local/`.
