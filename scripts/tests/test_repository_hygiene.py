@@ -53,7 +53,10 @@ class RepositoryHygieneTests(unittest.TestCase):
                 self.assertFalse(filename.startswith('.env') and not filename.endswith('.example'))
 
     def test_current_documentation_links_resolve(self):
-        docs = [ROOT / name for name in ['README.md', 'AGENTS.md', 'ROLES.md', 'TESTING.md', 'notes/README.md']]
+        docs = [ROOT / name for name in ['README.md', 'ROLES.md', 'TESTING.md', 'notes/README.md']]
+        # AGENTS.md contains local assistant instructions and is intentionally ignored.
+        if (ROOT / 'AGENTS.md').exists():
+            docs.append(ROOT / 'AGENTS.md')
         docs += list((ROOT / 'docs').rglob('*.md'))
         for source in docs:
             text = source.read_text()
