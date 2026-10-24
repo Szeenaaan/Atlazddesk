@@ -46,7 +46,7 @@ ARG APP_VERSION
 ENV APP_VERSION=${APP_VERSION}
 RUN npm run build
 
-FROM nginx:1.28-alpine AS web
+FROM nginx:1.29-alpine AS web
 COPY --from=frontend-build /build/dist /usr/share/nginx/html
 COPY infra/docker/nginx.conf.template /etc/nginx/templates/default.conf.template
 EXPOSE 80 443
