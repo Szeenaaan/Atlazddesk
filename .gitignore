@@ -104,3 +104,6 @@ Thumbs.db
 /.npm/
 /frontend/.vite/
 .pytest_cache/
+
+# Local coding assistant instructions.
+/AGENTS.md
