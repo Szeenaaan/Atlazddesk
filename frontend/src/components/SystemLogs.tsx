@@ -1,3 +1,4 @@
+import { useFeedbackState } from './feedbackContext';
 import { Field, InlineNotice } from './ui';
 import { formatInstallationDateTime } from '../utils/installationTime';
 import { Button, Card, Input } from './ui';
@@ -49,7 +50,7 @@ export default function SystemLogs() {
   const [appliedSearch, setAppliedSearch] = useState('');
   const [entries, setEntries] = useState<Entry[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useFeedbackState('error');
 
   const load = useCallback(async () => {
     setLoading(true); setError('');

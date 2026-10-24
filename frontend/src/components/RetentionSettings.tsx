@@ -1,7 +1,9 @@
+import { useFeedbackState } from './feedbackContext';
 import { Field } from './ui';
 import { Button, Card, Switch, Input } from './ui';
 import { useCallback, useEffect, useState } from 'react';
 import { client } from '../api/client';
+import { getApiErrorMessage } from '../api/contracts';
 import FeedbackToast, { type Feedback } from './FeedbackToast';
 
 type Policy = {
@@ -23,15 +25,14 @@ type Scope = 'technical' | 'business';
 const apiPath = (scope: Scope) => scope === 'technical' ? '/system/support/retention' : '/admin/retention';
 
 function readError(error: unknown): string {
-  const data = (error as { response?: { data?: { message?: string; errors?: Record<string, string[]> } } })?.response?.data;
-  return Object.values(data?.errors || {}).flat().join(' ') || data?.message || 'Could not update retention settings.';
+  return getApiErrorMessage(error, 'The retention settings could not be updated. Please try again.');
 }
 
 export default function RetentionSettings({ scope }: { scope: Scope }) {
   const [policies, setPolicies] = useState<Policy[]>([]);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  const [passwordError, setPasswordError] = useState('');
+  const [error, setError] = useFeedbackState('error');
+  const [passwordError, setPasswordError] = useFeedbackState('error');
   const [password, setPassword] = useState('');
   const [feedback, setFeedback] = useState<Feedback | null>(null);
 
@@ -63,7 +64,7 @@ export default function RetentionSettings({ scope }: { scope: Scope }) {
       });
       setPolicies(data.data);
       setPassword('');
-      setFeedback({ tone: 'success', message: 'Retention settings saved. The scheduler will clean only enabled, due categories.' });
+      setFeedback({ tone: 'success', message: 'Retention settings saved. Automatic cleanup will follow the updated settings.' });
     } catch (err) {
       const message = readError(err);
       if (/password/i.test(message)) setPasswordError(message);

@@ -1,3 +1,4 @@
+import { useDashboardFeedback, useFeedbackState } from './feedbackContext';
 import { Field } from './ui';
 import { Button, Checkbox, Input, Textarea } from './ui';
 import SearchableDropdown from './SearchableDropdown';
@@ -14,6 +15,7 @@ import ContractCatalog, { type ContractOptions } from './ContractCatalog';
 export const CONTRACT_TYPES = ['Annual maintenance', 'Comprehensive', 'Labor only', 'Standard AMC', 'Premium', 'Standard', 'Basic'];
 type Row = Record<string, any>;
 export default function ContractEditor({ record, onClose, onSaved }: { record?: Row; onClose: () => void; onSaved: () => void }) {
+  const feedback = useDashboardFeedback();
   const [form, setForm] = useState({ contract_number: record?.contract_number || '', customer_id: String(record?.customer?.id || ''), contract_type: record?.contract_type || '',
     start_date: String(record?.start_date || '').slice(0, 10), end_date: String(record?.end_date || '').slice(0, 10),
     sla_policy_id: String(record?.sla_policy?.id || ''), contract_value: record?.contract_value ?? '', currency: record ? record.currency || '' : defaultCurrency(getInstallationCountry()), notes: record?.notes || '', status: record?.status || 'active' });
@@ -28,7 +30,7 @@ export default function ContractEditor({ record, onClose, onSaved }: { record?: 
   const currencies = form.currency && !CURRENCIES.includes(form.currency) ? [form.currency, ...CURRENCIES] : CURRENCIES;
   const [selected, setSelected] = useState<number[]>((record?.services || []).map((s: Row) => s.id));
   const [options, setOptions] = useState<ContractOptions>({ policies: [], services: [] }), [customers, setCustomers] = useState<Row[]>([]);
-  const [loading, setLoading] = useState(true), [busy, setBusy] = useState(false), [error, setError] = useState('');
+  const [loading, setLoading] = useState(true), [busy, setBusy] = useState(false), [error, setError] = useFeedbackState('error');
   const [manage, setManage] = useState(false);
   async function reload() { const { data } = await client.get<ContractOptions>('/contract-options'); setOptions(data); }
   useEffect(() => {
@@ -43,7 +45,7 @@ export default function ContractEditor({ record, onClose, onSaved }: { record?: 
       const body = { ...form, customer_id: Number(form.customer_id), sla_policy_id: form.sla_policy_id ? Number(form.sla_policy_id) : null,
         service_ids: selected, contract_value: form.contract_value === '' ? null : Number(form.contract_value) };
       if (record) await client.patch(`/directory/contracts/${record.id}`, body); else await client.post('/directory/contracts', body);
-      onSaved();
+      feedback?.({tone: 'success', message: record ? 'Contract updated.' : 'Contract created.'}); onSaved();
     } catch (e) { setError(getApiErrorMessage(e, 'Could not save the contract.')); }
     finally { setBusy(false); }
   }

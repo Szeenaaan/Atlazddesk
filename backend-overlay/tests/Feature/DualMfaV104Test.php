@@ -149,7 +149,8 @@ final class DualMfaV104Test extends TestCase
         $readCode = $this->interceptEmail();
         $this->login($user)->assertStatus(202)->assertJsonPath('remaining_methods.0', 'email');
         $this->getJson('/api/v2/auth/me')->assertUnauthorized();
-        $this->postJson('/api/v2/auth/mfa/email/send')->assertOk();
+        $this->postJson('/api/v2/auth/mfa/email/send')->assertOk()
+            ->assertJsonPath('message', 'Check your email for your verification code. It may take a moment to arrive.');
         $this->postJson('/api/v2/auth/mfa/verify', [
             'method' => 'email', 'code' => '000000',
         ])->assertUnprocessable();

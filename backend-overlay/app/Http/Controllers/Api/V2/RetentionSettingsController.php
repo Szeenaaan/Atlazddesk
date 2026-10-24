@@ -59,7 +59,7 @@ final class RetentionSettingsController extends Controller
         AmcAudit::record($request, $scope === 'technical' ? 'system.retention.updated' : 'contractor.retention.updated', $request->user(), [
             'categories' => array_column($validated['policies'], 'category'),
         ]);
-        return response()->json(['data' => $data, 'message' => 'Retention policies saved. Changes take effect on the next scheduled cleanup.'])
+        return response()->json(['data' => $data, 'message' => 'Retention settings saved. Automatic cleanup will follow the updated settings.'])
             ->header('Cache-Control', 'no-store, private');
     }
 

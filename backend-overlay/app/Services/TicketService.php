@@ -28,6 +28,8 @@ class TicketService
     public function create(Request $request, array $data): Ticket
     {
         $user = $request->user();
+        abort_unless(AmcAccess::mayCreateTicket($user, $request->attributes->get('amc_workspace_actor')),
+            403, 'Only customer accounts can create tickets.');
         $customerId = AmcAccess::customerId($user, $data['customer_id'] ?? null);
         Validator::make($data, ['asset_id' => ['required', 'integer', 'exists:assets,id']])->validate();
         if (! empty($data['asset_id'])) {
@@ -61,7 +63,7 @@ class TicketService
             $ticket = Ticket::create(array_merge($data, [
                 'customer_id' => $customerId,
                 'ticket_number' => 'INC-'.now()->format('Y').'-'.strtoupper(Str::random(16)),
-                'created_by' => $user->id,
+                'created_by' => \App\Support\AmcAudit::actorId($request),
                 'status_id' => $newStatus->id,
                 'sla_policy_id' => $policy?->id,
                 // Wall-clock deadlines; business hours/holidays require a dedicated calendar service.
@@ -94,7 +96,7 @@ class TicketService
                     if ($assigneeId !== null) {
                         TicketAssignment::create([
                             'ticket_id' => $ticket->id, 'technician_id' => $assigneeId,
-                            'assigned_by' => $user->id, 'assigned_at' => now(),
+                            'assigned_by' => \App\Support\AmcAudit::actorId($request), 'assigned_at' => now(),
                         ]);
                     }
                     $changes['assigned_to'] = [$ticket->assigned_to, $assigneeId];
@@ -127,9 +129,9 @@ class TicketService
                 $ticket->save();
                 AmcAudit::record($request, 'ticket.updated', $ticket, $changes);
                 if (array_key_exists('assigned_to', $changes) && $ticket->assigned_to) {
-                    DispatchTicketNotice::dispatch($ticket->id, 'assigned', (int) $ticket->assigned_to, null, $user->id, (string) \Illuminate\Support\Str::uuid())->afterCommit();
+                    DispatchTicketNotice::dispatch($ticket->id, 'assigned', (int) $ticket->assigned_to, null, AmcAudit::actorId($request), (string) \Illuminate\Support\Str::uuid())->afterCommit();
                 }
-                else DispatchTicketNotice::dispatch($ticket->id, 'updated', null, null, $user->id, (string) \Illuminate\Support\Str::uuid())->afterCommit();
+                else DispatchTicketNotice::dispatch($ticket->id, 'updated', null, null, AmcAudit::actorId($request), (string) \Illuminate\Support\Str::uuid())->afterCommit();
             }
             return $ticket;
         });

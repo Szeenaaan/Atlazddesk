@@ -9,6 +9,17 @@ use Tests\TestCase;
 
 final class ApiContractV10Test extends TestCase
 {
+    public function test_server_errors_explain_the_affected_action_without_exposing_internal_details(): void
+    {
+        $request = \Illuminate\Http\Request::create('/api/v2/admin/mail/providers');
+        $request->attributes->set('request_id', 'reference-12345678');
+        $response = \App\Exceptions\ApiExceptionFormatter::render(new \RuntimeException('private-database-details'), $request);
+        $this->assertSame(500, $response->getStatusCode());
+        $data = $response->getData(true);
+        $this->assertSame('Email settings could not be loaded. Try again or contact your server administrator.', $data['message']);
+        $this->assertSame('reference-12345678', $data['request_id']);
+        $this->assertStringNotContainsString('private-database-details', $response->getContent());
+    }
     use RefreshDatabase;
 
     protected function setUp(): void

@@ -2,8 +2,8 @@ import { CloseButton } from './ui';
 import { useEffect, useRef, useState } from 'react';
 import { Info, ChevronDown, LogOut, LockKeyhole, Settings, UserCircle } from 'lucide-react';
 
-type Props = { name: string; email: string; role: string; onNavigate: (page: string) => void; onLogout: () => void };
-export default function ProfileMenu({ name, email, role, onNavigate, onLogout }: Props) {
+type Props = { name: string; email: string; role: string; onNavigate: (page: string) => void; onLogout: () => void; allowAccountSettings?: boolean };
+export default function ProfileMenu({ name, email, role, onNavigate, onLogout, allowAccountSettings = true }: Props) {
   const [open, setOpen] = useState(false);
   const area = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -20,13 +20,13 @@ export default function ProfileMenu({ name, email, role, onNavigate, onLogout }:
     </button>
     {open && <div className="account-popover" role="menu" aria-label="Account actions">
       <div className="account-summary"><UserCircle size={24}/><div><b>{name}</b><small>{email}</small><small>{role.replaceAll('_', ' ')}</small></div><CloseButton aria-label="Close menu" onClick={() => setOpen(false)}/></div>
-      <button role="menuitem" onClick={() => nav('My Profile')}><UserCircle size={16}/> My profile</button>
-      <button role="menuitem" onClick={() => nav('My Security')}><LockKeyhole size={16}/> My security</button>
+      {allowAccountSettings && <button role="menuitem" onClick={() => nav('My Profile')}><UserCircle size={16}/> My profile</button>}
+      {allowAccountSettings && <button role="menuitem" onClick={() => nav('My Security')}><LockKeyhole size={16}/> My security</button>}
       {role === 'admin' && <button role="menuitem" onClick={() => nav('Authentication')}><Settings size={16}/> Authentication settings</button>}
       {role === 'admin' && <button role="menuitem" onClick={() => nav('Email Delivery')}><Settings size={16}/> Email delivery</button>}
       {role === 'super_admin' && <button role="menuitem" onClick={() => nav('System Support')}><Settings size={16}/> System support</button>}
       {role === 'super_admin' && <button role="menuitem" onClick={() => nav('Admin Accounts')}><UserCircle size={16}/> Contractor admins</button>}
-      <button role="menuitem" onClick={() => nav('About')}><Info size={16}/> About Atlazddesk</button>
+      <button role="menuitem" onClick={() => nav('About')}><Info size={16}/> About SupportDesk</button>
       <button className="logout-action" role="menuitem" onClick={() => { setOpen(false); onLogout(); }}><LogOut size={16}/> Sign out</button>
     </div>}
   </div>;

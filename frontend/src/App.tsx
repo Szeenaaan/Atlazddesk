@@ -1,3 +1,4 @@
+import DashboardFeedbackProvider from './components/DashboardFeedbackProvider';
 import { CloseButton } from './components/ui';
 import { Field } from './components/ui';
 import { Dialog } from './components/ui/Dialog';
@@ -16,12 +17,14 @@ import About from './components/About';
 import CategoryManager from './components/CategoryManager';
 import DirectoryList from './components/DirectoryList';
 import React, { useEffect, useState } from 'react';
-import { DEMO, client, getCsrfCookie } from './api/client';
+import { DEMO, client, getCsrfCookie, advanceAuthEpoch } from './api/client';
+import { clearIdleActivity, startIdleActivity } from './auth/idleSession';
+import { useIdleSession } from './auth/useIdleSession';
+import { reloadCustomerWorkspace } from './auth/customerWorkspace';
 import { getApiErrorMessage } from './api/contracts';
 import TicketOperations from './components/TicketOperations';
 import TicketWorkReports from './components/TicketWorkReports';
 import ContractorAdminAccounts from './components/ContractorAdminAccounts';
-import SystemSupport from './components/SystemSupport';
 import RetentionSettings from './components/RetentionSettings';
 import { Info, LayoutDashboard, Ticket as TicketIcon, Building2, HardDrive, FileText, Wrench, Users, BarChart3, Activity, Settings, Search, ChevronRight, Menu, X, LogOut, ArrowUpRight, AlertTriangle, CheckCircle2, ShieldCheck, RefreshCw, Send, Database, Server, Wifi, CalendarDays, Command, UserCircle, LockKeyhole } from 'lucide-react';
 import { AreaChart, Area, ResponsiveContainer, Tooltip, XAxis, CartesianGrid, PieChart, Pie, Cell } from 'recharts';
@@ -29,31 +32,27 @@ import { assets, contracts, customers, maintenance, seedTickets, technicians, Ti
 import MfaLogin, { type MfaChallenge, type MfaLoginResult } from './components/MfaLogin';
 import FeedbackToast, { type FeedbackTone } from './components/FeedbackToast';
 import { ContractorMfaSettings, MyMfaSettings } from './components/MfaSecuritySettings';
-import UserDirectory from './components/UserDirectory';
-import ClientOnboarding from './components/ClientOnboarding';
-import ClientMfaPolicies from './components/ClientMfaPolicies';
-import EmailDeliverySettings from './components/EmailDeliverySettings';
 import NotificationsPanel from './components/NotificationsPanel';
 import ProfileMenu from './components/ProfileMenu';
 import QuickNavigator from './components/QuickNavigator';
 import MyProfile from './components/MyProfile';
 import SearchableSelect, { type SelectOption } from './components/SearchableSelect';
-import { canViewPage } from './auth/rolePermissions';
+import { canViewPage, canCreateTicket as mayCreateTicket, ROLE_LABELS } from './auth/rolePermissions';
 import { formatInstallationDate, formatInstallationDateTime, formatInstallationTime, getInstallationTimezone, setInstallationTimezone } from './utils/installationTime';
 import { statusOptions } from './tickets/statusTransitions';
-const AMC_BRAND_NAME = String(import.meta.env.VITE_APP_NAME || 'Atlazddesk').trim() || 'Atlazddesk';
-const WORKSPACE_LABELS: Record<Role, [string, string]> = {
-    super_admin: ['Technical administration', 'Diagnostics & configuration'],
-    admin: ['Contractor operations', 'Clients & field services'],
-    customer_admin: ['Organization workspace', 'Assets, users & service requests'],
-    customer_user: ['Service portal', 'Your service requests'],
-    technician: ['Field service', 'Assigned jobs & work reports'],
-};
+const SystemSupport = React.lazy(() => import('./components/SystemSupport'));
+const UserDirectory = React.lazy(() => import('./components/UserDirectory'));
+const ClientOnboarding = React.lazy(() => import('./components/ClientOnboarding'));
+const ClientMfaPolicies = React.lazy(() => import('./components/ClientMfaPolicies'));
+const EmailDeliverySettings = React.lazy(() => import('./components/EmailDeliverySettings'));
+const configuredBrand = String(import.meta.env.VITE_APP_NAME || '').trim();
+const AMC_BRAND_NAME = !configuredBrand || /^(atlazddesk|altazzdesk)$/i.test(configuredBrand) ? 'SupportDesk' : configuredBrand;
 const PAGE_DESCRIPTIONS: Record<string, string> = {
     Tickets: 'Track service requests and their progress.',
     'My Inbox': 'Review assigned jobs and submit work updates.',
     Customers: 'Onboard and manage client organizations.',
     Assets: 'Maintain equipment records and service history.',
+    Categories: 'Manage service categories.',
     'My Assets': 'Equipment assigned to you.',
     'Contracts': 'Manage maintenance agreements and coverage terms.',
     Maintenance: 'Plan and track maintenance visits.',
@@ -71,7 +70,7 @@ const PAGE_DESCRIPTIONS: Record<string, string> = {
     'My Profile': 'View and update your account information.',
     'My Security': 'Manage your sign-in security and MFA enrollment.',
 };
-const nav = [{ group: 'WORKSPACE' , items: [['Overview', LayoutDashboard], ['My Inbox', TicketIcon], ['Tickets', TicketIcon], ['Customers', Building2], ['Assets', HardDrive], ['My Assets', HardDrive], ['Contracts', FileText]] }, { group: 'OPERATIONS', items: [['Maintenance', Wrench], ['Technicians', Users], ['User Management', Users], ['Client Security', ShieldCheck], ['Authentication', LockKeyhole], ['Email Delivery', Send], ['Reports', BarChart3], ['Monitoring', Activity]] }, { group: 'SYSTEM', items: [['Settings', Settings], ['System Support', Wrench], ['Admin Accounts', Users], ['My Profile', UserCircle], ['My Security', LockKeyhole], ['About', Info]] }] as const;
+const nav = [{ group: 'WORKSPACE' , items: [['Overview', LayoutDashboard], ['My Inbox', TicketIcon], ['Tickets', TicketIcon], ['Customers', Building2], ['Assets', HardDrive], ['My Assets', HardDrive], ['Categories', FileText], ['Contracts', FileText]] }, { group: 'OPERATIONS', items: [['Maintenance', Wrench], ['Technicians', Users], ['User Management', Users], ['Client Security', ShieldCheck], ['Authentication', LockKeyhole], ['Email Delivery', Send], ['Reports', BarChart3], ['Monitoring', Activity]] }, { group: 'SYSTEM', items: [['Settings', Settings], ['System Support', Wrench], ['Admin Accounts', Users], ['My Profile', UserCircle], ['My Security', LockKeyhole], ['About', Info]] }] as const;
 const initialTickets = () => {
     try {
         return JSON.parse(localStorage.getItem('amc_demo_tickets') || 'null') || seedTickets;
@@ -98,6 +97,8 @@ const calendarDate = (value: unknown): string => {
 };
 const badge = (v: string) => { const k = v.toLowerCase().replace(/\s/g, '-'); return <Badge className={'badge ' + (k.includes('critical') || k.includes('overdue') || k.includes('expiring') ? 'red' : k.includes('high') || k.includes('waiting') || k.includes('due') ? 'amber' : k.includes('resolved') || k.includes('active') || k.includes('operational') || k.includes('healthy') || k.includes('closed') ? 'green' : k.includes('progress') ? 'blue' : 'gray')}>{v}</Badge>; };
 function App() {
+    const [actingAs, setActingAs] = useState<{actor: {id: number; name: string; role: Role}; target_name: string} | null>(null);
+    const [returningWorkspace, setReturningWorkspace] = useState(false);
     const [workspaceLoaded, setWorkspaceLoaded] = useState(DEMO);
     const [incidents, setIncidents] = useState<any[]>([]);
     const [incidentError, setIncidentError] = useState('');
@@ -181,9 +182,9 @@ function App() {
     const visibleRecords = (key: string) => DEMO ? (records[key]?.filter(r => role.startsWith('customer') ? r.customer_id === customerId : true) || []) : (directoryGrid?.page === key ? directoryGrid.rows : records[key] || []);
     // React visibility is presentation only. All privileges are enforced again in Laravel.
     const isStaff = role === 'admin';
-    const canCreateTicket = isStaff || role === 'customer_admin' || role === 'customer_user';
+    const canCreateTicket = mayCreateTicket(role, actingAs?.actor.role ?? role);
     const [features, setFeatures] = useState<{maintenance_enabled?: boolean}>({});
-    const canAccessPage = (name: string): boolean => canViewPage(role, name, features);
+    const canAccessPage = (name: string): boolean => canViewPage(role, name, features) && !(actingAs && ['My Profile', 'My Security'].includes(name));
     const maintenanceDisabled = (name: string): boolean => name === 'Maintenance' && !features.maintenance_enabled;
     useEffect(() => {
         if (DEMO)
@@ -201,20 +202,36 @@ function App() {
     }, [selected?.id, role]);
     const refreshWorkspace = async () => { if (role === 'super_admin') return; const [{ data }, { data: options }] = await Promise.all([client.get('/bootstrap'), client.get('/lookups')]); setFeatures(data.features || {}); setTickets(data.tickets || []); setRecords({ Customers: data.customers || [], Assets: data.assets || [], 'Contracts': data.contracts || [], Maintenance: data.maintenance || [], Technicians: data.technicians || [] }); setRole(data.user.role); setCurrentUser(data.user); setLookups(options); setWorkspaceLoaded(true); };
     useEffect(() => {
+        if (DEMO || !logged) return;
+        const url = new URL(window.location.href);
+        const id = url.searchParams.get('ticket');
+        if (!id || !/^\d+$/.test(id)) return;
+        let cancelled = false;
+        client.get(`/tickets/${id}`).then(({data}) => { if (!cancelled) setSelected(data.data); })
+            .catch(() => { if (!cancelled) setWorkspaceError('This ticket is unavailable or you do not have access.'); });
+        url.searchParams.delete('ticket'); window.history.replaceState(null, '', url);
+        return () => { cancelled = true; };
+    }, [logged]);
+    useEffect(() => {
         if (DEMO)
             return;
-        client.get('/auth/me').then(({ data }) => { setRole(data.user.role); setCurrentUser(data.user); setPage(data.user.role === 'super_admin' ? 'Monitoring' : data.user.role === 'technician' ? 'My Inbox' : 'Overview'); setLogged(true); }).catch((error: unknown) => {
+        client.get('/auth/me').then(({ data }) => { setActingAs(data.acting_as || null); setRole(data.user.role); setCurrentUser(data.user); setPage(data.user.role === 'super_admin' ? 'Monitoring' : data.user.role === 'technician' ? 'My Inbox' : 'Overview'); setLogged(true); }).catch((error: unknown) => {
           const code = (error as { response?: { data?: { code?: string } } }).response?.data?.code;
           setLogged(false);
           const status = (error as { response?: { status?: number } }).response?.status;
           setAuthError(status === 401 ? '' : code === 'MFA_REQUIRED'
               ? 'Additional verification is required. Sign in to continue.'
-              : 'Could not restore your session. Sign in or check backend availability.');
+              : 'We could not restore your session. Please sign in again.');
         }).finally(() => setRestoring(false));
     }, []);
     useEffect(() => {
+        const changed = (event: StorageEvent) => { if (event.key === 'amc:workspace-change') window.location.reload(); };
+        window.addEventListener('storage', changed);
+        return () => window.removeEventListener('storage', changed);
+    }, []);
+    useEffect(() => {
         if (!DEMO && logged) {
-            if (role !== 'super_admin') refreshWorkspace().then(() => setWorkspaceError('')).catch(() => setWorkspaceError('Workspace could not be refreshed. Check the API connection and retry.'));
+            if (role !== 'super_admin') refreshWorkspace().then(() => setWorkspaceError('')).catch(() => setWorkspaceError('Your dashboard could not be refreshed. Check your connection and try again.'));
             else client.get('/admin/metrics').then(({ data }) => setSystemMetrics(data)).catch(() => setWorkspaceError('System metrics unavailable.'));
         }
     }, [logged, role]);
@@ -406,6 +423,8 @@ function App() {
         }
     };
     const completeSignIn = (user: MfaLoginResult) => {
+        advanceAuthEpoch();
+        startIdleActivity(user.id);
         setRole(user.role as Role);
         setPage(user.role === 'super_admin' ? 'Monitoring' : user.role === 'technician' ? 'My Inbox' : 'Overview');
         setCurrentUser(user as typeof currentUser);
@@ -442,6 +461,13 @@ function App() {
                 return;
             }
         }
+        clearSignedInState();
+    };
+    const clearSignedInState = () => {
+        advanceAuthEpoch();
+        if (actingAs) clearIdleActivity(actingAs.actor.id);
+        else if (currentUser) clearIdleActivity(currentUser.id);
+        setActingAs(null);
         setLogged(false);
         setPage('Overview');
         setSelected(null);
@@ -455,8 +481,22 @@ function App() {
         setWorkspaceError('');
         setMfaPending(null);
         setCurrentUser(null);
+        setModal(null);
+        setContractDocuments(null);
+        setQuickOpen(false);
+        setSide(false);
+        setLookups({ customers: [], categories: [], priorities: [], asset_types: [], sla_policies: [], technicians: [] });
         setTickets([]);
         setRecords({ Customers: [], Assets: [], 'Contracts': [], Maintenance: [], Technicians: [] });
+    };
+    useIdleSession(logged && !DEMO, actingAs?.actor.id ?? currentUser?.id, actingAs?.actor.role ?? role, () => {
+        clearSignedInState();
+        setAuthError('Your session expired. Please sign in again.');
+    });
+    const returnToWorkspace = async () => {
+        setReturningWorkspace(true);
+        try { await client.delete('/customer-workspace'); reloadCustomerWorkspace(); }
+        catch (failure) { setWorkspaceError(getApiErrorMessage(failure, 'Unable to return to your workspace.')); setReturningWorkspace(false); }
     };
     const loadIncidents = async () => {
         if (DEMO || role !== 'super_admin') return;
@@ -535,40 +575,40 @@ function App() {
         return null;
     };
     if (restoring)
-        return <div className="login-bg"><div className="login-panel"><h2>Connecting to Atlazddesk...</h2></div></div>;
+        return <div className="login-bg"><div className="login-panel"><h2>Connecting to SupportDesk...</h2></div></div>;
     if (!logged && mfaPending)
         return <MfaLogin challenge={mfaPending} onComplete={completeSignIn} onCancel={cancelMfa}/>;
     if (!logged)
         return <div className="login-bg"><div className="login-panel"><div className="brand"><div className="brand-icon"><Command size={24}/></div><div className="amc-brand-title">{AMC_BRAND_NAME}</div></div><div className="login-heading"><h1>Sign in</h1><ThemeToggle/></div><form onSubmit={login}><Field>Email address<Input type="email" name="email" autoComplete="username" required value={auth.email} onChange={e => { setAuth(p => ({ ...p, email: e.target.value })); setAuthError(''); }}/></Field><Field>Password<Input type="password" name="password" autoComplete="current-password" required value={auth.password} onChange={e => { setAuth(p => ({ ...p, password: e.target.value })); setAuthError(''); }}/></Field>{authError && <div role="alert" className={authError.startsWith('Additional verification is required') ? 'amc-inline-warning' : 'error'}>{authError}</div>}<Button className="btn btn-primary wide" type="submit">Sign in</Button></form></div></div>;
-    return <div className="app"><aside className={'sidebar ' + (side ? 'shown' : '')}><div className="brand"><div className="brand-icon"><Command size={24}/></div><div className="amc-brand-title">{AMC_BRAND_NAME}</div><button className="close-mobile" onClick={() => setSide(false)}><X size={20}/></button></div><div className="workspace"><span className="workspace-icon" aria-hidden="true">{WORKSPACE_LABELS[role][0].slice(0, 1)}</span><div><b>{WORKSPACE_LABELS[role][0]}</b><small>{WORKSPACE_LABELS[role][1]}</small></div></div><nav>{nav.filter(group => group.items.some(([name]) => !maintenanceDisabled(name) && (DEMO || canAccessPage(name)))).map(group => <div className="nav-group" key={group.group}><div className="nav-label">{group.group}</div>{group.items.filter(([name]) => !maintenanceDisabled(name) && (DEMO || canAccessPage(name))).map(([name, Icon]) => <button key={name} className={'nav-item ' + (page === name ? 'active' : '')} onClick={() => go(name)}><Icon size={16}/><span>{name}</span>{name === 'Tickets' && <i>{active.length}</i>}</button>)}</div>)}</nav><div className="sidebar-bottom"><div className="profile"><span className="avatar">{role === 'technician' ? 'TE' : role === 'admin' ? 'AD' : role === 'customer_admin' ? 'CA' : role === 'customer_user' ? 'CU' : 'SA'}</span><div><b>{currentUser?.name || (role === 'technician' ? 'Technician' : role === 'admin' ? 'Admin' : role === 'customer_admin' ? 'Customer Admin' : role === 'customer_user' ? 'Customer User' : 'Super Admin')}</b><small>{role.replaceAll('_', ' ')}</small></div><button title="Log out" onClick={logout}><LogOut size={16}/></button></div></div></aside>{side && <div className="backdrop" onClick={() => setSide(false)}/>}<div className="main"><header className="topbar"><div className="crumb"><button className="mobile-menu" onClick={() => setSide(true)}><Menu size={20}/></button><span>Workspace</span><ChevronRight size={16}/><b>{page}</b></div><div className="top-actions"><ThemeToggle/><span className="today" title={`Installation timezone: ${getInstallationTimezone()}`}><CalendarDays size={16}/> {formatInstallationDate(new Date()) + ' · ' + formatInstallationTime(new Date())} · {getInstallationTimezone()}</span>{role !== 'super_admin' && !DEMO && <NotificationsPanel onTicket={id => { void openNotificationTicket(id); }}/>}
+    return <DashboardFeedbackProvider><div className="app"><aside className={'sidebar ' + (side ? 'shown' : '')}><div className="brand"><div className="brand-icon"><Command size={24}/></div><div className="amc-brand-title">{AMC_BRAND_NAME}</div><button className="close-mobile" onClick={() => setSide(false)}><X size={20}/></button></div><p className="sidebar-role">{ROLE_LABELS[role]}</p><nav>{nav.filter(group => group.items.some(([name]) => !maintenanceDisabled(name) && (DEMO || canAccessPage(name)))).map(group => <div className="nav-group" key={group.group}><div className="nav-label">{group.group}</div>{group.items.filter(([name]) => !maintenanceDisabled(name) && (DEMO || canAccessPage(name))).map(([name, Icon]) => <button key={name} className={'nav-item ' + (page === name ? 'active' : '')} onClick={() => go(name)}><Icon size={16}/><span>{name}</span>{name === 'Tickets' && <i>{active.length}</i>}</button>)}</div>)}</nav><div className="sidebar-bottom"><div className="profile"><span className="avatar">{role === 'technician' ? 'TE' : role === 'admin' ? 'AD' : role === 'customer_admin' ? 'CA' : role === 'customer_user' ? 'CU' : 'SA'}</span><div><b>{currentUser?.name || (role === 'technician' ? 'Technician' : role === 'admin' ? 'Admin' : role === 'customer_admin' ? 'Customer Admin' : role === 'customer_user' ? 'Customer User' : 'Super Admin')}</b><small>{ROLE_LABELS[role]}</small></div><button title="Log out" onClick={logout}><LogOut size={16}/></button></div></div></aside>{side && <div className="backdrop" onClick={() => setSide(false)}/>}<div className="main"><header className="topbar"><div className="crumb"><button className="mobile-menu" onClick={() => setSide(true)}><Menu size={20}/></button><span>Workspace</span><ChevronRight size={16}/><b>{page}</b></div><div className="top-actions"><ThemeToggle/><span className="today" title={`Installation timezone: ${getInstallationTimezone()}`}><CalendarDays size={16}/> {formatInstallationDate(new Date()) + ' · ' + formatInstallationTime(new Date())} · {getInstallationTimezone()}</span>{role !== 'super_admin' && !DEMO && <NotificationsPanel onTicket={id => { void openNotificationTicket(id); }}/>}
 <button className="icon-button quick-nav-trigger" type="button" title="Quick navigation (Ctrl+K)" onClick={() => setQuickOpen(true)}><Search size={20}/><span>Ctrl K</span></button>
-<ProfileMenu name={currentUser?.name || role.replaceAll('_', ' ')} email={currentUser?.email || ''} role={role} onNavigate={go} onLogout={() => { void logout(); }}/>
-</div></header><main className="content">{workspaceError && <div className="workspace-alert" role="alert">{workspaceError} <Button className="btn btn-secondary" onClick={() => { if (role === 'super_admin') void client.get('/admin/metrics').then(({ data }) => { setSystemMetrics(data); setWorkspaceError(''); }); else void refreshWorkspace().then(() => setWorkspaceError('')); }}>Retry</Button></div>}<div className="page-header"><div><div className="eyebrow">{page === 'My Security' ? 'ACCOUNT SECURITY' : role === 'super_admin' ? 'TECHNICAL OPERATIONS' : role.startsWith('customer') ? 'CLIENT PORTAL' : role === 'technician' ? 'FIELD SERVICE' : 'CONTRACTOR OPERATIONS'}</div><h1>{page === 'Overview' ? `Welcome, ${currentUser?.name || 'Team member'}` : page}</h1><p>{page === 'Overview' ? (role === 'technician' ? 'Assigned work and recent activity.' : role.startsWith('customer') ? 'Your organization’s service requests and equipment.' : 'Service activity across your managed clients.') : PAGE_DESCRIPTIONS[page] ?? ''}</p></div><div className="header-buttons">{page === 'Overview' && canCreateTicket && button('+ New ticket', () => openModal('New ticket'))}{headerAction()}</div></div>
+<ProfileMenu allowAccountSettings={!actingAs} name={currentUser?.name || role.replaceAll('_', ' ')} email={currentUser?.email || ''} role={role} onNavigate={go} onLogout={() => { void logout(); }}/>
+</div></header><main className="content">{actingAs && <div className="customer-workspace-context"><Button type="button" disabled={returningWorkspace} onClick={() => void returnToWorkspace()}>{returningWorkspace ? 'Returning…' : 'Return to Contractor Admin'}</Button></div>}{workspaceError && <div className="workspace-alert" role="alert">{workspaceError} <Button className="btn btn-secondary" onClick={() => { if (role === 'super_admin') void client.get('/admin/metrics').then(({ data }) => { setSystemMetrics(data); setWorkspaceError(''); }); else void refreshWorkspace().then(() => setWorkspaceError('')); }}>Retry</Button></div>}<div className="page-header"><div><h1>{page === 'Overview' ? `Welcome, ${currentUser?.name || 'Team member'}` : page}</h1><p>{page === 'Overview' ? (role === 'technician' ? 'Assigned work and recent activity.' : role.startsWith('customer') ? 'Your organization’s service requests and equipment.' : 'Service activity across your managed clients.') : PAGE_DESCRIPTIONS[page] ?? ''}</p></div><div className="header-buttons">{page === 'Overview' && canCreateTicket && button('+ New ticket', () => openModal('New ticket'))}{headerAction()}</div></div>
     {page === 'Overview' && role !== 'super_admin' && <><div className="dashboard-timeframes" role="group" aria-label="Ticket timeframe">{DASHBOARD_PERIODS.map(period => <Button type="button" key={period.value} className="btn btn-secondary" aria-pressed={dashboardPeriod === period.value} onClick={() => setDashboardPeriod(period.value)}>{period.label}</Button>)}<span>{periodLabel} · tickets created in this period</span></div><div className="kpis"><div className="kpi"><div className="kpi-top"><span>Open tickets</span><div className="kpi-icon indigo"><TicketIcon size={20}/></div></div><strong>{DEMO ? dashboardTickets.filter(t => !['Closed','Resolved','Cancelled'].includes(t.status)).length : (report?.open ?? '—')}</strong><div className="kpi-foot">Open tickets in selected period</div></div><div className="kpi"><div className="kpi-top"><span>Critical issues</span><div className="kpi-icon rose"><AlertTriangle size={20}/></div></div><strong>{DEMO ? dashboardTickets.filter(t => t.priority === 'Critical' && !['Closed','Resolved','Cancelled'].includes(t.status)).length : (report?.critical_open ?? '—')}</strong><div className="kpi-foot"><span className="red-text">Needs attention</span> · highest priority</div></div><div className="kpi"><div className="kpi-top"><span>Resolved tickets</span><div className="kpi-icon mint"><CheckCircle2 size={20}/></div></div><strong>{DEMO ? dashboardTickets.filter(t => ['Resolved','Closed'].includes(t.status)).length : (report?.resolved ?? '—')}</strong><div className="kpi-foot">Resolved tickets in selected period</div></div>{role === 'admin'
     ? <div className="kpi"><div className="kpi-top"><span>Active contracts</span><div className="kpi-icon amber-icon"><FileText size={20}/></div></div><strong>{DEMO || workspaceLoaded ? visibleRecords('Contracts').filter(c => c.status === 'Active').length : '—'}</strong><div className="kpi-foot">Across <b>{visibleRecords('Customers').length}</b> clients</div></div>
-    : <div className="kpi"><div className="kpi-top"><span>{role === 'technician' ? 'Assigned tickets' : 'Registered assets'}</span><div className="kpi-icon amber-icon"><HardDrive size={20}/></div></div><strong>{role === 'technician' ? (DEMO ? dashboardTickets.length : report?.total ?? '—') : DEMO || workspaceLoaded ? visibleRecords('Assets').length : '—'}</strong><div className="kpi-foot">{role === 'technician' ? 'Assigned tickets in selected period' : 'Equipment in your organization'}</div></div>}</div><div className="dashboard-grid"><Card className="panel chart-panel"><div className="panel-head"><div><h3>Ticket activity</h3><p>{periodLabel}</p></div><span className="result-count">{periodLabel}</span></div><div className="legend"><span><i className="legend-purple"/>Created</span><span><i className="legend-green"/>Resolved</span></div><div className="chart"><ResponsiveContainer width="100%" height="100%"><AreaChart data={chart}><defs><linearGradient id="purpleGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--palette-brand)" stopOpacity={.2}/><stop offset="100%" stopColor="var(--palette-brand)" stopOpacity={0}/></linearGradient></defs><CartesianGrid stroke="var(--palette-border-soft)" vertical={false}/><XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: 'var(--palette-subtle)', fontSize: 'var(--text-label)' }}/><Tooltip /><Area type="monotone" dataKey="tickets" stroke="var(--palette-brand)" strokeWidth={2.8} fill="url(#purpleGrad)"/><Area type="monotone" dataKey="resolved" stroke="var(--palette-success)" strokeWidth={2.5} fill="transparent"/></AreaChart></ResponsiveContainer></div></Card><Card className="panel distribution"><div className="panel-head"><div><h3>By priority</h3><p>Tickets created in selected period</p></div></div><div className="donut"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie isAnimationActive={false} data={[{ name: 'Critical', value: count('Critical') }, { name: 'High', value: count('High') }, { name: 'Medium', value: count('Medium') }, { name: 'Low', value: count('Low') }]} dataKey="value" innerRadius={66} outerRadius={87} paddingAngle={0} stroke="none">{['var(--palette-critical)', 'var(--palette-warning)', 'var(--palette-brand)', 'var(--palette-low)'].map(c => <Cell key={c} fill={c}/>)}</Pie></PieChart></ResponsiveContainer><div className="donut-center"><strong>{DEMO ? dashboardTickets.length : (report?.total ?? '—')}</strong><span>Total tickets</span></div></div><div className="priority-legend">{[['Critical', 'var(--palette-critical)'], ['High', 'var(--palette-warning)'], ['Medium', 'var(--palette-brand)'], ['Low', 'var(--palette-low)']].map(([p, c]) => <div key={p}><span><i style={{ background: c }}/>{p}</span><b>{count(p)}</b></div>)}</div></Card></div><Card className="panel tickets-panel"><div className="panel-head"><div><h3>Recent tickets</h3><p>{role === 'technician' ? 'Recently assigned work' : role.startsWith('customer') ? 'Recent requests for your organization' : 'Recent client requests'}</p></div><button className="text-button" onClick={() => go(role === 'technician' ? 'My Inbox' : 'Tickets')}>View all tickets <ArrowUpRight size={16}/></button></div>{tableTickets(dashboardTickets.slice(0, 5))}</Card></>}
+    : <div className="kpi"><div className="kpi-top"><span>{role === 'technician' ? 'Assigned tickets' : 'Registered assets'}</span><div className="kpi-icon amber-icon"><HardDrive size={20}/></div></div><strong>{role === 'technician' ? (DEMO ? dashboardTickets.length : report?.total ?? '—') : DEMO || workspaceLoaded ? visibleRecords('Assets').length : '—'}</strong><div className="kpi-foot">{role === 'technician' ? 'Assigned tickets in selected period' : 'Equipment in your organization'}</div></div>}</div><div className="dashboard-grid"><Card className="panel chart-panel"><div className="panel-head"><div><h3>Ticket activity</h3><p>{periodLabel}</p></div><span className="result-count">{periodLabel}</span></div><div className="legend"><span><i className="legend-purple"/>Created</span><span><i className="legend-green"/>Resolved</span></div><div className="chart"><ResponsiveContainer width="100%" height="100%"><AreaChart data={chart}><defs><linearGradient id="purpleGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--palette-brand)" stopOpacity={.2}/><stop offset="100%" stopColor="var(--palette-brand)" stopOpacity={0}/></linearGradient></defs><CartesianGrid stroke="var(--palette-border-soft)" vertical={false}/><XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: 'var(--palette-subtle)', fontSize: 'var(--text-label)' }}/><Tooltip /><Area type="monotone" dataKey="tickets" stroke="var(--palette-brand)" strokeWidth={2.8} fill="url(#purpleGrad)"/><Area type="monotone" dataKey="resolved" stroke="var(--palette-success)" strokeWidth={2.5} fill="transparent"/></AreaChart></ResponsiveContainer></div></Card><Card className="panel distribution"><div className="panel-head"><div><h3>By priority</h3><p>Tickets created in selected period</p></div></div><div className="donut"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie isAnimationActive={false} data={[{ name: 'Critical', value: count('Critical') }, { name: 'High', value: count('High') }, { name: 'Medium', value: count('Medium') }, { name: 'Low', value: count('Low') }]} dataKey="value" innerRadius={66} outerRadius={87} paddingAngle={0} stroke="none">{['var(--palette-critical)', 'var(--palette-warning)', 'var(--palette-brand)', 'var(--palette-low)'].map(c => <Cell key={c} fill={c}/>)}</Pie></PieChart></ResponsiveContainer><div className="donut-center"><strong>{DEMO ? dashboardTickets.length : (report?.total ?? '—')}</strong><span>Total tickets</span></div></div><div className="priority-legend">{[['Critical', 'var(--palette-critical)'], ['High', 'var(--palette-warning)'], ['Medium', 'var(--palette-brand)'], ['Low', 'var(--palette-low)']].map(([p, c]) => <div key={p}><span><i style={{ background: c }}/>{p}</span><b>{count(p)}</b></div>)}</div></Card></div><Card className="panel tickets-panel"><div className="panel-head"><div><h3>Recent tickets</h3><p>{role === 'technician' ? 'Recently assigned work' : role.startsWith('customer') ? 'Recent requests for your organization' : 'Recent client requests'}</p></div>{canAccessPage(role === 'technician' ? 'My Inbox' : 'Tickets') && <button className="text-button" onClick={() => go(role === 'technician' ? 'My Inbox' : 'Tickets')}>View all tickets <ArrowUpRight size={16}/></button>}</div>{tableTickets(dashboardTickets.slice(0, 5))}</Card></>}
     {(page === 'Tickets' || page === 'My Inbox') && <Card className="panel tickets-panel"><div className="toolbar"><div className="search-box"><Search size={16}/><Input aria-label="Search tickets, customers, technicians" placeholder="Search tickets, customers, technicians..." value={query} onChange={e => setQuery(e.target.value)}/></div><div className="filter-box"><SearchableDropdown value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>{['All statuses', 'New', 'Assigned', 'In Progress', 'Waiting Customer', 'Waiting Parts', 'Resolved', 'Closed'].map(s => <option key={s}>{s}</option>)}</SearchableDropdown></div><div className="filter-box"><SearchableDropdown aria-label="Filter priority" value={priorityFilter} onChange={e => setPriorityFilter(e.target.value)}>{['All priorities','Critical','High','Medium','Low'].map(p => <option key={p}>{p}</option>)}</SearchableDropdown></div><button className="text-button" onClick={() => { setQuery(''); setStatusFilter('All statuses'); setPriorityFilter('All priorities'); }}>Clear filters</button><span className="result-count">{searchBusy ? 'Searching…' : `${filtered.length} tickets`}</span></div>{tableTickets(filtered)}</Card>}
-    {!DEMO && page === 'Assets' && role === 'admin' && <CategoryManager onChange={() => void refreshWorkspace()}/>}
+    {!DEMO && page === 'Categories' && role === 'admin' && <CategoryManager onChange={() => void refreshWorkspace()}/>}
     {!DEMO && (page === 'Customers' || page === 'Assets' || page === 'My Assets') && <DirectoryList key={page} resource={page === 'Customers' ? 'customers' : 'assets'} lookups={lookups} canEdit={role === 'admin'}/>}
     {!DEMO && page === 'Contracts' && role === 'admin' && <ContractCatalog/>}
     {!maintenanceDisabled(page) && (DEMO ? ['Customers', 'Assets', 'Contracts', 'Maintenance', 'Technicians'] : ['Contracts', 'Maintenance', 'Technicians']).includes(page) && <Card className="panel tickets-panel"><div className="toolbar"><div className="search-box"><Search size={16}/><Input placeholder={page === 'Contracts' ? 'Search contracts…' : `Search ${page.toLowerCase()}...`} value={query} onChange={e => setQuery(e.target.value)}/></div><span className="result-count">{visibleRecords(page).length} records</span></div><div className="table-scroll"><SortableTable key={page} onSort={DEMO ? undefined : ({column, direction}) => { const columns = page === 'Contracts' ? ['contract_number','customer','contract_type','end_date','status'] : page === 'Maintenance' ? ['title','customer','frequency','next_due_date','status'] : ['name','email','role','status']; setDirectorySort({page, sort: columns[column], direction}); setDirectoryPage(1); }}><thead><tr>{(page === 'Customers' ? ['Company', 'Code', 'Location', 'Status'] : page === 'Assets' ? ['Asset', 'Type', 'Customer', 'Status'] : page === 'Contracts' ? ['Contract', 'Customer', 'Type', 'Expiry', 'Status', ...(!DEMO && role === 'admin' ? ['Documents'] : [])] : page === 'Maintenance' ? ['Task', 'Customer', 'Frequency', 'Next due', 'Status'] : ['Name', 'Email', 'Role', 'Status']).map(h => <th key={h}>{h}</th>)}</tr></thead><tbody>{visibleRecords(page).filter(r => Object.values(r).join(' ').toLowerCase().includes(query.toLowerCase())).map(r => <tr key={r.id} className={['Customers', 'Assets', 'Contracts', 'Technicians'].includes(page) ? 'record-row' : ''} onClick={() => { if (['Customers', 'Assets', 'Contracts', 'Technicians'].includes(page)) setRecordDetails({ resource: page === 'Customers' ? 'customers' : page === 'Assets' ? 'assets' : page === 'Technicians' ? 'technicians' : 'contracts', record: r }); }}>{(page === 'Customers' ? [r.company_name, r.customer_code, r.city, r.status] : page === 'Assets' ? [r.name, r.type, r.customer_name || (DEMO ? customers : records.Customers || []).find(c => c.id === r.customer_id)?.company_name, r.status] : page === 'Contracts' ? [r.contract_number, r.customer_name || (DEMO ? customers : records.Customers || []).find(c => c.id === r.customer_id)?.company_name, r.contract_type, calendarDate(r.end_date), r.status] : page === 'Maintenance' ? [r.title, r.customer_name || (DEMO ? customers : records.Customers || []).find(c => c.id === r.customer_id)?.company_name, r.frequency, calendarDate(r.next_due_date), r.status] : [r.name, r.email, r.role, r.status]).map((v, i) => <td key={i} data-sort-value={page === 'Contracts' && i === 3 ? r.end_date : page === 'Maintenance' && i === 3 ? r.next_due_date : undefined}>{i === (page === 'Contracts' ? 4 : page === 'Maintenance' ? 4 : page === 'Technicians' ? 3 : 3) ? badge(String(v || '—')) : i === 0 && ['Customers', 'Assets', 'Contracts', 'Technicians'].includes(page) ? <button type="button" className="record-link">{String(v || '—')}</button> : String(v || '—')}</td>)}{page === 'Contracts' && role === 'admin' && !DEMO && <td><Button type="button" className="btn" onClick={event => { event.stopPropagation(); setContractDocuments({ id: r.id, number: String(r.contract_number) }); }}>Documents</Button></td>}</tr>)}</tbody></SortableTable>{visibleRecords(page).filter(r => Object.values(r).join(' ').toLowerCase().includes(query.toLowerCase())).length === 0 && <div className="empty">{query ? `No matching ${page.toLowerCase()} found.` : `No ${page.toLowerCase()} have been added yet.`}</div>}</div>{!DEMO && directoryGrid?.page === page && directoryGrid.last > 1 && <div className="toolbar directory-pagination"><Button className="btn btn-secondary" disabled={directoryPage <= 1} onClick={() => setDirectoryPage(p => p - 1)}>Previous</Button><span>Page {directoryGrid.number} of {directoryGrid.last}</span><Button className="btn btn-secondary" disabled={directoryPage >= directoryGrid.last} onClick={() => setDirectoryPage(p => p + 1)}>Next</Button></div>}</Card>}
-    {page === 'User Management' && canAccessPage('User Management') && !DEMO && <UserDirectory role={role} customerId={currentUser?.customer_id ?? null} customers={lookups.customers || []}/>}
+    {page === 'User Management' && canAccessPage('User Management') && !DEMO && <React.Suspense fallback={<p role="status">Loading…</p>}><UserDirectory role={role} customerId={currentUser?.customer_id ?? null} customers={lookups.customers || []}/></React.Suspense>}
     {page === 'Reports' && <div className="reports"><div className="kpis"><div className="kpi"><span>Total tickets</span><strong>{DEMO ? visibleTickets.length : (report?.total ?? '—')}</strong></div><div className="kpi"><span>Resolved / closed</span><strong>{DEMO ? visibleTickets.filter(t => ['Resolved', 'Closed'].includes(t.status)).length : (report?.resolved ?? '—')}</strong></div><div className="kpi"><span>Critical</span><strong>{DEMO ? critical.length : (report?.critical_open ?? '—')}</strong></div><div className="kpi"><span>Unassigned</span><strong>{DEMO ? unassigned.length : (report?.unassigned_open ?? '—')}</strong></div></div><Card className="panel report-panel"><div className="panel-head"><div><h3>Service desk report</h3><p>Export current ticket records to CSV</p></div>{button('↓ Export CSV', () => { void exportCsv(); })}</div>{tableTickets(visibleTickets)}</Card></div>}
     {page === 'Monitoring' && role === 'super_admin' && <>
-      <Card className="panel technical-summary"><h3>Technical operations</h3><p>System-level status only. Client and ticket administration belongs to the company Admin.</p>
+      <Card className="panel technical-summary"><h3>System status</h3><p>System-level status only. Client and ticket administration belongs to the company Admin.</p>
       <div className="technical-kpis">{Object.entries(systemMetrics || {}).filter(([key]) => ['failed_jobs','incidents_open','incidents_last_24h','queue_connection','cache_store','laravel_version','php_version'].includes(key)).map(([key,value]) => <div className="technical-kpi" key={key}><small>{key.replaceAll('_',' ')}</small><b>{String(value)}</b></div>)}</div>
       </Card><div className="health-banner"><div><div className="health-pulse"><Activity size={24}/></div><div><h2>{health?.status === 'healthy' ? 'All systems operational' : health ? 'Service degradation detected' : 'Checking service health...'}</h2><p>Live operational status from your application dependencies</p></div></div>{button('↻ Refresh', healthCheck, true)}</div><div className="health-grid">{Object.entries(health?.checks || {}).map(([name, value]: any) => <div className="panel health-card" key={name}><div className="health-service-icon">{name === 'database' ? <Database /> : name === 'redis' ? <Server /> : name === 'queue' ? <RefreshCw /> : <Wifi />}</div><div><h3>{name[0].toUpperCase() + name.slice(1)}</h3><p>{badge(value.status || 'unknown')}</p></div></div>)}</div>{!DEMO && <Card className="panel info-panel"><h3>Open application incidents ({incidents.length})</h3><p>Failures are captured without passwords, request payloads, or full stack traces. Use request IDs to correlate with server logs.</p>{incidentError && <p role="alert">{incidentError}</p>}{incidents.length === 0 ? <p>No open incidents reported.</p> : <div style={{overflowX:'auto'}}><SortableTable style={{width:'100%',textAlign:'left'}}><thead><tr><th>Last seen</th><th>Type</th><th>Exception</th><th>Count</th><th>Request ID</th><th>Action</th></tr></thead><tbody>{incidents.map((item:any)=><tr key={item.id}><td>{item.last_seen_at}</td><td>{item.kind}</td><td>{item.message}</td><td>{item.occurrences}</td><td>{item.request_id || '—'}</td><td><Button className="btn btn-secondary" onClick={()=>resolveIncident(item.id)}>Resolve</Button></td></tr>)}</tbody></SortableTable></div>}</Card>}</>}
     {recordDetails && <RecordDetails key={`${recordDetails.resource}-${recordDetails.record.id}`} resource={recordDetails.resource} id={recordDetails.record.id} canManageContracts={role === 'admin' && !DEMO} onChanged={() => void refreshWorkspace()} onClose={() => setRecordDetails(null)}/>}
     {page === 'Contracts' && role === 'admin' && contractDocuments && <ContractDocuments key={contractDocuments.id} contractId={contractDocuments.id} contractNumber={contractDocuments.number} onClose={() => setContractDocuments(null)}/>}
     {page === 'About' && <About role={role} systemMetrics={role === 'super_admin' ? systemMetrics : null}/>}
     {page === 'My Profile' && currentUser && !DEMO && <MyProfile user={currentUser} onUpdate={next => setCurrentUser(p => p ? { ...p, name: next.name, email: next.email } : p)}/>}
-    {page === 'System Support' && role === 'super_admin' && !DEMO && <SystemSupport retentionSettings={<RetentionSettings scope="technical" />} />}
+    {page === 'System Support' && role === 'super_admin' && !DEMO && <React.Suspense fallback={<p role="status">Loading…</p>}><SystemSupport retentionSettings={<RetentionSettings scope="technical" />} /></React.Suspense>}
     {page === 'Admin Accounts' && role === 'super_admin' && !DEMO && <ContractorAdminAccounts/>}
-    {page === 'Client Security' && role === 'admin' && !DEMO && <ClientMfaPolicies customers={lookups.customers || []}/>}
+    {page === 'Client Security' && role === 'admin' && !DEMO && <React.Suspense fallback={<p role="status">Loading…</p>}><ClientMfaPolicies customers={lookups.customers || []}/></React.Suspense>}
     {page === 'My Security' && !DEMO && <MyMfaSettings/>}
     {page === 'Authentication' && role === 'admin' && !DEMO && <ContractorMfaSettings/>}
     {/* AMC-RETENTION-V10.11: Contractor Admin may configure only read-notification retention. */}
-    {page === 'Email Delivery' && role === 'admin' && !DEMO && <EmailDeliverySettings customers={lookups.customers || []}/>}
+    {page === 'Email Delivery' && role === 'admin' && !DEMO && <React.Suspense fallback={<p role="status">Loading…</p>}><EmailDeliverySettings customers={lookups.customers || []}/></React.Suspense>}
 
     </main></div>
     {selected && <SlidingDrawer title="Ticket details" onClose={() => setSelected(null)}><div className={`drawer-body ticket-details ${role === 'technician' ? 'technician-ticket-details' : ''}`}>
@@ -598,9 +638,9 @@ function App() {
                 alert('Comment posted');
             }}><Send size={16}/> Post comment</Button></div></div></SlidingDrawer>}
     {modal === 'Contracts' && role === 'admin' && !DEMO && <ContractEditor onClose={() => setModal(null)} onSaved={() => { setModal(null); void refreshWorkspace(); }}/> }
-    {modal === 'Register client' && <ClientOnboarding onClose={() => setModal(null)} onCreated={async () => { setModal(null); await refreshWorkspace(); alert('Client and Customer Admin registered.'); }}/>}
+    {modal === 'Register client' && <React.Suspense fallback={<p role="status">Loading…</p>}><ClientOnboarding onClose={() => setModal(null)} onCreated={async () => { setModal(null); await refreshWorkspace(); alert('Client and Customer Admin registered.'); }}/></React.Suspense>}
     {modal && modal !== 'Register client' && modal !== 'Contracts' && <Dialog label={modal} onClose={() => setModal(null)}><div className="modal" onMouseDown={e => e.stopPropagation()}><div className="drawer-top"><span>{modal === 'New ticket' ? 'New ticket' : modal === 'Contracts' ? 'Add Contract' : 'Add ' + modal.slice(0, -1)}</span><CloseButton aria-label="Close dialog" onClick={() => setModal(null)}/></div><div className="modal-body">{(modal === 'New ticket' ? [['subject', 'Subject', 'text'], ['description', 'Description', 'textarea'], ...(isStaff ? [['customer_id', 'Customer', 'customers']] : []), ['category', 'Category', 'category'], ['asset_id', 'Asset', 'ticketasset'], ['priority', 'Priority', 'priority']] : modal === 'Customers' ? [['company_name', 'Company name', 'text'], ['customer_code', 'Customer code', 'text'], ['email', 'Email', 'text'], ['city', 'City', 'text']] : modal === 'Assets' ? [['name', 'Asset name', 'text'], ['asset_tag', 'Asset tag', 'text'], ['category_id', 'Category', 'assetcategories'], ...(role === 'customer_admin' ? [] : [['customer_id', 'Customer', 'customers']])] : modal === 'Maintenance' ? [['title', 'Task title', 'text'], ['customer_id', 'Customer', 'customers'], ['frequency', 'Frequency', 'frequency'], ['asset_id', 'Asset (optional)', 'maintenanceasset'], ['assigned_to', 'Technician (optional)', 'maintenancetech'], ['next_due_date', 'Next due', 'date']] : [['name', 'Name', 'text'], ['email', 'Email', 'text'], ['password', 'Password (8+ characters)', 'password'], ['password_confirmation', 'Confirm password', 'password']]).map(([key, label, type]) => <Field key={key}>{label}{type === 'textarea' ? <Textarea value={draft[key] || ''} onChange={e => setDraft(p => ({ ...p, [key]: e.target.value }))}/> : ['customers','category','priority','assetcategories','frequency','ticketasset','maintenanceasset','maintenancetech'].includes(type) ? <SearchableSelect disabled={type === 'ticketasset' && (assetChoicesBusy || !draft.category || !(draft.customer_id || (role.startsWith('customer') && currentUser?.customer_id)))} value={draft[key] || ''} placeholder={type === 'ticketasset' && draft.category && !assetChoicesBusy && ticketAssets.length === 0 ? 'No available assets' : `Select ${label.toLowerCase()}`} options={type === 'ticketasset' || type === 'maintenanceasset' ? (type === 'ticketasset' ? ticketAssets : (DEMO ? assets : records.Assets || [])).filter(asset => Number(asset.customer_id) === Number(draft.customer_id || (role.startsWith('customer') ? currentUser?.customer_id : 0))).map(asset => ({ value: String(asset.id), label: String(asset.name) + (asset.asset_tag ? ' · ' + String(asset.asset_tag) : '') })) : type === 'maintenancetech' ? (DEMO ? technicians : records.Technicians || []).map(t => ({ value: String(t.id), label: String(t.name) })) : fieldOptions(type)} onChange={value => setDraft(p => ({ ...p, [key]: value, ...(key === 'customer_id' || key === 'category' ? { asset_id: '' } : {}) }))}/> : <Input type={type} value={draft[key] || ''} onChange={e => setDraft(p => ({ ...p, [key]: e.target.value }))}/ >}</Field>)}</div><div className="modal-actions"><Button className="btn btn-secondary" onClick={() => setModal(null)}>Cancel</Button><Button className="btn btn-primary" disabled={loading || (modal === 'New ticket' && (!draft.asset_id || assetChoicesBusy))} onClick={save}>{loading ? 'Saving…' : modal === 'New ticket' ? 'Create ticket' : 'Save'}</Button></div></div></Dialog>}
     {quickOpen && <QuickNavigator options={allowedPages} onChoose={go} onClose={() => setQuickOpen(false)}/>}
-    <FeedbackToast feedback={notice ? { tone: noticeTone, message: notice } : null} onDismiss={() => setNotice('')}/></div>;
+    <FeedbackToast feedback={notice ? { tone: noticeTone, message: notice } : null} onDismiss={() => setNotice('')}/><FeedbackToast feedback={workspaceError ? {tone: 'error', message: workspaceError} : incidentError ? {tone: 'error', message: incidentError} : null} onDismiss={() => { setWorkspaceError(''); setIncidentError(''); }}/></div></DashboardFeedbackProvider>;
 }
 export default App;

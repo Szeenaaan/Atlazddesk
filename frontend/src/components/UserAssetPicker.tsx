@@ -1,3 +1,4 @@
+import { useFeedbackState } from './feedbackContext';
 import { Field } from './ui';
 import { Checkbox, Input } from './ui';
 import { useEffect, useState } from 'react';
@@ -5,7 +6,7 @@ import { client } from '../api/client';
 
 type Asset = { id: number; name: string; asset_tag: string };
 export default function UserAssetPicker({ customerId, value, onChange, disabled = false, label = 'Assigned assets (optional)' }: { label?: string; customerId: number | null; value: number[]; onChange: (ids: number[]) => void; disabled?: boolean }) {
-  const [assets, setAssets] = useState<Asset[]>([]), [search, setSearch] = useState(''), [loading, setLoading] = useState(false), [error, setError] = useState('');
+  const [assets, setAssets] = useState<Asset[]>([]), [search, setSearch] = useState(''), [loading, setLoading] = useState(false), [error, setError] = useFeedbackState('error');
   useEffect(() => {
     let cancelled = false;
     setAssets([]); setError('');

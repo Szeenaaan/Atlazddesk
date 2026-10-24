@@ -79,6 +79,34 @@ final class RecoveryV105Test extends TestCase
         $this->assertEquals(0, $user->fresh()->mfa_security_version);
     }
 
+    public function test_email_only_account_cannot_generate_authenticator_recovery_codes(): void
+    {
+        $user = $this->user('admin');
+        $user->forceFill(['mfa_totp_secret' => null, 'mfa_totp_confirmed_at' => null])->save();
+        $this->browserSession($user);
+        $this->postJson('/api/v2/auth/mfa/recovery/regenerate', ['password' => 'StrongPassword#2026'])
+            ->assertUnprocessable()->assertJsonPath('message', 'Set up Google Authenticator before generating recovery codes.');
+        $this->assertEmpty($user->fresh()->mfa_recovery_codes);
+    }
+
+    public function test_super_admin_can_regenerate_own_codes_and_keep_their_cookie_session(): void
+    {
+        $user = $this->user('super_admin');
+        $request = \Illuminate\Http\Request::create('/api/v2/auth/me');
+        $session = new \Illuminate\Session\Store('recovery-test', new \Illuminate\Session\ArraySessionHandler(120));
+        $session->start(); $request->setLaravelSession($session);
+        app(\App\Services\Auth\AccountSession::class)->claim($request, $user);
+        $this->browserSession($user);
+        $this->withSession([
+            \Illuminate\Support\Facades\Auth::guard('web')->getName() => $user->id,
+            'amc_account_session_token' => $session->get('amc_account_session_token'),
+        ]);
+        $this->postJson('/api/v2/auth/mfa/recovery/regenerate', ['password' => 'StrongPassword#2026'])
+            ->assertOk()->assertJsonCount(8, 'recovery_codes');
+        $this->getJson('/api/v2/auth/me')->assertOk()->assertJsonPath('user.id', $user->id);
+        $this->getJson('/api/v2/users')->assertForbidden();
+    }
+
     public function test_stateless_token_cannot_regenerate_recovery_codes(): void
     {
         $user = $this->user('admin');

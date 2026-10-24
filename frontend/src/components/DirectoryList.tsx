@@ -1,3 +1,4 @@
+import { useDashboardFeedback, useFeedbackState } from './feedbackContext';
 import { Field } from './ui';
 import { Pagination, UIState } from './ui';
 import { Button, Card, Input } from './ui';
@@ -10,6 +11,7 @@ import SlidingDrawer from './SlidingDrawer';
 
 type Row = Record<string, any>;
 export default function DirectoryList({ resource, lookups, canEdit }: { canEdit: boolean; resource: 'customers' | 'assets'; lookups: any }) {
+  const feedback = useDashboardFeedback();
   const [sort, setSort] = useState<{sort?: string; direction?: string}>({});
   const [filters, setFilters] = useState({ search: '', city: '', status: '', customer_id: '', category_id: '' });
   const [page, setPage] = useState(1), [rows, setRows] = useState<Row[]>([]), [total, setTotal] = useState(0), [last, setLast] = useState(1);
@@ -17,7 +19,7 @@ export default function DirectoryList({ resource, lookups, canEdit }: { canEdit:
   const [revision, setRevision] = useState(0);
   const [editing, setEditing] = useState<Row | null>(null);
   const [detailId, setDetailId] = useState<number | null>(null);
-  const [error, setError] = useState(''), [busy, setBusy] = useState(false);
+  const [error, setError] = useFeedbackState('error'), [busy, setBusy] = useState(false);
   useEffect(() => {
     let cancelled = false;
     setBusy(true);
@@ -47,7 +49,7 @@ export default function DirectoryList({ resource, lookups, canEdit }: { canEdit:
       e.preventDefault();
       if (saving) return;
       setSaving(true);
-      try { await client.patch(`/directory/assets/${editing.id}`, { name: editing.name, asset_tag: editing.asset_tag, customer_id: Number(editing.customer_id), category_id: Number(editing.category_id) }); close(); setRevision(v => v + 1); }
+      try { await client.patch(`/directory/assets/${editing.id}`, { name: editing.name, asset_tag: editing.asset_tag, customer_id: Number(editing.customer_id), category_id: Number(editing.category_id) }); feedback?.({tone: 'success', message: 'Asset updated.'}); close(); setRevision(v => v + 1); }
       catch (e: any) { setError(e.response?.data?.message || 'Unable to update asset.'); }
       finally { setSaving(false); }
     }}>

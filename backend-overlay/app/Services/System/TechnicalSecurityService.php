@@ -50,6 +50,8 @@ final class TechnicalSecurityService
                 'from_email' => $mail?->from_email,
                 'from_name' => $mail?->from_name,
                 'credential_configured' => ! empty($mail?->credentials),
+                'smtp' => $mail?->driver === 'smtp' ? array_intersect_key($mail->credentials ?? [],
+                    array_flip(['host', 'port', 'encryption', 'username'])) : null,
             ],
         ];
     }
@@ -121,6 +123,12 @@ final class TechnicalSecurityService
         $enabled = (bool) $data['enabled'];
         $driver = $data['driver'] ?? $current?->driver;
         $config = $data['credentials'] ?? null;
+        if (is_array($config) && $driver === $current?->driver) {
+            foreach (['password', 'api_key'] as $secret) {
+                if (($config[$secret] ?? '') === '') unset($config[$secret]);
+            }
+            $config = array_merge($current?->credentials ?? [], $config);
+        }
         if ($config === null && $driver === $current?->driver) {
             $config = $current?->credentials;
         }
@@ -137,6 +145,9 @@ final class TechnicalSecurityService
             throw ValidationException::withMessages(['enabled' => ['Disable technical Email OTP before disabling the email provider.']]);
         }
 
+        if ($driver === 'smtp' && ($enabled || array_key_exists('credentials', $data))) {
+            app(\App\Services\Mail\SmtpCredentialVerifier::class)->verify($config ?? []);
+        }
         DB::transaction(function () use ($request, $data, $driver, $config, $enabled): void {
             TechnicalMailSetting::updateOrCreate(['id' => 1], [
                 'driver' => $driver,
@@ -157,19 +168,32 @@ final class TechnicalSecurityService
 
     public function sendSecurityCode(User $user, string $code): void
     {
-        $this->deliver($user->email, 'Atlazddesk verification code',
-            'Your Atlazddesk verification code is: '.$code.'. It expires in five minutes. Do not share it.');
+        $this->deliver($user->email, 'SupportDesk verification code',
+            'Your SupportDesk verification code is: '.$code.'. It expires in five minutes. Do not share it.');
     }
 
     public function sendTest(Request $request): void
     {
         $this->confirmPassword($request->user(), $request->input('current_password', ''));
-        $this->deliver($request->user()->email, 'Atlazddesk technical delivery test',
-            'Your technical mail provider accepted a delivery test. No customer data is included.');
-        AmcAudit::record($request, 'system.technical_mail.test_accepted', $request->user());
+        abort_unless($this->mailReady(), 422, 'Configure technical email delivery first.');
+        $setting = TechnicalMailSetting::find(1);
+        if ($setting?->driver === 'smtp') {
+            app(\App\Services\Mail\SmtpCredentialVerifier::class)->verify($setting->credentials ?? []);
+        }
+        $user = $request->user();
+        \App\Jobs\SendAccountEmail::dispatch($user->id, $user->email, $user->role,
+            (int) $user->mfa_security_version, 'technical_test')->afterCommit();
+        AmcAudit::record($request, 'system.technical_mail.test_queued', $user);
     }
 
-    private function deliver(string $recipient, string $subject, string $text): void
+    public function sendTestTo(User $user): void
+    {
+        $this->deliver($user->email, 'SupportDesk technical delivery test',
+            'This test message was requested from your SupportDesk technical email settings. If you can read it, the test email has reached your inbox. No customer information or verification codes are included. No reply is needed.',
+            view('mail.delivery-test')->render());
+    }
+
+    private function deliver(string $recipient, string $subject, string $text, ?string $html = null): void
     {
         $setting = TechnicalMailSetting::find(1);
         abort_unless($setting?->enabled && $setting->credentials, 503,
@@ -184,7 +208,7 @@ final class TechnicalSecurityService
             'credentials' => $setting->credentials,
             'is_active' => true,
         ]);
-        $this->delivery->sendWithProvider($provider, $recipient, $subject, $text);
+        $this->delivery->sendWithProvider($provider, $recipient, $subject, $text, $html);
     }
 
     private function confirmPassword(User $user, string $password): void

@@ -51,6 +51,23 @@ final class EnsureMfaCompleted
             ], 403);
         }
 
+        // Real cookie-authenticated logins carry the web guard's session key.
+        // Session IDs may rotate during profile/MFA actions; the claim token survives.
+        if ($request->hasSession() && $request->session()->has(\Illuminate\Support\Facades\Auth::guard('web')->getName())) {
+            // Polling and ordinary API reads do not count as user interaction.
+            try {
+                app(\App\Services\Auth\AccountSession::class)->validateAndTouch($request, $user, false);
+            } catch (\Symfony\Component\HttpKernel\Exception\HttpException $error) {
+                if (in_array($error->getStatusCode(), [401, 409], true)) {
+                    \Illuminate\Support\Facades\Auth::guard('web')->logout();
+                    $request->session()->invalidate();
+                    $request->session()->regenerateToken();
+                    abort(401, 'Your session has expired. Sign in again.');
+                }
+                throw $error;
+            }
+        }
+
         return $next($request);
     }
 }

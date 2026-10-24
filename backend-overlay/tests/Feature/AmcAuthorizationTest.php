@@ -72,4 +72,35 @@ class AmcAuthorizationTest extends TestCase
         [,, $customer]=$this->setupTickets();
         $this->actingAs($customer)->getJson('/api/v2/admin/metrics')->assertForbidden();
     }
+
+    public function test_contractor_can_view_assign_and_interact_with_existing_tickets_but_cannot_create(): void
+    {
+        \Illuminate\Support\Facades\Queue::fake();
+        [$ticket, $other, , , $technician] = $this->setupTickets();
+        $actor = User::factory()->create(['role' => 'admin', 'status' => 'active']);
+        TicketStatus::create(['name' => 'Assigned', 'slug' => 'assigned']);
+        $this->actingAs($actor)->getJson('/api/v2/tickets')->assertOk()->assertJsonCount(2, 'data');
+        $this->getJson('/api/v2/tickets/'.$other->id)->assertOk();
+        $this->patchJson('/api/v2/tickets/'.$ticket->id, ['assigned_to' => $technician->id])->assertOk();
+        $this->assertSame($technician->id, $ticket->fresh()->assigned_to);
+        foreach ([false, true] as $internal) {
+            $this->postJson('/api/v2/tickets/'.$ticket->id.'/comments', ['comment' => 'Contractor reply', 'is_internal' => $internal])->assertCreated();
+        }
+        $this->postJson('/api/v2/tickets', [])->assertForbidden();
+        $this->assertDatabaseCount('tickets', 2);
+    }
+
+    public function test_ticket_service_also_rejects_contractor_creation(): void
+    {
+        $actor = User::factory()->create(['role' => 'admin', 'status' => 'active']);
+        $request = \Illuminate\Http\Request::create('/api/v2/tickets', 'POST');
+        $request->setUserResolver(fn () => $actor);
+        try {
+            app(\App\Services\TicketService::class)->create($request, []);
+            $this->fail('Contractor ticket creation was accepted.');
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $error) {
+            $this->assertSame(403, $error->getStatusCode());
+        }
+        $this->assertDatabaseCount('tickets', 0);
+    }
 }

@@ -13,8 +13,8 @@ final class RecoveryService
     {
         return DB::transaction(function () use ($user): array {
             $account = User::query()->lockForUpdate()->findOrFail($user->id);
-            abort_unless($account->mfa_totp_confirmed_at || $account->mfa_email_enabled,
-                422, 'Enroll in MFA before generating recovery codes.');
+            abort_unless($account->mfa_totp_confirmed_at && $account->mfa_totp_secret,
+                422, 'Set up Google Authenticator before generating recovery codes.');
 
             $codes = [];
             for ($i = 0; $i < 8; $i++) {

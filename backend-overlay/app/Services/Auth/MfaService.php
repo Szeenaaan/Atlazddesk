@@ -5,7 +5,7 @@ namespace App\Services\Auth;
 use App\Services\Mail\ContractorMailService;
 use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\{Auth, DB, Hash, RateLimiter};
+use Illuminate\Support\Facades\{Auth, Cache, DB, Hash, RateLimiter};
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
@@ -20,6 +20,7 @@ final class MfaService
         'amc_mfa_pending_user_id', 'amc_mfa_pending_until', 'amc_mfa_otp_hash',
         'amc_mfa_otp_until', 'amc_mfa_otp_attempts', 'amc_mfa_otp_purpose', 'amc_mfa_otp_sent_at',
         'amc_mfa_verified_factors',
+        'amc_mfa_otp_delivery_key',
     ];
 
     public function required(User $user): bool
@@ -162,6 +163,8 @@ final class MfaService
                 403, 'Complete every required MFA step before signing in.');
         }
 
+        app(AccountSession::class)->claim($request, $user);
+        $request->session()->forget(CustomerWorkspace::KEY);
         Auth::guard('web')->login($user);
         $request->session()->regenerate();
         $this->clearPending($request);
@@ -180,6 +183,7 @@ final class MfaService
 
     public function clearPending(Request $request): void
     {
+        if ($key = $request->session()->get('amc_mfa_otp_delivery_key')) Cache::forget($key);
         $request->session()->forget(self::PENDING_KEYS);
     }
 
@@ -234,25 +238,33 @@ final class MfaService
         abort_unless($user->role === 'super_admin' ? $this->technical->mailReady() : $this->mail->hasProvider($user->customer_id),
             503, 'Email MFA delivery is not configured.');
         $key = 'amc:mfa:email:'.$user->id.':'.$request->ip();
-        abort_if(RateLimiter::tooManyAttempts($key, 3), 429, 'Too many email codes. Try again later.');
+        abort_if(RateLimiter::tooManyAttempts($key, 3), 429,
+            'Verification email limit reached. Request a new code in '.max(1, RateLimiter::availableIn($key)).' seconds.',
+            ['Retry-After' => max(1, RateLimiter::availableIn($key))]);
         $lastSent = (int) $request->session()->get('amc_mfa_otp_sent_at', 0);
         abort_if($lastSent && time() - $lastSent < (int) config('amc_mfa.email_cooldown_seconds', 60),
             429, 'Please wait before requesting another code.');
 
         $code = (string) random_int(100000, 999999);
-        // Synchronous acceptance is required before telling the user a code was sent.
-        if ($user->role === 'super_admin') {
-            $this->technical->sendSecurityCode($user, $code);
-        } else {
-            $this->mail->sendSecurityCode($user, $code);
+        $expiresAt = now()->addMinutes(5)->timestamp;
+        $deliveryKey = 'amc:mfa:delivery:'.bin2hex(random_bytes(32));
+        abort_unless(Cache::put($deliveryKey, true, 300), 503, 'We could not send your verification code. Please try again.');
+        try {
+            \App\Jobs\SendAccountEmail::dispatch($user->id, $user->email, $user->role,
+                (int) $user->mfa_security_version, 'otp', null, $code, $expiresAt, $deliveryKey);
+        } catch (\Throwable) {
+            Cache::forget($deliveryKey);
+            abort(503, 'We could not send your verification code. Please try again.');
         }
+        if ($previous = $request->session()->get('amc_mfa_otp_delivery_key')) Cache::forget($previous);
         RateLimiter::hit($key, 900);
         $request->session()->put([
             'amc_mfa_otp_hash' => Hash::make($code),
-            'amc_mfa_otp_until' => now()->addMinutes(5)->timestamp,
+            'amc_mfa_otp_until' => $expiresAt,
             'amc_mfa_otp_attempts' => 0,
             'amc_mfa_otp_purpose' => $purpose,
             'amc_mfa_otp_sent_at' => time(),
+            'amc_mfa_otp_delivery_key' => $deliveryKey,
         ]);
     }
 
@@ -267,9 +279,12 @@ final class MfaService
         $hash = $request->session()->get('amc_mfa_otp_hash', '');
         if (! Hash::check($code, (string) $hash)) return false;
 
+        if ($key = $request->session()->get('amc_mfa_otp_delivery_key')) Cache::forget($key);
+
         $request->session()->forget([
             'amc_mfa_otp_hash','amc_mfa_otp_until','amc_mfa_otp_attempts',
             'amc_mfa_otp_purpose','amc_mfa_otp_sent_at',
+            'amc_mfa_otp_delivery_key',
         ]);
         return true;
     }

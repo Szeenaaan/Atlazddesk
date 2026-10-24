@@ -47,6 +47,7 @@ final class ContractorMailSettingsController extends Controller
         $data = $request->validate([
             'default_provider_id' => ['nullable', 'integer', 'exists:amc_mail_providers,id'],
             'notifications_enabled' => ['required', 'boolean'],
+            'notification_email' => ['sometimes', 'nullable', 'email', 'max:255'],
             'current_password' => ['required', 'string', 'max:1024'],
         ]);
         return ApiResponse::from($this->service->setDefault($request, $data), true);
@@ -97,7 +98,7 @@ final class ContractorMailSettingsController extends Controller
             'credentials.encryption' => ['sometimes', Rule::in(['tls', 'ssl'])],
             'credentials.username' => ['sometimes', 'nullable', 'string', 'max:255'],
             'credentials.password' => ['sometimes', 'nullable', 'string', 'max:1024'],
-            'credentials.api_key' => ['sometimes', 'string', 'max:2048'],
+            'credentials.api_key' => ['sometimes', 'nullable', 'string', 'max:2048'],
         ];
     }
 }

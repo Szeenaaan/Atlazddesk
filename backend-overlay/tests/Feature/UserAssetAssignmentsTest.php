@@ -58,7 +58,8 @@ class UserAssetAssignmentsTest extends TestCase {
         [$a,$b,$category,$assets,$user,$admin] = $this->fixtures();
         $priority = TicketPriority::create(['name'=>'Medium','slug'=>'medium','level'=>2]);
         $customerAdmin = User::factory()->create(['role'=>'customer_admin','customer_id'=>$a->id,'status'=>'active']);
-        foreach ([$admin, $customerAdmin, $user] as $actor) {
+        $this->actingAs($admin)->postJson('/api/v2/tickets', [])->assertForbidden();
+        foreach ([$customerAdmin, $user] as $actor) {
             $body = ['subject'=>'Asset needed','description'=>'Repair request','category_id'=>$category->id,'priority_id'=>$priority->id];
             if ($actor->role === 'admin') $body['customer_id'] = $a->id;
             $this->actingAs($actor)->postJson('/api/v2/tickets', $body)->assertUnprocessable()->assertJsonValidationErrors('asset_id');

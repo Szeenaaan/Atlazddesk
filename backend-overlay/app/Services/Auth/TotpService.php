@@ -16,7 +16,7 @@ final class TotpService
 
     public function provisioningUri(string $secret, string $email): string
     {
-        $issuer = (string) config('app.name', 'Atlazddesk');
+        $issuer = (string) config('app.name', 'SupportDesk');
         return 'otpauth://totp/'.rawurlencode($issuer.':'.$email)
             .'?secret='.rawurlencode($secret)
             .'&issuer='.rawurlencode($issuer)

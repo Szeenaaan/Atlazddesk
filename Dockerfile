@@ -35,6 +35,8 @@ EXPOSE 9000
 FROM node:24-bookworm-slim AS frontend-build
 WORKDIR /build
 COPY frontend/package.json frontend/package-lock.json ./
+COPY frontend/.npmrc ./
+COPY scripts/check-node-version.mjs /scripts/check-node-version.mjs
 RUN npm ci
 COPY frontend/ ./
 RUN npm run build

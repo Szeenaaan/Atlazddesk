@@ -15,7 +15,7 @@ final class TechnicalSecurityController extends Controller
     public function index(Request $request)
     {
         $this->authorizeTechnical($request);
-        return $this->respond('Technical security configuration loaded.', $this->security->publicConfiguration());
+        return $this->respond('Account security settings loaded.', $this->security->publicConfiguration());
     }
 
     public function updateMfa(Request $request)
@@ -28,7 +28,7 @@ final class TechnicalSecurityController extends Controller
         ]);
         abort_if(! array_key_exists('totp_enabled', $data) && ! array_key_exists('email_enabled', $data), 422,
             'Select at least one setting.');
-        return $this->respond('Technical MFA settings updated.', $this->security->updateMfa($request, $data));
+        return $this->respond('Sign-in security settings saved.', $this->security->updateMfa($request, $data));
     }
 
     public function updateMail(Request $request)
@@ -48,7 +48,7 @@ final class TechnicalSecurityController extends Controller
             'credentials.api_key' => ['sometimes', 'string', 'max:2048'],
             'current_password' => ['required', 'string', 'max:1024'],
         ]);
-        return $this->respond('Technical email settings updated.', $this->security->updateMail($request, $data));
+        return $this->respond('Email settings saved.', $this->security->updateMail($request, $data));
     }
 
     public function testMail(Request $request)
@@ -56,7 +56,7 @@ final class TechnicalSecurityController extends Controller
         $this->authorizeTechnical($request);
         $request->validate(['current_password' => ['required', 'string', 'max:1024']]);
         $this->security->sendTest($request);
-        return $this->respond('Provider accepted the test. Check your inbox to confirm delivery.');
+        return $this->respond('Check your email for the test message. It may take a moment to arrive.');
     }
 
     private function authorizeTechnical(Request $request): void

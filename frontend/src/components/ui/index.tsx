@@ -40,6 +40,15 @@ export function Tabs<T extends string>({items,value,onChange,label}: {items:read
 /** Keep the label and native control connected; mark required fields without duplicating existing marks. */
 export function Field({children, ...props}: import('react').LabelHTMLAttributes<HTMLLabelElement>) {
   const nodes = Children.toArray(children);
+  const choiceIndex = nodes.findIndex(node => isValidElement(node) && (
+    node.type === Checkbox || node.type === Switch
+    || ((node.type === 'input' || node.type === Input) && ['checkbox', 'radio'].includes(String((node.props as {type?:string}).type)))
+  ));
+  if (choiceIndex !== -1) {
+    return <label {...props} className={`ui-choice ${props.className || ''}`}>
+      {nodes[choiceIndex]}<span className="ui-choice-copy">{nodes.filter((_, index) => index !== choiceIndex)}</span>
+    </label>;
+  }
   const index = nodes.findIndex(node => isValidElement(node));
   const required = nodes.some(node => isValidElement(node) && Boolean((node.props as {required?:boolean}).required));
   const text = nodes.slice(0,index).join('');

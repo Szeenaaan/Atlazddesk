@@ -44,6 +44,9 @@
   --text-body: 16px;
   --text-title: 20px;
   --text-page: 24px;
+  --text-metric: 32px;
+  --leading-metric: 40px;
+  --icon-control: 20px;
   --leading-label: 20px;
   --leading-body: 24px;
   --leading-title: 28px;
@@ -87,6 +90,7 @@
   --palette-dark-text: #e4e7f1;
   --palette-dark-muted: #bfc6db;
   --palette-dark-brand: #b0a6ff;
+  --palette-dark-info: #93c5fd;
   --palette-dark-brand-soft: #302b50;
   --palette-low: #a4a8c5;
   --color-surface: var(--palette-white);
@@ -96,6 +100,8 @@
   --color-border: var(--palette-border);
   --color-primary: var(--palette-brand);
   --color-danger: var(--palette-error);
+  --color-danger-action: var(--palette-error);
+  --color-info: var(--palette-info);
   --color-success: var(--palette-success-text);
   --color-warning: var(--palette-warning-text);
   --shadow-menu: var(--shadow-14);
@@ -115,14 +121,14 @@
   --space-20: 80px;
   --space-24: 96px;
   --form-label-size: var(--text-label);
-  --form-text-size: 16px;
-  --form-line-height: 24px;
+  --form-text-size: var(--text-body);
+  --form-line-height: var(--leading-body);
   --form-control-height: 44px;
-  --form-radius: 8px;
+  --form-radius: var(--radius-control);
   --control-height: 44px;
-  --control-radius: 8px;
-  --control-font-size: 16px;
-  --control-line-height: 24px;
+  --control-radius: var(--radius-control);
+  --control-font-size: var(--text-body);
+  --control-line-height: var(--leading-body);
   --control-gap: 8px;
   --control-border: var(--palette-border);
   --control-bg: var(--palette-white);
@@ -131,6 +137,9 @@
   --control-accent: var(--palette-brand);
   --control-hover: var(--palette-brand-soft);
   --gap-label: 8px;
+  --choice-gap: 8px;
+  --choice-size: 16px;
+  --form-content-width: 1000px;
   --gap-actions: 12px;
   --gap-fields: 16px;
   --gap-sections: 24px
@@ -143,6 +152,7 @@
   --color-border: var(--palette-dark-border);
   --color-primary: var(--palette-brand-bright);
   --color-danger: var(--palette-critical);
+  --color-info: var(--palette-dark-info);
   --color-success: var(--palette-success);
   --color-warning: var(--palette-warning);
   --palette-muted: var(--palette-dark-muted);

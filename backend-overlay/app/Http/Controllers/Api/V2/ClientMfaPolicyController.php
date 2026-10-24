@@ -41,7 +41,7 @@ final class ClientMfaPolicyController extends Controller
         $data = $this->validated($request);
         DB::transaction(function () use ($request, $customer, $data): void {
             DB::table('amc_client_mfa_policies')->updateOrInsert(['customer_id'=>$customer->id], [
-                ...$data, 'updated_by'=>$request->user()->id, 'updated_at'=>now(),
+                ...$data, 'updated_by'=>\App\Support\AmcAudit::actorId($request), 'updated_at'=>now(),
             ]);
             AmcAudit::record($request, 'client.mfa_policy.updated', $customer, ['enabled_methods'=>array_keys(array_filter($data))]);
         });
@@ -75,7 +75,7 @@ final class ClientMfaPolicyController extends Controller
         $data = $this->validated($request);
         DB::transaction(function () use ($request, $user, $data): void {
             DB::table('amc_user_mfa_policies')->updateOrInsert(['user_id'=>$user->id], [
-                ...$data, 'updated_by'=>$request->user()->id, 'updated_at'=>now(),
+                ...$data, 'updated_by'=>\App\Support\AmcAudit::actorId($request), 'updated_at'=>now(),
             ]);
             AmcAudit::record($request, 'client.user_mfa_policy.updated', $user, ['enabled_methods'=>array_keys(array_filter($data))]);
         });

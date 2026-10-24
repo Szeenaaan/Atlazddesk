@@ -1,3 +1,4 @@
+import { useFeedbackState } from './feedbackContext';
 import { UIState } from './ui';
 import { Button } from './ui';
 import { useEffect, useState } from 'react';
@@ -10,8 +11,8 @@ type UserDetailsData = { id: number; name: string; email: string; phone?: string
   created_at?: string; last_login_at?: string; email_verified_at?: string;
   customer?: { id: number; company_name: string }; assets?: { id: number; name: string; asset_tag: string }[] };
 const roles: Record<string, string> = { admin: 'Contractor Admin', technician: 'Technician', customer_admin: 'Customer Admin', customer_user: 'Customer User' };
-export default function UserDetails({ id, onClose, hideRole = false, hideCompany = false }: { id: number; onClose: () => void; hideRole?: boolean; hideCompany?: boolean }) {
-  const [user, setUser] = useState<UserDetailsData | null>(null), [error, setError] = useState(''), [revision, setRevision] = useState(0);
+export default function UserDetails({ id, onClose, hideRole = false, hideCompany = false, hideAssets = false }: { id: number; onClose: () => void; hideRole?: boolean; hideCompany?: boolean; hideAssets?: boolean }) {
+  const [user, setUser] = useState<UserDetailsData | null>(null), [error, setError] = useFeedbackState('error'), [revision, setRevision] = useState(0);
   useEffect(() => {
     const controller = new AbortController();
     client.get<UserDetailsData>(`/users/${id}`, { signal: controller.signal }).then(({ data }) => { setUser(data); setError(''); })
@@ -30,7 +31,7 @@ export default function UserDetails({ id, onClose, hideRole = false, hideCompany
       : !user ? <UIState tone="loading">Loading user details…</UIState> : <>
         <h2>{user.name}</h2>
         <dl className="record-detail-list">{fields.filter(([, value]) => value?.trim()).map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
-        {!!user.assets?.length && <section><h3>Assigned assets</h3><ul>{user.assets.map(asset => <li key={asset.id}>{asset.name} · {asset.asset_tag}</li>)}</ul></section>}
+        {!hideAssets && !!user.assets?.length && <section><h3>Assigned assets</h3><ul>{user.assets.map(asset => <li key={asset.id}>{asset.name} · {asset.asset_tag}</li>)}</ul></section>}
       </>}
   </div></SlidingDrawer>;
 }

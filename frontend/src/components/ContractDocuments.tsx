@@ -1,3 +1,4 @@
+import { useFeedbackState } from './feedbackContext';
 import { CloseButton } from './ui';
 import { Field } from './ui';
 import { Button, FileUpload } from './ui';
@@ -5,6 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import { client } from '../api/client';
 import { getApiErrorMessage } from '../api/contracts';
 import { loadPrivateDocument } from '../utils/privateDocuments';
+import PdfPreview from './PdfPreview';
 
 type Document = { id: number; file_name: string; mime_type: string; file_size: number };
 const extensions = ['pdf', 'doc', 'docx', 'odt', 'rtf', 'txt'];
@@ -18,8 +20,8 @@ export default function ContractDocuments({ contractId, contractNumber, onClose 
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState('');
-  const [status, setStatus] = useState('');
+  const [error, setError] = useFeedbackState('error');
+  const [, setStatus] = useFeedbackState('success');
   const [opening, setOpening] = useState<number | null>(null);
   const [preview, setPreview] = useState<{ url: string; name: string } | null>(null);
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview.url); }, [preview]);
@@ -82,7 +84,7 @@ export default function ContractDocuments({ contractId, contractNumber, onClose 
         <Button type="submit" className="btn btn-primary" disabled={!file || uploading}>{uploading ? 'Uploading…' : 'Upload'}</Button>
       </form>
       {error && <p className="error" role="alert">{error}</p>}
-      <p role="status">{status}</p>
+
       {loading ? <p role="status">Loading documents…</p> : documents.length === 0 ? <p>No documents attached to this contract.</p> : <ul>
         {documents.map(document => <li key={document.id}><span><b>{document.file_name}</b><small>{(document.file_size / 1024).toFixed(1)} KB</small></span>
           {document.mime_type === 'application/pdf' && <Button type="button" className="btn btn-secondary" disabled={opening !== null} onClick={() => void openDocument(document, false)}>View PDF</Button>}
@@ -91,8 +93,7 @@ export default function ContractDocuments({ contractId, contractNumber, onClose 
       </ul>}
       {preview && <section className="contract-document-preview" aria-label={`Preview of ${preview.name}`}>
         <div><b>{preview.name}</b><Button type="button" className="btn btn-secondary" onClick={() => setPreview(null)}>Close preview</Button></div>
-        <iframe title={`PDF preview: ${preview.name}`} src={preview.url}/>
-        <p>If your browser cannot preview this PDF, use Download.</p>
+        <PdfPreview url={preview.url} name={preview.name}/>
       </section>}
     </div>
   </dialog>;

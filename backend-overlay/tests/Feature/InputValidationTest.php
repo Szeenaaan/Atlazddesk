@@ -126,9 +126,11 @@ final class InputValidationTest extends TestCase
         $ticket = $this->ticket();
         $ticket->category->update(['is_active' => false]);
         $ticket->priority->update(['is_active' => false]);
-        $this->postJson('/api/v2/tickets', ['subject' => 'New request', 'description' => 'Details',
-            'customer_id' => $this->customer->id, 'category_id' => $ticket->category_id, 'priority_id' => $ticket->priority_id])
+        $creator = User::factory()->create(['role' => 'customer_admin', 'customer_id' => $this->customer->id, 'status' => 'active']);
+        $this->actingAs($creator)->postJson('/api/v2/tickets', ['subject' => 'New request', 'description' => 'Details',
+            'category_id' => $ticket->category_id, 'priority_id' => $ticket->priority_id])
             ->assertUnprocessable()->assertJsonValidationErrors(['category_id', 'priority_id']);
+        $this->actingAs($this->admin);
         $this->patchJson("/api/v2/tickets/{$ticket->id}", ['status' => null])->assertUnprocessable()->assertJsonValidationErrors('status');
         $this->postJson("/api/v2/tickets/{$ticket->id}/comments", ['comment' => ['invalid']])->assertUnprocessable()->assertJsonValidationErrors('comment');
         $this->assertSame('Original subject', $ticket->fresh()->subject);

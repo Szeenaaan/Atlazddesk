@@ -1,3 +1,4 @@
+import { useFeedbackState } from './feedbackContext';
 import { CloseButton } from './ui';
 import { Field } from './ui';
 import { Dialog } from './ui/Dialog';
@@ -14,7 +15,7 @@ const empty = {
 
 export default function ClientOnboarding({ onClose, onCreated }: Props) {
   const [form, setForm] = useState(empty);
-  const [error, setError] = useState('');
+  const [error, setError] = useFeedbackState('error');
   const [busy, setBusy] = useState(false);
   const fields: Array<{ key: keyof typeof form; label: string; required: boolean; type?: string }> = [
     { key: 'company_name', label: 'Client organization name', required: true },

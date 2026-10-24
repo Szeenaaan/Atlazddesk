@@ -1,3 +1,4 @@
+import { useFeedbackState } from './feedbackContext';
 import { Field } from './ui';
 import { Button, Input, Textarea } from './ui';
 import SearchableDropdown from './SearchableDropdown';
@@ -34,8 +35,8 @@ export default function TicketWorkReports({ ticketId, role, ticketStatus }: Prop
   const [reports, setReports] = useState<WorkReport[]>([]);
   const [form, setForm] = useState(blank);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [error, setError] = useFeedbackState('error');
+  const [, setSuccess] = useFeedbackState('success');
   const [loading, setLoading] = useState(true);
   const allowed = role === 'technician' || role === 'admin';
   const closed = ['closed', 'cancelled'].includes(ticketStatus.toLowerCase());
@@ -100,7 +101,7 @@ export default function TicketWorkReports({ ticketId, role, ticketStatus }: Prop
       <Button className="btn btn-primary" type="submit" disabled={busy || !form.diagnosis.trim() || (form.progress === 'completed' && !form.work_performed.trim())}>{busy ? 'Submitting…' : 'Submit report'}</Button>
     </form>}
     {role === 'technician' && closed && <p className="muted">This ticket is closed; no further work reports can be submitted.</p>}
-    {success && <p className="success-note" role="status">{success}</p>}
+
     {error && <p className="error" role="alert">{error}</p>}
   </section>;
 }

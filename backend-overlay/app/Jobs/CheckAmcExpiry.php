@@ -13,11 +13,18 @@ class CheckAmcExpiry implements ShouldQueue
     public int $tries=2;
     public int $timeout=60;
 
+    public function __construct()
+    {
+        $this->onConnection(config('amc.ticket_mail_queue_connection', 'database'));
+        $this->onQueue('maintenance');
+    }
+
     public function handle(): void
     {
         $mail = app(ContractorMailService::class);
-        AmcContract::where('status','active')->whereDate('end_date','>=',today())
-            ->whereDate('end_date','<=',today()->addDays(config('amc.contract_warning_days',30)))
+        AmcContract::where('status','active')->whereBetween('end_date', [
+            today()->toDateString(), today()->addDays(config('amc.contract_warning_days',30))->toDateString(),
+        ])
             ->chunkById(100, function ($contracts) use ($mail) {
                 foreach ($contracts as $contract) {
                     $key = hash('sha256','contract_expiry|'.$contract->id.'|'.$contract->end_date->toDateString());

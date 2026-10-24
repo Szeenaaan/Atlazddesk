@@ -4,6 +4,8 @@ Atlazddesk is a portable, self-hosted support and maintenance workspace for cont
 
 Read [ROLES.md](ROLES.md) for permissions and [TESTING.md](TESTING.md) for validation. This source tree includes the complete application; old overlay installers are not required.
 
+Read [Runtime security](docs/deployment/runtime-security.md) for patched runtime requirements and existing-server update instructions.
+
 ## Docker Compose release
 
 `compose.yaml` runs seven services (six normally active):
@@ -172,3 +174,7 @@ Real env files, installation secrets/certificates, uploads, logs, caches, depend
 From `backend-overlay`, `php artisan down` blocks business requests and displays the frontend maintenance screen on every SPA entry URL. `php artisan up` restores access. Open browsers check availability every 15 seconds and on focus, and switch immediately on an API maintenance response. The public `/api/maintenance-status` endpoint exposes only a boolean and remains reachable while down. Do not use a prerendered `artisan down --render` response with this availability check.
 
 This is separate from the optional scheduled-work Maintenance page, which appears for Contractor Admin when `AMC_MAINTENANCE_ENABLED=true` in the backend environment (run `php artisan config:clear` after changing it).
+
+
+
+Browse the [documentation index](docs/README.md) for deployment, UI and verification guides. Local historical files are organized under ignored `notes/local/`.

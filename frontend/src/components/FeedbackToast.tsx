@@ -1,5 +1,6 @@
 import { CloseButton } from './ui';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { DashboardFeedbackContext } from './feedbackContext';
 
 export type FeedbackTone = 'success' | 'error' | 'warning';
 
@@ -7,6 +8,23 @@ export type Feedback = { tone: FeedbackTone; message: string };
 
 /** A reusable, screen-reader accessible, nonblocking message. */
 export default function FeedbackToast({ feedback, onDismiss }: {
+  feedback: Feedback | null;
+  onDismiss: () => void;
+}) {
+  const context = useContext(DashboardFeedbackContext);
+  const previous = useRef('');
+  const dismissRef = useRef(onDismiss);
+  dismissRef.current = onDismiss;
+  useEffect(() => {
+    const signature = feedback ? `${feedback.tone}:${feedback.message}` : '';
+    if (context && feedback && signature !== previous.current) context.publish(feedback, () => dismissRef.current());
+    previous.current = signature;
+  }, [context, feedback]);
+  if (context) return null;
+  return <ToastView feedback={feedback} onDismiss={onDismiss}/>;
+}
+
+export function ToastView({ feedback, onDismiss }: {
   feedback: Feedback | null;
   onDismiss: () => void;
 }) {

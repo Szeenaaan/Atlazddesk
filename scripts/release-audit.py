@@ -27,8 +27,11 @@ if args.run_tests and (not args.test_db or not re.fullmatch(r'[A-Za-z0-9_]+_test
     sys.exit('BLOCKED: --run-tests needs --test-db=<disposable_database_ending_in__test>. Never use your live business database.')
 
 stamp = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
-output = root / 'release-evidence' / stamp
-output.mkdir(parents=True, exist_ok=True)
+private_notes = root / 'notes' / 'local'
+private_notes.mkdir(parents=True, exist_ok=True, mode=0o700)
+private_notes.chmod(0o700)
+output = private_notes / 'release-evidence' / stamp
+output.mkdir(parents=True, exist_ok=True, mode=0o700)
 results = []
 
 def record(label, state, explanation):

@@ -1,3 +1,4 @@
+import { useFeedbackState } from './feedbackContext';
 import { Field } from './ui';
 import { Button, Card, Checkbox, Input, InlineNotice, UIState } from './ui';
 import SearchableDropdown from './SearchableDropdown';
@@ -57,8 +58,8 @@ export default function SystemPerformance() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [password, setPassword] = useState('');
   const [filter, setFilter] = useState('');
-  const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
+  const [error, setError] = useFeedbackState('error');
+  const [, setNotice] = useFeedbackState('success');
   const [busy, setBusy] = useState(false);
   const [trace, setTrace] = useState<Trace[] | null>(null);
 
@@ -84,7 +85,7 @@ export default function SystemPerformance() {
         current_password: password,
       });
       setSettings(response.data.data);
-      setNotice('Telemetry configuration saved. New requests will use the updated sampling policy.');
+      setNotice('Performance monitoring settings saved.');
       setPassword('');
       await load(hours);
     } catch (err) { setError(getApiErrorMessage(err)); }
@@ -110,7 +111,7 @@ export default function SystemPerformance() {
         <Button className="btn btn-secondary" type="button" disabled={busy} onClick={() => void load(hours)}><RefreshCw size={16}/> Refresh</Button>
       </div>
       {error && <InlineNotice tone="error">{error}</InlineNotice>}
-      {notice && <InlineNotice tone="success">{notice}</InlineNotice>}
+
       {busy && <p role="status" className="hint">Loading technical metrics…</p>}
       {data && <>
         <div className="telemetry-kpis">

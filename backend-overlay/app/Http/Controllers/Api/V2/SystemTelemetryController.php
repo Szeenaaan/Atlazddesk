@@ -53,7 +53,7 @@ final class SystemTelemetryController extends Controller
 
         $settings = $this->telemetry->updateSettings($request, $input);
 
-        return ApiResponse::from(ServiceResult::ok($settings, 'Technical telemetry settings saved.'), true);
+        return ApiResponse::from(ServiceResult::ok($settings, 'Performance monitoring settings saved.'), true);
     }
 
     private function authorizeTechnical(Request $request): void

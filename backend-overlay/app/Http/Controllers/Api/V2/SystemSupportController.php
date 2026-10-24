@@ -124,10 +124,10 @@ final class SystemSupportController extends Controller
         } catch (Throwable $e) {
             AmcAudit::record($request, 'system.mail_test.failed', $request->user());
             Log::channel('amc_mail')->warning('amc.support.mail_test_failed', ['exception_class' => $e::class]);
-            return $this->privateJson(['message' => 'Mail transport reported an error. Inspect server logs.'], 503);
+            return $this->privateJson(['message' => 'The test email could not be sent. Try again. If the problem continues, contact your server administrator.'], 503);
         }
-        AmcAudit::record($request, 'system.mail_test.accepted', $request->user());
-        return $this->privateJson(['message' => 'Mail transport accepted the message. Check your inbox to confirm delivery.']);
+        AmcAudit::record($request, 'system.mail_test.queued', $request->user());
+        return $this->privateJson(['message' => 'Check your email for the test message. It may take a moment to arrive.']);
     }
 
     private function confirmPassword(Request $request, string $password): void

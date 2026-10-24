@@ -26,6 +26,11 @@ final class RecoveryController extends Controller
 
         $codes = DB::transaction(function () use ($request, $account): array {
             $issued = $this->recovery->regenerateCodes($account);
+            if ($request->session()->has(\Illuminate\Support\Facades\Auth::guard('web')->getName())) {
+                $sessions = app(\App\Services\Auth\AccountSession::class);
+                $sessions->release($request, $account);
+                $sessions->claim($request, $account->fresh());
+            }
             AmcAudit::record($request, 'security.recovery_codes_regenerated', $account,
                 ['code_count' => count($issued)]);
             return $issued;
@@ -77,7 +82,7 @@ final class RecoveryController extends Controller
         });
 
         return response()->json([
-            'message' => 'Authenticator reset. Existing sessions are invalidated. The user may enroll a new authenticator in My Security after completing any required Email OTP.',
+            'message' => 'Google Authenticator reset. The user must sign in again and set up a new authenticator in My Security.',
         ])->header('Cache-Control', 'no-store, private');
     }
 }

@@ -1,3 +1,4 @@
+import { useFeedbackState } from './feedbackContext';
 import { CloseButton } from './ui';
 import { formatInstallationDateTime } from '../utils/installationTime';
 import { useEffect, useRef, useState } from 'react';
@@ -14,7 +15,8 @@ export default function NotificationsPanel({ onTicket }: Props) {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<Notice[]>([]);
   const [unread, setUnread] = useState(0);
-  const [error, setError] = useState('');
+  const [error, setError] = useFeedbackState('error');
+  const refreshing = useRef(false);
   useEffect(() => {
     if (!open) return;
     const outside = (event: PointerEvent) => {if (!holder.current?.contains(event.target as Node)) setOpen(false);};
@@ -24,17 +26,24 @@ export default function NotificationsPanel({ onTicket }: Props) {
     return () => {document.removeEventListener('pointerdown', outside);document.removeEventListener('keydown', escape);};
   }, [open]);
   async function refresh() {
-    if (DEMO) return;
+    if (DEMO || refreshing.current) return;
+    refreshing.current = true;
     try {
       const { data } = await client.get<ApiResponse<{ unread_count: number; items: Notice[] }>>('/notifications');
       setItems(data.data?.items ?? []); setUnread(data.data?.unread_count ?? 0); setError('');
     } catch { setError('Notifications could not be loaded.'); }
+    finally { refreshing.current = false; }
   }
   useEffect(() => {
     if (DEMO) return;
-    void refresh();
-    const interval = window.setInterval(() => void refresh(), 30000);
-    return () => window.clearInterval(interval);
+    const refreshVisible = () => { if (document.visibilityState === 'visible') void refresh(); };
+    refreshVisible();
+    const interval = window.setInterval(refreshVisible, 30000);
+    document.addEventListener('visibilitychange', refreshVisible);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', refreshVisible);
+    };
   }, []);
   async function openNotice(note: Notice) {
     if (!note.read_at) {

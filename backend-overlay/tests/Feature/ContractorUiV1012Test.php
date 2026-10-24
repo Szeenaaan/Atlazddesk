@@ -57,14 +57,14 @@ final class ContractorUiV1012Test extends TestCase
     public function test_ticket_asset_must_belong_to_selected_customer(): void
     {
         [$alpha, $beta] = $this->customers();
-        $actor = User::factory()->create(['role' => 'admin', 'customer_id' => null, 'status' => 'active']);
+        $actor = User::factory()->create(['role' => 'customer_admin', 'customer_id' => $alpha->id, 'status' => 'active']);
         $type = AssetType::create(['name' => 'Server']);
         $otherAsset = Asset::create(['name' => 'Other company server', 'asset_tag' => 'BAD-ASSOC', 'customer_id' => $beta->id, 'asset_type_id' => $type->id]);
         $category = TicketCategory::create(['name' => 'Hardware', 'slug' => 'hardware']);
         $priority = TicketPriority::create(['name' => 'Medium', 'slug' => 'medium', 'level' => 2]);
         $this->actingAs($actor)->postJson('/api/v2/tickets', [
             'subject' => 'Incorrect asset association', 'description' => 'An asset from another customer must not be accepted.',
-            'customer_id' => $alpha->id, 'category_id' => $category->id,
+            'category_id' => $category->id,
             'priority_id' => $priority->id, 'asset_id' => $otherAsset->id,
         ])->assertStatus(422);
     }
