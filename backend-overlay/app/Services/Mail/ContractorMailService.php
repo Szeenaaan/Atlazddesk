@@ -24,7 +24,27 @@ final class ContractorMailService
 
     public function hasProvider(?int $customerId): bool
     {
-        return $this->providerFor($customerId) !== null;
+        return $this->securityProvider($customerId) !== null;
+    }
+
+    public function securityProvider(?int $customerId): ?AmcMailProvider
+    {
+        $id = DB::table('amc_mail_settings')->where('id', 1)->value('default_provider_id');
+        // Default business sender owns OTP delivery. Legacy client routing is a fallback only
+        // when no default has been selected; a disabled default must fail closed.
+        return $id ? AmcMailProvider::whereKey($id)->where('is_active', true)->first() : $this->providerFor($customerId);
+    }
+
+    /** Single contractor-controlled recipient, independent of user/customer notification routing. */
+    public function ticketRoute(): ?array
+    {
+        $settings = DB::table('amc_mail_settings')->where('id', 1)->first();
+        if (! $settings?->notifications_enabled) return null;
+        $provider = $settings->default_provider_id
+            ? AmcMailProvider::whereKey($settings->default_provider_id)->where('is_active', true)->first() : null;
+        abort_unless($provider && filter_var($settings->notification_email ?? '', FILTER_VALIDATE_EMAIL),
+            503, 'Configure the business provider and shared notification inbox.');
+        return [$provider, $settings->notification_email];
     }
 
     public function notificationsEnabled(?int $customerId): bool
@@ -49,20 +69,23 @@ final class ContractorMailService
     /** MFA/security delivery is independent of marketing/incident notification switches. */
     public function sendSecurityCode(User $recipient, string $code): void
     {
-        $this->send($recipient, 'Atlazddesk verification code',
-            'Your Atlazddesk verification code is: '.$code.'. It expires in five minutes. Do not share it.');
+        $provider = $this->securityProvider($recipient->customer_id);
+        abort_unless($provider, 503, 'Email delivery is not configured for this account.');
+        $this->deliver($provider, $recipient->email, 'SupportDesk verification code',
+            'Your SupportDesk verification code is: '.$code.'. It expires in five minutes. Do not share it.');
     }
 
     /** Explicit provider dispatch for an isolated technical mail route. */
-    public function sendWithProvider(AmcMailProvider $provider, string $to, string $subject, string $text): void
+    public function sendWithProvider(AmcMailProvider $provider, string $to, string $subject, string $text, ?string $html = null): void
     {
-        $this->deliver($provider, $to, $subject, $text);
+        $this->deliver($provider, $to, $subject, $text, $html);
     }
 
     public function sendTest(AmcMailProvider $provider, string $recipientEmail): void
     {
-        $this->deliver($provider, $recipientEmail, 'Atlazddesk email delivery test',
-            'This is a configuration test for this installation. No client data is included.');
+        $this->deliver($provider, $recipientEmail, 'SupportDesk email delivery test',
+            'This test message was requested from your SupportDesk email settings. If you can read it, the test email has reached your inbox. No customer information or verification codes are included. No reply is needed.',
+            view('mail.delivery-test')->render());
     }
 
     private function send(User $recipient, string $subject, string $text): void
@@ -74,7 +97,7 @@ final class ContractorMailService
         $this->deliver($provider, $recipient->email, $subject, $text);
     }
 
-    private function deliver(AmcMailProvider $provider, string $to, string $subject, string $text): void
+    private function deliver(AmcMailProvider $provider, string $to, string $subject, string $text, ?string $html = null): void
     {
         $config = $provider->credentials;
         if (! is_array($config)) {
@@ -84,7 +107,9 @@ final class ContractorMailService
         try {
             if ($provider->driver === 'smtp') {
                 $mailer = Mail::build([
-                    'transport' => 'smtp',
+                    'transport' => 'amc-authenticated-smtp',
+                    'scheme' => ($config['encryption'] ?? 'tls') === 'ssl' ? 'smtps' : 'smtp',
+                    'require_tls' => true,
                     'host' => $config['host'],
                     'port' => (int) $config['port'],
                     'username' => $config['username'] ?? null,
@@ -92,13 +117,20 @@ final class ContractorMailService
                     'encryption' => $config['encryption'] ?? 'tls',
                     'timeout' => 10,
                 ]);
-                $mailer->raw($text, fn ($message) => $message
-                    ->to($to)->from($provider->from_email, $provider->from_name)->subject($subject));
+                $address = fn ($message) => $message
+                    ->to($to)->from($provider->from_email, $provider->from_name)->subject($subject);
+                if ($html !== null) {
+                    $mailer->html($html, function ($message) use ($address, $text): void {
+                        $address($message);
+                        $message->getSymfonyMessage()->text($text);
+                    });
+                } else $mailer->raw($text, $address);
             } elseif ($provider->driver === 'resend') {
                 Http::withToken((string) $config['api_key'])->acceptJson()->timeout(10)
                     ->post('https://api.resend.com/emails', [
                         'from' => sprintf('%s <%s>', $provider->from_name, $provider->from_email),
                         'to' => [$to], 'subject' => $subject, 'text' => $text,
+                        ...($html !== null ? ['html' => $html] : []),
                     ])->throw();
             } elseif ($provider->driver === 'postmark') {
                 Http::withHeaders(['X-Postmark-Server-Token' => (string) $config['api_key']])
@@ -106,6 +138,7 @@ final class ContractorMailService
                     ->post('https://api.postmarkapp.com/email', [
                         'From' => sprintf('%s <%s>', $provider->from_name, $provider->from_email),
                         'To' => $to, 'Subject' => $subject, 'TextBody' => $text,
+                        ...($html !== null ? ['HtmlBody' => $html] : []),
                     ])->throw();
             } else {
                 throw new \LogicException('Unsupported mail transport');

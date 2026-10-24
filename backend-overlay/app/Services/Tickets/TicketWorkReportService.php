@@ -59,6 +59,8 @@ final class TicketWorkReportService
                     'deduplication_key' => hash('sha256', "work_report:{$report->id}:{$adminId}"),
                 ]);
             }
+            DB::afterCommit(fn () => app(\App\Services\Mail\TicketBusinessMail::class)->enqueue(
+                $ticket->id, 'work_report', 'work-report:'.$report->id, $request->user()->id));
 
             return $report;
         });

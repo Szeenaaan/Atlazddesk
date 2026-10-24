@@ -10,10 +10,18 @@ use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
-    public function register(): void {}
+    public function register(): void
+    {
+        $this->app->extend(\Illuminate\Queue\Console\WorkCommand::class, static fn ($command, $app) =>
+            new \App\Support\QueueWorkCommand($app['queue.worker'], $app['cache.store'])
+        );
+    }
 
     public function boot(): void
     {
+        \Illuminate\Support\Facades\Mail::extend('amc-authenticated-smtp', static fn (array $config) =>
+            \App\Services\Mail\AuthenticatedSmtpTransport::fromCredentials($config)
+        );
         // AMC-SUPPORT-LOGS-V10.6: never log queue payloads or exception messages.
         \Illuminate\Support\Facades\Queue::failing(static function (\Illuminate\Queue\Events\JobFailed $event): void {
             try {
@@ -41,6 +49,8 @@ class AppServiceProvider extends ServiceProvider
             Limit::perMinutes(10, 2)->by('support-mail-user:'.($request->user()?->id ?? $request->ip())),
             Limit::perHour(5)->by('support-mail-ip:'.$request->ip()),
         ]);
+        RateLimiter::for('amc-upload', fn (Request $request) => Limit::perMinute(6)
+            ->by('upload:'.(\App\Support\AmcAudit::actorId($request) ?? $request->ip())));
         RateLimiter::for('amc-health', fn (Request $request) => Limit::perMinute(30)->by('health:'.$request->ip()));
 
         DB::listen(function (QueryExecuted $query) {

@@ -51,7 +51,8 @@ class TicketWorkspaceController extends Controller
 
     public function store(Request $request)
     {
-        abort_unless(AmcAccess::isStaff($request->user()) || AmcAccess::isCustomer($request->user()), 403);
+        abort_unless(AmcAccess::mayCreateTicket($request->user(), $request->attributes->get('amc_workspace_actor')),
+            403, 'Only customer accounts can create tickets.');
         $data = $request->validate([
             'subject' => ['required', 'string', 'max:255'],
             'description' => ['required', 'string', 'max:20000'],
@@ -88,14 +89,14 @@ class TicketWorkspaceController extends Controller
         abort_if($internal && AmcAccess::isCustomer($request->user()), 403);
         $comment = DB::transaction(function () use ($request, $model, $data, $internal) {
             $comment = TicketComment::create([
-                'ticket_id' => $model->id, 'user_id' => $request->user()->id,
+                'ticket_id' => $model->id, 'user_id' => AmcAudit::actorId($request),
                 'comment' => $data['comment'], 'is_internal' => $internal,
             ]);
             if (! AmcAccess::isCustomer($request->user()) && ! $model->first_response_at && ! $internal) {
                 $model->update(['first_response_at' => now()]);
             }
             AmcAudit::record($request, 'ticket.commented', $model, ['is_internal' => $internal]);
-            DispatchTicketNotice::dispatch($model->id, $internal ? 'internal_note' : 'commented', null, $comment->id, $request->user()->id)->afterCommit();
+            DispatchTicketNotice::dispatch($model->id, $internal ? 'internal_note' : 'commented', null, $comment->id, AmcAudit::actorId($request))->afterCommit();
             return $comment;
         });
         return response()->json(['data' => ['id' => $comment->id]], 201);

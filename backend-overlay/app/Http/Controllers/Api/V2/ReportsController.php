@@ -31,13 +31,28 @@ class ReportsController extends Controller
         $buckets = $period ? ['1h' => 12, '4h' => 16, 'day' => 24, 'week' => 7, 'month' => 30, 'year' => 12][$period] : 7;
         $chartStart = $start ?? $end->copy()->startOfDay()->subDays(6);
         $step = $period ? $seconds[$period] / $buckets : 86400;
+        // Aggregate each timestamp once instead of issuing two queries per chart bucket.
+        // Keep the existing created-at timeframe restriction on resolved counts as well.
+        $chartEnd = $chartStart->copy()->addSeconds((int) ($buckets * $step));
+        $counts = [];
+        foreach (['created_at', 'resolved_at'] as $column) {
+            $rows = $visible()->where("tickets.$column", '>=', $chartStart)
+                ->where("tickets.$column", $period ? '<=' : '<', $chartEnd)
+                ->selectRaw("FLOOR(TIMESTAMPDIFF(SECOND, ?, tickets.$column) / ?) AS bucket, COUNT(*) AS total", [$chartStart, $step])
+                ->groupBy('bucket')->get();
+            $counts[$column] = [];
+            foreach ($rows as $row) {
+                // An event exactly at the inclusive period end belongs to the last bucket.
+                $bucket = min((int) $row->bucket, $buckets - 1);
+                $counts[$column][$bucket] = ($counts[$column][$bucket] ?? 0) + (int) $row->total;
+            }
+        }
         for ($i = 0; $i < $buckets; $i++) {
             $day = $chartStart->copy()->addSeconds((int) ($i * $step));
-            $next = $chartStart->copy()->addSeconds((int) (($i + 1) * $step));
             $daily[] = [
                 'day' => $day->format('D'), 'at' => $day->toIso8601String(),
-                'tickets' => $visible()->where('created_at', '>=', $day)->where('created_at', $period && $i === $buckets - 1 ? '<=' : '<', $next)->count(),
-                'resolved' => $visible()->where('resolved_at', '>=', $day)->where('resolved_at', $period && $i === $buckets - 1 ? '<=' : '<', $next)->count(),
+                'tickets' => $counts['created_at'][$i] ?? 0,
+                'resolved' => $counts['resolved_at'][$i] ?? 0,
             ];
         }
         $priorities = $visible()->join('ticket_priorities', 'tickets.priority_id', '=', 'ticket_priorities.id')

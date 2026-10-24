@@ -65,4 +65,20 @@ final class MfaSecuritySettingsTest extends TestCase
         ])->assertStatus(422);
         $this->assertDatabaseHas('amc_security_settings', ['key' => 'mfa_email_enabled', 'enabled' => 0]);
     }
+
+    public function test_save_confirms_success_and_reports_newly_required_verification_without_bypassing_it(): void
+    {
+        $admin = $this->user('admin');
+        $provider = \App\Models\AmcMailProvider::create([
+            'name' => 'Business', 'driver' => 'resend', 'from_email' => 'support@example.test',
+            'from_name' => 'Support', 'is_active' => true, 'credentials' => ['api_key' => 'isolated-fixture'],
+        ]);
+        \Illuminate\Support\Facades\DB::table('amc_mail_settings')->where('id', 1)->update(['default_provider_id' => $provider->id]);
+        $this->actingAs($admin)->patchJson('/api/v2/admin/security/mfa', [
+            'email_enabled' => true, 'current_password' => 'TestStrongPassword#2026',
+        ])->assertOk()->assertJsonPath('data.email_enabled', true)
+            ->assertJsonPath('reauthentication_required', true)
+            ->assertJsonPath('message', 'Sign-in security settings saved. Sign in again to complete the required verification.');
+        $this->getJson('/api/v2/admin/security/mfa')->assertForbidden()->assertJsonPath('code', 'MFA_REQUIRED');
+    }
 }

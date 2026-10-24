@@ -22,8 +22,9 @@ class ContractorDirectoryFixesTest extends TestCase
         $asset = Asset::create(['name' => 'Camera', 'asset_tag' => 'CAM', 'customer_id' => $customer->id, 'category_id' => $category->id, 'asset_type_id' => $type->id]);
         $priority = TicketPriority::create(['name' => 'Medium', 'slug' => 'medium', 'level' => 2]);
         TicketStatus::create(['name' => 'New', 'slug' => 'new', 'sort_order' => 1]);
-        $body = ['subject' => 'Asset issue', 'description' => 'Needs inspection', 'customer_id' => $customer->id, 'category_id' => $category->id, 'priority_id' => $priority->id, 'asset_id' => $asset->id];
-        $this->actingAs($admin)->postJson('/api/v2/tickets', array_replace($body, ['category_id' => $wrongCategory->id]))->assertUnprocessable()->assertJsonValidationErrors('asset_id');
+        $body = ['subject' => 'Asset issue', 'description' => 'Needs inspection', 'category_id' => $category->id, 'priority_id' => $priority->id, 'asset_id' => $asset->id];
+        $creator = User::factory()->create(['role' => 'customer_admin', 'customer_id' => $customer->id, 'status' => 'active']);
+        $this->actingAs($creator)->postJson('/api/v2/tickets', array_replace($body, ['category_id' => $wrongCategory->id]))->assertUnprocessable()->assertJsonValidationErrors('asset_id');
         $this->postJson('/api/v2/tickets', array_replace($body, ['customer_id' => $other->id]))->assertUnprocessable();
         $this->postJson('/api/v2/tickets', $body)->assertCreated();
         $asset->update(['category_id' => null]);

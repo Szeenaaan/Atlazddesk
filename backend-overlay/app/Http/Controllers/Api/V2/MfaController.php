@@ -29,7 +29,7 @@ final class MfaController extends Controller
     {
         $this->mfa->clearPending($request);
         $request->session()->regenerate();
-        return response()->json(['message' => 'Login challenge cancelled.']);
+        return response()->json(['message' => 'Sign-in cancelled.']);
     }
 
     /** In the challenge flow, only the account that passed password verification can enroll. */
@@ -114,7 +114,7 @@ final class MfaController extends Controller
         $enrolled = (bool) ($user->mfa_email_enabled && $user->email_verified_at);
         $this->mfa->sendEmail($request, $user, $enrolled ? 'login' : 'login_enroll');
 
-        return response()->json(['message' => 'A code has been sent to your account email.'])
+        return response()->json(['message' => 'Check your email for your verification code. It may take a moment to arrive.'])
             ->header('Cache-Control', 'no-store');
     }
 
@@ -186,7 +186,7 @@ final class MfaController extends Controller
         $this->requirePassword($request, $request->user());
         abort_if($request->user()->mfa_email_enabled, 409, 'Email MFA is already enabled.');
         $this->mfa->sendEmail($request, $request->user(), 'enroll_email');
-        return response()->json(['message' => 'Verification code sent.']);
+        return response()->json(['message' => 'Check your email for your verification code. It may take a moment to arrive.']);
     }
 
     public function confirmEmailEnrollment(Request $request)
@@ -199,9 +199,10 @@ final class MfaController extends Controller
             'email_verified_at' => $request->user()->email_verified_at ?? now(),
         ])->save();
         $request->session()->put('amc_mfa_verified_user_id', $request->user()->id);
-        // Email-only accounts also need recovery codes to avoid losing access during delivery outages.
+        // Recovery codes replace Google Authenticator only; they cannot replace Email OTP.
         $user = $request->user();
-        $recovery = empty($user->mfa_recovery_codes) ? $this->mfa->recoveryCodes($user) : [];
+        $recovery = $user->mfa_totp_confirmed_at && $user->mfa_totp_secret && empty($user->mfa_recovery_codes)
+            ? $this->mfa->recoveryCodes($user) : [];
         return response()->json(['message' => 'Email OTP is enabled.', 'recovery_codes' => $recovery])
             ->header('Cache-Control', 'no-store');
     }
@@ -250,7 +251,7 @@ final class MfaController extends Controller
         } else {
             $user->forceFill(['mfa_email_enabled' => false])->save();
         }
-        return response()->json(['message' => 'MFA method disabled.']);
+        return response()->json(['message' => 'Sign-in verification method removed.']);
     }
 
     public function sendEmailDisable(Request $request)
@@ -260,7 +261,7 @@ final class MfaController extends Controller
         abort_if($this->settings->email($request->user()), 422,
             'Email OTP is required by your administrator and cannot be disabled here.');
         $this->mfa->sendEmail($request, $request->user(), 'disable_email');
-        return response()->json(['message' => 'Verification code sent.']);
+        return response()->json(['message' => 'Check your email for your verification code. It may take a moment to arrive.']);
     }
 
     private function requirePassword(Request $request, User $user): void

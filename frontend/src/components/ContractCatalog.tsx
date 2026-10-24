@@ -1,3 +1,4 @@
+import { useFeedbackState } from './feedbackContext';
 import { Field } from './ui';
 import { Button, Checkbox, Input, Textarea } from './ui';
 import { useEffect, useState } from 'react';
@@ -17,7 +18,7 @@ export default function ContractCatalog({ onChanged }: { onChanged?: () => void 
   const [policy, setPolicy] = useState(blankPolicy);
   const [service, setService] = useState({ name: '', description: '', is_active: true });
   const [policyId, setPolicyId] = useState<number | null>(null), [serviceId, setServiceId] = useState<number | null>(null);
-  const [busy, setBusy] = useState(false), [error, setError] = useState(''), [notice, setNotice] = useState('');
+  const [busy, setBusy] = useState(false), [error, setError] = useFeedbackState('error'), [, setNotice] = useFeedbackState('success');
   async function reload() { const { data } = await client.get<ContractOptions>('/contract-options'); setOptions(data); }
   useEffect(() => { void reload().catch(e => setError(getApiErrorMessage(e, 'Could not load policies and services.'))); }, []);
   async function save(kind: 'policy' | 'service', event: React.FormEvent) {
@@ -40,7 +41,7 @@ export default function ContractCatalog({ onChanged }: { onChanged?: () => void 
     finally { setBusy(false); }
   }
   return <details className="panel contract-catalog"><summary>Manage SLA policies &amp; covered services</summary>
-    {error && <p className="error" role="alert">{error}</p>}{notice && <p role="status">{notice}</p>}
+    {error && <p className="error" role="alert">{error}</p>}
     <section><h3>SLA policies</h3><p>Set response and resolution targets in minutes. Updates affect future ticket calculations; existing ticket deadlines are not recalculated.</p>
       <div className="catalog-items">{options.policies.map(p => <Button type="button" className="btn btn-secondary" disabled={busy} key={p.id} onClick={() => { setPolicy({ ...p }); setPolicyId(p.id); }}>{p.name}{!p.is_active ? ' (inactive)' : ''}</Button>)}</div>
       <form onSubmit={e => void save('policy', e)}><fieldset disabled={busy}>

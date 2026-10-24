@@ -8,7 +8,7 @@ use Illuminate\Console\Command;
 final class RunRetentionCleanup extends Command
 {
     protected $signature = 'amc:retention-cleanup {--dry-run : Count due records without deleting}';
-    protected $description = 'Run enabled, due Atlazddesk retention policies in bounded batches';
+    protected $description = 'Run enabled, due SupportDesk retention policies in bounded batches';
 
     public function handle(RetentionService $service): int
     {

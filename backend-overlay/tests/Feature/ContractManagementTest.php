@@ -95,8 +95,9 @@ final class ContractManagementTest extends TestCase
         TicketStatus::create(['name' => 'New', 'slug' => 'new']);
         $this->freezeTime();
         $request = Request::create('/api/v2/tickets', 'POST');
-        $request->setUserResolver(fn () => $admin);
-        $ticket = app(\App\Services\TicketService::class)->create($request, ['customer_id' => $customer->id, 'category_id' => $category->id,
+        $creator = User::factory()->create(['role' => 'customer_admin', 'customer_id' => $customer->id, 'status' => 'active']);
+        $request->setUserResolver(fn () => $creator);
+        $ticket = app(\App\Services\TicketService::class)->create($request, ['category_id' => $category->id,
             'priority_id' => $priority->id, 'asset_id' => $asset->id, 'subject' => 'SLA verification', 'description' => 'Check linked SLA']);
         $this->assertSame($policy->id, $ticket->sla_policy_id);
         $this->assertSame(now()->addMinutes(20)->getTimestamp(), $ticket->sla_response_due_at->getTimestamp());

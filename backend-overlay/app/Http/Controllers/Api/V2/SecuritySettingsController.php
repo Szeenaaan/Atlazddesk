@@ -37,7 +37,7 @@ final class SecuritySettingsController extends Controller
 
         // Do not let an administrator enable email OTP when it would print codes to application logs.
         if (($data['email_enabled'] ?? false) && ! $this->mail->hasProvider(null)) {
-            abort(422, 'Configure an active default email provider before enabling Email OTP.');
+            abort(422, 'Select an active provider under Email Delivery → Default email provider, then save email defaults before enabling Email OTP.');
         }
         // Prevent an installation-wide required-role policy from becoming impossible to enroll.
         $nextTotp = $data['totp_enabled'] ?? $this->settings->totp();
@@ -58,7 +58,16 @@ final class SecuritySettingsController extends Controller
                 'previous' => $before, 'current' => $this->settings->all(),
             ]);
         });
-        return response()->json(['data' => $this->settings->all()])->header('Cache-Control', 'no-store');
+        $required = app(\App\Services\Auth\MfaService::class)->requiredMethods($request->user());
+        $verified = $request->hasSession() ? (array) $request->session()->get('amc_mfa_verified_methods', []) : [];
+        $reauthenticate = array_diff($required, $verified) !== [];
+        return response()->json([
+            'data' => $this->settings->all(),
+            'reauthentication_required' => $reauthenticate,
+            'message' => $reauthenticate
+                ? 'Sign-in security settings saved. Sign in again to complete the required verification.'
+                : 'Sign-in security settings saved.',
+        ])->header('Cache-Control', 'no-store');
     }
 
     private function authorizeAdmin(Request $request): void

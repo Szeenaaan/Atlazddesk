@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { canViewPage, ROLE_PAGES } from '../src/auth/rolePermissions.ts';
+import { canViewPage, canCreateTicket, ROLE_PAGES } from '../src/auth/rolePermissions.ts';
 
 test('technical owner only sees system tools, not contractor operations', () => {
   for (const page of ['Monitoring', 'System Support', 'My Profile', 'My Security']) {
@@ -16,9 +16,18 @@ test('contractor Admin can manage client MFA but not system diagnostics', () => 
   assert.equal(canViewPage('admin', 'Authentication'), true);
   assert.equal(canViewPage('admin', 'Email Delivery'), true);
   assert.equal(canViewPage('admin', 'User Management'), true);
+  assert.equal(canViewPage('admin', 'Categories'), true);
+  assert.equal(canViewPage('admin', 'Tickets'), true);
+  assert.equal(canViewPage('admin', 'Assets'), false);
   assert.equal(canViewPage('admin', 'Monitoring'), false);
   assert.equal(canViewPage('admin', 'Settings'), false);
   assert.equal(canViewPage('admin', 'Maintenance'), false);
+});
+
+test('contractor can view tickets but cannot create one, including in a delegated workspace', () => {
+  for (const role of ['admin', 'super_admin', 'technician']) assert.equal(canCreateTicket(role), false);
+  for (const role of ['customer_admin', 'customer_user']) assert.equal(canCreateTicket(role), true);
+  assert.equal(canCreateTicket('customer_admin', 'admin'), false);
 });
 
 test('technician works only in assigned inbox and permitted resources', () => {
@@ -43,6 +52,12 @@ test('unknown role or screen grants no visibility', () => {
   assert.equal(canViewPage('service_manager', 'Customers'), false);
   assert.equal(canViewPage('admin', 'Backdoor'), false);
   for (const pages of Object.values(ROLE_PAGES)) assert.ok(pages.length > 0);
+});
+
+test('category management navigation is exclusive to Contractor Admin', () => {
+  for (const role of ['super_admin', 'customer_admin', 'customer_user', 'technician']) {
+    assert.equal(canViewPage(role, 'Categories'), false);
+  }
 });
 
 test('maintenance page follows installation flag and role', () => {

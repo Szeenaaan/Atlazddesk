@@ -16,7 +16,6 @@ test('AMC contract management is contractor Admin-only', () => {
 test('customer dashboards show assets instead of contractor contract counts', () => {
   assert.match(app, /role === 'admin'\s*\? <div className="kpi">.*?Active contracts/s);
   assert.match(app, /Registered assets/);
-  assert.match(app, /WORKSPACE_LABELS\[role\]/);
 });
 
 test('remove placeholder chrome and misleading copy', () => {

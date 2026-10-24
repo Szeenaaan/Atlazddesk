@@ -75,6 +75,7 @@ final class ContractorMailMfaV101Test extends TestCase
             ->assertCreated()->json('data.id');
         $this->putJson('/api/v2/admin/mail/default', [
             'default_provider_id' => $first, 'notifications_enabled' => true,
+            'notification_email' => 'shared@example.test',
             'current_password' => 'SecurePassword#2026',
         ])->assertOk();
         $this->putJson('/api/v2/admin/mail/clients/'.$customerA->id, [

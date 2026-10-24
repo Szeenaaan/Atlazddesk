@@ -1,3 +1,4 @@
+import { useFeedbackState } from './feedbackContext';
 import { UIState } from './ui';
 import { Button } from './ui';
 import { useEffect, useState } from 'react';
@@ -21,7 +22,7 @@ export default function RecordDetails({ resource, id, onClose, onChanged, canMan
   resource: Resource; id: number; onClose: () => void; onChanged?: () => void; canManageContracts?: boolean;
 }) {
   const [record, setRecord] = useState<Row | null>(null);
-  const [error, setError] = useState('');
+  const [error, setError] = useFeedbackState('error');
   const [revision, setRevision] = useState(0);
   const [documents, setDocuments] = useState(false);
   const [editingContract, setEditingContract] = useState(false);

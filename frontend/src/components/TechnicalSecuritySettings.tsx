@@ -1,17 +1,17 @@
+import { useFeedbackState } from './feedbackContext';
 import { Field } from './ui';
 import { Button, Card, Switch, Input } from './ui';
-import SearchableDropdown from './SearchableDropdown';
+import EmailProviderFields from './EmailProviderFields';
 import { useEffect, useState, type FormEvent } from 'react';
 import { client } from '../api/client';
+import { getApiErrorMessage } from '../api/contracts';
 import FeedbackToast, { type Feedback } from './FeedbackToast';
 
 type Policy = { totp_enabled: boolean; email_enabled: boolean; require_mfa?: boolean };
-type Provider = { enabled: boolean; driver: 'smtp' | 'resend' | 'postmark' | null; from_name: string | null; from_email: string | null; credential_configured: boolean };
+type Provider = { enabled: boolean; driver: 'smtp' | 'resend' | 'postmark' | null; from_name: string | null; from_email: string | null; credential_configured: boolean;
+  smtp?: {host?: string; port?: number; encryption?: string; username?: string} | null };
 type Configuration = { mfa: Policy; mail: Provider };
-const readableError = (e: unknown): string => {
-  const error = e as { response?: { data?: { message?: string; errors?: Record<string, string[]> } } };
-  return Object.values(error.response?.data?.errors || {}).flat().join(' ') || error.response?.data?.message || 'Unable to complete request.';
-};
+const readableError = (error: unknown): string => getApiErrorMessage(error, 'The account security settings could not be updated. Please try again.');
 
 export default function TechnicalSecuritySettings() {
   const [config, setConfig] = useState<Configuration | null>(null);
@@ -20,7 +20,7 @@ export default function TechnicalSecuritySettings() {
   const [mailPassword, setMailPassword] = useState('');
   const [testPassword, setTestPassword] = useState('');
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useFeedbackState('error');
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [feedbackArea, setFeedbackArea] = useState<'mfa' | 'mail' | 'test'>('mfa');
   const [reauthRequired, setReauthRequired] = useState(false);
@@ -30,7 +30,10 @@ export default function TechnicalSecuritySettings() {
     const { data } = await client.get<{ data: Configuration }>('/system/security');
     setConfig(data.data);
     setSavedMfa(data.data.mfa);
-    setForm(p => ({ ...p, driver: data.data.mail.driver || 'smtp', from_name: data.data.mail.from_name || '', from_email: data.data.mail.from_email || '' }));
+    const mail = data.data.mail;
+    setForm(p => ({ ...p, driver: mail.driver || 'smtp', from_name: mail.from_name || '', from_email: mail.from_email || '',
+      host: mail.smtp?.host || '', port: String(mail.smtp?.port || 587), encryption: mail.smtp?.encryption || 'tls',
+      username: mail.smtp?.username || '', password: '', api_key: '' }));
   };
   useEffect(() => { void load().catch(e => setFeedback({ tone: 'error', message: readableError(e) })); }, []);
   async function run(job: () => Promise<void>, area: 'mfa' | 'mail' | 'test') {
@@ -40,7 +43,8 @@ export default function TechnicalSecuritySettings() {
     catch (e) {
       const message = readableError(e);
       const status = (e as {response?: {status?: number}}).response?.status;
-      if ((status === 422 || status === 401) && /password/i.test(message)) setError(message);
+      const passwordErrors = (e as {response?: {data?: {errors?: {current_password?: unknown}}}}).response?.data?.errors?.current_password;
+      if ((status === 422 || status === 401) && (passwordErrors || /^Current password is incorrect\.?$/i.test(message))) setError(message);
       else if (status === 403 && (e as {response?: {data?: {code?: string}}}).response?.data?.code === 'MFA_REQUIRED') {
         setReauthRequired(true); setFeedback({ tone: 'warning', message });
       } else setFeedback({ tone: 'error', message });
@@ -74,7 +78,7 @@ export default function TechnicalSecuritySettings() {
         : { api_key: form.api_key };
       const payload = {
         enabled: config.mail.enabled, driver, from_email: form.from_email, from_name: form.from_name,
-        ...(changedDriver || secretEntered || !config.mail.credential_configured ? { credentials } : {}),
+        ...(driver === 'smtp' || changedDriver || secretEntered || !config.mail.credential_configured ? { credentials } : {}),
         current_password: mailPassword,
       };
       await client.put('/system/security/mail', payload);
@@ -102,24 +106,16 @@ export default function TechnicalSecuritySettings() {
         <p className="hint">Each enabled method is required on every login. Enabling both requires Google Authenticator AND Email OTP. Users enroll individually in My Security or during sign-in. Confirm delivery before enabling Email OTP.</p>
       </form>}
     </Card>
-    <Card className="panel support-section">
+    <Card className="panel support-section email-settings">
       <h3>Technical email provider</h3>
       <p>Used only for Super Admin security codes and technical test messages. Client notification providers are managed by Contractor Admin.</p>
-      {config && <form className="support-form" onSubmit={saveMail}>
+      {config && <form className="support-form email-provider-form" onSubmit={saveMail}>
         <Field className="mfa-switch"><span><b>Enable technical email delivery</b><small>Turn off only after technical Email OTP has been disabled.</small></span>
           <Switch type="checkbox" checked={config.mail.enabled} onChange={e => setConfig(p => p && ({ ...p, mail: { ...p.mail, enabled: e.target.checked } }))}/></Field>
-        <Field>Provider<SearchableDropdown value={form.driver} onChange={e => setForm(p => ({ ...p, driver: e.target.value }))}>
-          <option value="smtp">SMTP</option><option value="resend">Resend</option><option value="postmark">Postmark</option>
-        </SearchableDropdown></Field>
-        <Field>Sender name<Input required maxLength={120} value={form.from_name} onChange={e => setForm(p => ({ ...p, from_name: e.target.value }))}/></Field>
-        <Field>Sender email<Input required type="email" value={form.from_email} onChange={e => setForm(p => ({ ...p, from_email: e.target.value }))}/></Field>
-        {form.driver === 'smtp' ? <>
-          <Field>SMTP host<Input placeholder="mail.example.org" value={form.host} onChange={e => setForm(p => ({ ...p, host: e.target.value }))}/></Field>
-          <Field>SMTP port<Input type="number" min={1} max={65535} value={form.port} onChange={e => setForm(p => ({ ...p, port: e.target.value }))}/></Field>
-          <Field>TLS mode<SearchableDropdown value={form.encryption} onChange={e => setForm(p => ({ ...p, encryption: e.target.value }))}><option value="tls">STARTTLS</option><option value="ssl">SSL/TLS</option></SearchableDropdown></Field>
-          <Field>Username<Input autoComplete="off" value={form.username} onChange={e => setForm(p => ({ ...p, username: e.target.value }))}/></Field>
-          <Field>Password<Input type="password" autoComplete="new-password" value={form.password} onChange={e => setForm(p => ({ ...p, password: e.target.value }))}/></Field>
-        </> : <Field>Provider API key<Input type="password" autoComplete="new-password" value={form.api_key} onChange={e => setForm(p => ({ ...p, api_key: e.target.value }))}/></Field>}
+        <EmailProviderFields disabled={busy} values={{...form, secret: form.driver === 'smtp' ? form.password : form.api_key}}
+          onChange={(field, value) => setForm(current => field === 'secret'
+            ? { ...current, [current.driver === 'smtp' ? 'password' : 'api_key']: value }
+            : { ...current, [field]: value })}/>
         {config.mail.credential_configured && <small>Credentials securely stored. Leave secret fields empty to keep existing settings.</small>}
         <Field>Confirm Super Admin password<Input type="password" autoComplete="current-password" required value={mailPassword} onChange={e => setMailPassword(e.target.value)}/>{error && feedbackArea === 'mail' && <span className="amc-field-error" role="alert">{error}</span>}</Field>
         <Button type="submit" className="btn btn-primary" disabled={busy}>Save provider</Button>

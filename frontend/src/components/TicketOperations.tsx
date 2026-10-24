@@ -1,3 +1,4 @@
+import { useFeedbackState } from './feedbackContext';
 import { Field } from './ui';
 import { Button, FileUpload, Input, Textarea } from './ui';
 import { useEffect, useRef, useState } from 'react';
@@ -17,14 +18,14 @@ export default function TicketOperations({ ticketId, role }: Props) {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [workLogs, setWorkLogs] = useState<WorkLog[]>([]);
   const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState('');
+  const [operationError, setOperationError] = useState(false);
+  const [, setMessage] = useFeedbackState(operationError ? 'error' : 'success');
   const [busy, setBusy] = useState(false);
   const [description, setDescription] = useState('');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState('');
-  const [operationError, setOperationError] = useState(false);
 
   const load = async () => {
     if (DEMO) return;
@@ -153,7 +154,7 @@ export default function TicketOperations({ ticketId, role }: Props) {
           <Button className="btn btn-secondary" disabled={busy} onClick={addLog}>Add work log</Button></>}
         </>
       )}
-      {message && <p className={operationError ? "amc-field-error" : "amc-operation-feedback"} role={operationError ? "alert" : "status"}>{message}</p>}
+
     </section>
   );
 }

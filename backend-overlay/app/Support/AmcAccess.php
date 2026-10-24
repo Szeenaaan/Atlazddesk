@@ -17,6 +17,10 @@ final class AmcAccess
     public static function isAdmin(User $user): bool { return $user->role === 'admin'; }
     public static function isStaff(User $user): bool { return in_array($user->role, self::STAFF, true); }
     public static function isCustomer(User $user): bool { return in_array($user->role, self::CUSTOMERS, true); }
+    public static function mayCreateTicket(User $user, ?User $actor = null): bool
+    {
+        return self::isCustomer($user) && ($actor === null || self::isCustomer($actor));
+    }
     public static function mayManage(User $user): bool { return self::isStaff($user); }
     public static function mayAssign(User $user): bool { return self::isStaff($user); }
     public static function mayManageAssets(User $user): bool { return self::isStaff($user) || $user->role === 'customer_admin'; }

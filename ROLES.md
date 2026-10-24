@@ -5,7 +5,7 @@ Atlazddesk is self-hosted per contractor. The technical owner and business opera
 | Role | Responsibilities | Boundary |
 |---|---|---|
 | Super Admin (`super_admin`) | Technical monitoring, sanitized system logs, installation security, and contractor administrator provisioning | No customer operations, tickets, contracts, or business reports |
-| Contractor Admin (`admin`) | Customer onboarding, customer administrators, workforce, contracts, assets, ticket assignments, operational reports, mail routing, and client security policies | No technical Super Admin tools |
+| Contractor Admin (`admin`) | Customer onboarding, customer administrators, workforce, contracts, assets, management of existing tickets, operational reports, mail routing, and client security policies | No technical Super Admin tools or ticket creation, including in delegated customer workspaces |
 | Technician (`technician`) | Assigned work, permitted updates/comments, and structured work reports | Assigned work only; no user management or ticket reassignment |
 | Customer Admin (`customer_admin`) | Own organization’s users, assets, assignments, and authorized tickets/reports | Cannot act for another customer or configure contractor security policies |
 | Customer User (`customer_user`) | Own authorized tickets and assigned customer-owned assets | Cannot read other users’ tickets or internal comments |

@@ -1,16 +1,17 @@
+import { useFeedbackState } from './feedbackContext';
 import { Field } from './ui';
 import { Button, Card, Switch, Input } from './ui';
 import SearchableDropdown from './SearchableDropdown';
 import { useEffect, useState } from 'react';
 import { client } from '../api/client';
+import { getApiErrorMessage } from '../api/contracts';
 import type { RecordItem } from '../data';
 
 type Policy = { totp_enabled: boolean; email_enabled: boolean; require_mfa: boolean };
 type UserAccount = { id: number; name: string; email: string; customer_id: number | null; role: string };
 const empty: Policy = { totp_enabled: false, email_enabled: false, require_mfa: false };
-function messageOf(error: any): string {
-  const errors = error.response?.data?.errors;
-  return errors ? Object.values(errors).flat().join(' ') : error.response?.data?.message || error.message || 'Request failed';
+function messageOf(error: unknown): string {
+  return getApiErrorMessage(error, 'The sign-in security settings could not be updated. Please try again.');
 }
 
 /** Admin manages client/user enrollment policy; technical mail service configuration stays with the owner. */
@@ -23,8 +24,8 @@ export default function ClientMfaPolicies({ customers }: { customers: RecordItem
   const [override, setOverride] = useState(false);
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
+  const [, setMessage] = useFeedbackState('success');
+  const [error, setError] = useFeedbackState('error');
 
   useEffect(() => {
     if (!customer) { setUsers([]); return; }
@@ -51,7 +52,7 @@ export default function ClientMfaPolicies({ customers }: { customers: RecordItem
       const url = scope === 'customer' ? `/admin/client-mfa/customers/${customer}` : `/admin/client-mfa/users/${userId}`;
       await client.put(url, { ...policy, require_mfa: false, current_password: password });
       setOverride(scope === 'user'); setPassword('');
-      setMessage('MFA policy saved. Email verification is mandatory when enabled; Google enrollment is optional in My Security.');
+      setMessage('Sign-in security settings saved. Email verification is required when enabled. Users can set up Google Authenticator in My Security.');
     } catch (e: any) { setError(messageOf(e)); }
     finally { setBusy(false); }
   };
@@ -60,14 +61,15 @@ export default function ClientMfaPolicies({ customers }: { customers: RecordItem
     try {
       await client.delete(`/admin/client-mfa/users/${userId}`, { data: { current_password: password } });
       const { data } = await client.get(`/admin/client-mfa/users/${userId}`);
-      setPolicy(data.data.effective); setOverride(false); setPassword(''); setMessage('User now inherits the company MFA policy.');
+      setPolicy(data.data.effective); setOverride(false); setPassword(''); setMessage('This account now uses the company sign-in security settings.');
     } catch (e: any) { setError(messageOf(e)); }
     finally { setBusy(false); }
   };
   const filteredUsers = users.filter(u => String(u.customer_id) === customer);
-  return <Card className="panel mfa-config-panel" aria-label="Client authentication policies">
+  return <Card className="panel mfa-config-panel client-mfa-settings" aria-label="Client authentication policies">
     <h3>Client MFA management</h3>
     <p>Choose which sign-in factors each client must complete. Manage client email providers in Email Delivery; technical diagnostics remain with Super Admin.</p>
+    <p>Companies without saved settings use the organization-wide authentication settings. Save a company policy here to control that client’s sign-in requirements. Individual user settings can override the company policy.</p>
     <div className="policy-selectors">
       <Field>Client company
         <SearchableDropdown value={customer} onChange={e => { setCustomer(e.target.value); setUserId(''); setScope('customer'); }}>
@@ -85,7 +87,7 @@ export default function ClientMfaPolicies({ customers }: { customers: RecordItem
         </SearchableDropdown>
       </Field>}
     </div>
-    {(scope === 'customer' ? !!customer : !!userId) && <>
+    {(scope === 'customer' ? !!customer : !!userId) && <div className="client-policy-form">
       {scope === 'user' && <p>{override ? 'Custom policy for this account' : 'This user currently inherits the company policy.'}</p>}
       <Field className="mfa-switch"><span><b>Google Authenticator</b><small>Permit time-based authentication on the client account.</small></span>
         <Switch type="checkbox" checked={policy.totp_enabled} onChange={e => setPolicy(p => ({ ...p, totp_enabled: e.target.checked }))}/>
@@ -101,8 +103,8 @@ export default function ClientMfaPolicies({ customers }: { customers: RecordItem
         <Button type="button" className="btn btn-primary" disabled={!password || busy} onClick={save}>Save policy</Button>
         {scope === 'user' && override && <Button type="button" className="btn btn-secondary" disabled={!password || busy} onClick={restore}>Restore company policy</Button>}
       </div>
-    </>}
-    {message && <p className="success-note" role="status">{message}</p>}
+    </div>}
+
     {error && <p className="error" role="alert">{error}</p>}
   </Card>;
 }

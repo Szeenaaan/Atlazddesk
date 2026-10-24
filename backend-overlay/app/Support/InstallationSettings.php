@@ -10,8 +10,9 @@ final class InstallationSettings
     public function all(): array
     {
         $stored = DB::table('amc_installation_settings')->pluck('value', 'key');
+        $label = (string) ($stored['installation_label'] ?? config('app.name', 'SupportDesk'));
         return [
-            'installation_label' => (string) ($stored['installation_label'] ?? config('app.name', 'Atlazddesk')),
+            'installation_label' => in_array(strtolower($label), ['atlazddesk', 'altazzdesk'], true) ? 'SupportDesk' : $label,
             'support_email' => (string) ($stored['support_email'] ?? ''),
             'queue_warning_depth' => (int) ($stored['queue_warning_depth'] ?? 100),
             'disk_warning_percent' => (int) ($stored['disk_warning_percent'] ?? 15),

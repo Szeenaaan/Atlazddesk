@@ -10,8 +10,11 @@ use App\Http\Controllers\Api\V2\{
 Route::get('v2/health/live', [LiveHealthController::class, 'live'])->middleware('throttle:amc-health');
 Route::get('v2/health/ready', [LiveHealthController::class, 'ready'])->middleware('throttle:amc-health');
 
-Route::prefix('v2')->middleware(['auth:sanctum','amc.active','amc.role','amc.boundary','amc.mfa','throttle:amc-api'])->group(function () {
+Route::prefix('v2')->middleware(['auth:sanctum','amc.active','amc.role','amc.boundary','amc.mfa','throttle:amc-api', \App\Http\Middleware\EnsureCustomerWorkspace::class])->group(function () {
+    Route::post('/users/{id}/dashboard', [\App\Http\Controllers\Api\V2\CustomerWorkspaceController::class, 'start'])->middleware('throttle:amc-write')->whereNumber('id');
+    Route::delete('/customer-workspace', [\App\Http\Controllers\Api\V2\CustomerWorkspaceController::class, 'stop'])->middleware('throttle:amc-write');
     Route::get('/auth/me', [AuthController::class,'me']);
+    Route::post('/auth/activity', [AuthController::class,'activity'])->middleware('throttle:amc-write');
     Route::get('/installation/timezone', [\App\Http\Controllers\Api\V2\InstallationTimeController::class, 'show']);
     Route::patch('/auth/profile', [AuthController::class,'updateProfile'])->middleware('throttle:amc-write');
     Route::get('/auth/mfa/status', [MfaController::class,'status']);
@@ -31,6 +34,7 @@ Route::prefix('v2')->middleware(['auth:sanctum','amc.active','amc.role','amc.bou
     Route::get('/categories', [\App\Http\Controllers\Api\V2\CategoriesController::class, 'index']);
     Route::post('/categories', [\App\Http\Controllers\Api\V2\CategoriesController::class, 'store'])->middleware('throttle:amc-write');
     Route::patch('/categories/{id}', [\App\Http\Controllers\Api\V2\CategoriesController::class, 'update'])->middleware('throttle:amc-write')->whereNumber('id');
+    Route::delete('/categories/{id}', [\App\Http\Controllers\Api\V2\CategoriesController::class, 'destroy'])->middleware('throttle:amc-write')->whereNumber('id');
     Route::get('/contract-options', [\App\Http\Controllers\Api\V2\ContractCatalogController::class, 'index']);
     Route::post('/sla-policies', [\App\Http\Controllers\Api\V2\ContractCatalogController::class, 'storePolicy'])->middleware('throttle:amc-write');
     Route::patch('/sla-policies/{id}', [\App\Http\Controllers\Api\V2\ContractCatalogController::class, 'updatePolicy'])->middleware('throttle:amc-write')->whereNumber('id');
@@ -61,7 +65,7 @@ Route::prefix('v2')->middleware(['auth:sanctum','amc.active','amc.role','amc.bou
         ->middleware('throttle:amc-write')->whereNumber('id');
     Route::get('/tickets/{id}/attachments', [OperationsController::class,'attachments'])->whereNumber('id');
     Route::post('/tickets/{id}/attachments', [OperationsController::class,'upload'])
-        ->middleware('throttle:amc-write')->whereNumber('id');
+        ->middleware(['throttle:amc-write', 'throttle:amc-upload'])->whereNumber('id');
     Route::get('/tickets/{id}/attachments/{attachment}/download', [OperationsController::class,'download'])
         ->whereNumber(['id','attachment']);
     Route::get('/reports/summary', [ReportsController::class,'summary']);

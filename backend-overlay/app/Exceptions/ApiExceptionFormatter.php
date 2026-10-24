@@ -30,15 +30,18 @@ final class ApiExceptionFormatter
         };
 
         $message = match (true) {
-            $error instanceof ValidationException => 'The supplied information is invalid.',
-            $error instanceof AuthenticationException => 'Authentication is required.',
-            $error instanceof AuthorizationException => 'You do not have permission to perform this action.',
+            $error instanceof ValidationException => 'Check the highlighted fields and submit again.',
+            $error instanceof AuthenticationException => 'Sign in to access this page or complete this action.',
+            $error instanceof AuthorizationException => 'Your account cannot perform this action. Contact your administrator if you need access.',
             $error instanceof HttpExceptionInterface && $error->getMessage() !== '' && $status < 500
                 => $error->getMessage(),
-            $status === 404 => 'The requested resource was not found.',
-            $status === 403 => 'You do not have permission to perform this action.',
-            $status === 429 => 'Too many requests. Please try again later.',
-            $status >= 500 => 'An internal server error occurred.',
+            $status === 404 => 'This record is unavailable or your account cannot access it.',
+            $status === 401 => 'Sign in to access this page or complete this action.',
+            $status === 403 => 'Your account cannot perform this action. Contact your administrator if you need access.',
+            $status === 422 => 'Check the highlighted fields and submit again.',
+            $status === 429 => 'Too many requests. Wait a moment before trying again.',
+            $status === 503 => 'This service is temporarily unavailable. Try again shortly. If the problem continues, contact your administrator.',
+            $status >= 500 => 'We could not complete this request. Try again. If the problem continues, contact your administrator.',
             default => Response::$statusTexts[$status] ?? 'Request failed.',
         };
 
@@ -47,6 +50,14 @@ final class ApiExceptionFormatter
             'statuscode' => $status,
             'message' => $message,
         ];
+
+        if ($status >= 500 && $request->is('api/v2/auth/mfa/email/*')) {
+            $payload['message'] = 'We could not send your verification code. Try again. If the problem continues, contact your administrator.';
+        } elseif ($status >= 500 && $request->is('api/v2/admin/mail/*')) {
+            $payload['message'] = $request->isMethod('GET')
+                ? 'Email settings could not be loaded. Try again or contact your server administrator.'
+                : 'The email settings request could not be completed. Try again or contact your server administrator.';
+        }
 
         if ($status === 503 && app()->isDownForMaintenance()) {
             $payload['code'] = 'APPLICATION_MAINTENANCE';

@@ -1,10 +1,14 @@
+import { useFeedbackState } from './feedbackContext';
 import { Field } from './ui';
-import { Button, Card, Checkbox, Input } from './ui';
+import { Button, Card, Checkbox, InlineNotice, Input, UIState } from './ui';
+import EmailProviderFields, { type EmailProviderValues } from './EmailProviderFields';
 import SearchableDropdown from './SearchableDropdown';
 import { useEffect, useState } from 'react';
 import { client } from '../api/client';
 import { getApiErrorMessage } from '../api/contracts';
 import type { RecordItem } from '../data';
+import FeedbackToast from './FeedbackToast';
+import { ConfirmationDialog } from './ui/Dialog';
 
 type Driver = 'smtp' | 'resend' | 'postmark';
 type Provider = {
@@ -15,16 +19,19 @@ type Provider = {
   from_name: string;
   is_active: boolean;
   credential_configured: boolean;
+  smtp?: {host?: string; port?: number; encryption?: string; username?: string} | null;
 };
-type MailState = { providers: Provider[]; default_provider_id: number | null; notifications_enabled: boolean };
+type MailState = { providers: Provider[]; default_provider_id: number | null; notifications_enabled: boolean; notification_email?: string | null;
+  last_ticket_delivery?: {status: string; attempts: number; sent_at: string | null; failure_category: string | null} | null };
 type ClientState = { customer_id: number; provider_id: number | null; notifications_enabled: boolean | null;
   effective_provider_id: number | null; effective_notifications_enabled: boolean };
 
 /** Contractor Admin only. Secret values are never returned or displayed after saving. */
 export default function EmailDeliverySettings({ customers }: { customers: RecordItem[] }) {
   const [data, setData] = useState<MailState | null>(null);
+  const [savedDefaultId, setSavedDefaultId] = useState<number | null>(null);
   const [name, setName] = useState('');
-  const [driver, setDriver] = useState<Driver>('resend');
+  const [driver, setDriver] = useState<Driver>('smtp');
   const [fromEmail, setFromEmail] = useState('');
   const [fromName, setFromName] = useState('');
   const [host, setHost] = useState('');
@@ -33,19 +40,26 @@ export default function EmailDeliverySettings({ customers }: { customers: Record
   const [username, setUsername] = useState('');
   const [secret, setSecret] = useState('');
   const [password, setPassword] = useState('');
-  const [editingKeyId, setEditingKeyId] = useState<number | null>(null);
-  const [replacementKey, setReplacementKey] = useState('');
+  const [editingProvider, setEditingProvider] = useState<Provider | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Provider | null>(null);
   const [customerId, setCustomerId] = useState('');
   const [clientRoute, setClientRoute] = useState<ClientState | null>(null);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
+  const [error, setError] = useFeedbackState('error');
+  const [notice, setNotice] = useFeedbackState('success');
+  const [loading, setLoading] = useState(true);
 
   async function reload() {
     const response = await client.get<{ data: MailState }>('/admin/mail/providers');
     setData(response.data.data);
+    setSavedDefaultId(response.data.data.default_provider_id);
   }
-  useEffect(() => { void reload().catch(e => setError(getApiErrorMessage(e))); }, []);
+  async function loadSettings() {
+    setLoading(true); setError('');
+    try { await reload(); } catch (e) { setError(getApiErrorMessage(e)); }
+    finally { setLoading(false); }
+  }
+  useEffect(() => { void loadSettings(); }, []);
   useEffect(() => {
     setClientRoute(null);
     if (!customerId) return;
@@ -69,12 +83,14 @@ export default function EmailDeliverySettings({ customers }: { customers: Record
       const credentials = driver === 'smtp'
         ? { host, port: Number(port), encryption, username, password: secret }
         : { api_key: secret };
-      await client.post('/admin/mail/providers', {
+      const payload = {
         name, driver, from_email: fromEmail, from_name: fromName, credentials,
         current_password: password,
-      });
-      setName(''); setSecret(''); setHost(''); setUsername('');
-      await reload(); setNotice('Email provider created. Send a test before enabling delivery.');
+      };
+      if (editingProvider) await client.patch(`/admin/mail/providers/${editingProvider.id}`, payload);
+      else await client.post('/admin/mail/providers', payload);
+      resetProvider();
+      await reload(); setNotice(driver === 'smtp' ? 'SMTP credentials verified and settings saved. Send a test email to confirm delivery.' : 'Email provider saved. Send a test to confirm delivery.');
     });
   }
   function setDefault(providerId: number | null, enabled: boolean) {
@@ -82,9 +98,10 @@ export default function EmailDeliverySettings({ customers }: { customers: Record
     void run(async () => {
       await client.put('/admin/mail/default', {
         default_provider_id: providerId, notifications_enabled: enabled,
+        notification_email: data?.notification_email?.trim() || null,
         current_password: password,
       });
-      await reload(); setNotice('Installation email settings saved.');
+      await reload(); setNotice('Default email settings saved.');
     });
   }
   function toggleProvider(provider: Provider) {
@@ -93,27 +110,34 @@ export default function EmailDeliverySettings({ customers }: { customers: Record
       await client.patch(`/admin/mail/providers/${provider.id}`, {
         is_active: !provider.is_active, current_password: password,
       });
-      await reload(); setNotice('Provider availability updated.');
+      await reload(); setNotice('Email provider status updated.');
     });
   }
-  function rotateSecret(provider: Provider) {
-    if (!requirePassword() || !replacementKey) return;
+  function deleteProvider() {
+    if (!deleteTarget || !requirePassword()) return;
+    const provider = deleteTarget;
     void run(async () => {
-      await client.patch(`/admin/mail/providers/${provider.id}`, {
-        credentials: provider.driver === 'smtp'
-          ? { password: replacementKey }
-          : { api_key: replacementKey },
-        current_password: password,
-      });
-      setEditingKeyId(null); setReplacementKey('');
-      await reload(); setNotice('Provider credentials updated. Run a new delivery test.');
+      await client.delete(`/admin/mail/providers/${provider.id}`, {data: {current_password: password}});
+      if (editingProvider?.id === provider.id) resetProvider();
+      setDeleteTarget(null); setPassword('');
+      await reload(); setNotice('Email provider deleted.');
     });
+  }
+  function resetProvider() {
+    setEditingProvider(null); setName(''); setDriver('smtp'); setFromEmail(''); setFromName('');
+    setHost(''); setPort('587'); setEncryption('tls'); setUsername(''); setSecret('');
+  }
+  function editProvider(provider: Provider) {
+    setEditingProvider(provider); setName(provider.name); setDriver(provider.driver);
+    setFromEmail(provider.from_email); setFromName(provider.from_name); setSecret('');
+    setHost(provider.smtp?.host || ''); setPort(String(provider.smtp?.port || 587));
+    setEncryption(provider.smtp?.encryption || 'tls'); setUsername(provider.smtp?.username || '');
   }
   function testProvider(providerId: number) {
     if (!requirePassword()) return;
     void run(async () => {
       await client.post(`/admin/mail/providers/${providerId}/test`, { current_password: password });
-      setNotice('The provider accepted the test request. Confirm arrival in your own email inbox.');
+      setNotice('Check your email for the test message. It may take a moment to arrive.');
     });
   }
   function saveClient() {
@@ -124,19 +148,20 @@ export default function EmailDeliverySettings({ customers }: { customers: Record
         notifications_enabled: clientRoute.notifications_enabled,
         current_password: password,
       });
-      setClientRoute(response.data.data); setNotice('Client email route saved.');
+      setClientRoute(response.data.data); setNotice('Customer email settings saved.');
     });
   }
 
   const providers = data?.providers ?? [];
-  return <Card className="panel amc-mail-settings">
-    <h3>Email delivery providers</h3>
+  return <Card className="panel amc-mail-settings email-settings">
+    <h3>Business email delivery</h3>
 
-    {error && <p className="error" role="alert">{error}</p>}
-    {notice && <p className="mfa-notice" role="status">{notice}</p>}
-    {!data ? <p>Loading email settings…</p> : <>
+    {error && <InlineNotice tone="error">{error}</InlineNotice>}
+    <FeedbackToast feedback={notice ? {tone: 'success', message: notice} : null} onDismiss={() => setNotice('')}/>
+    {!data ? loading ? <UIState tone="loading">Loading email settings…</UIState> : <Button type="button" onClick={() => void loadSettings()}>Retry</Button> : <>
       <div className="mail-section">
-        <h4>Installation default</h4>
+        <h4>Default sender and notification inbox</h4>
+        {!savedDefaultId && providers.some(provider => provider.is_active) && <InlineNotice tone="info">A provider has been added, but no default sender is selected. Choose it below and save email defaults before enabling Email OTP. Sending a test email does not select the default sender.</InlineNotice>}
         <div className="mail-form-grid">
           <Field>Default email provider
             <SearchableDropdown value={data.default_provider_id ?? ''} onChange={e => setData(previous => previous && ({ ...previous, default_provider_id: e.target.value ? Number(e.target.value) : null }))}>
@@ -144,53 +169,45 @@ export default function EmailDeliverySettings({ customers }: { customers: Record
               {providers.filter(p => p.is_active).map(p => <option key={p.id} value={p.id}>{p.name} ({p.driver})</option>)}
             </SearchableDropdown>
           </Field>
-          <Field className="mfa-switch"><span><b>Ticket and AMC email notifications</b></span>
-            <Checkbox type="checkbox" checked={data.notifications_enabled} onChange={e => setData(previous => previous && ({ ...previous, notifications_enabled: e.target.checked }))}/>
+          <Field>Shared ticket notification inbox<Input type="email" maxLength={255} disabled={busy} value={data.notification_email || ''} onChange={e => setData(previous => previous && ({...previous, notification_email: e.target.value}))}/></Field>
+          <Field className="mail-notification-choice"><span>Ticket email notifications</span>
+            <Checkbox type="checkbox" disabled={busy} checked={data.notifications_enabled} onChange={e => setData(previous => previous && ({ ...previous, notifications_enabled: e.target.checked }))}/>
           </Field>
         </div>
+        <p>OTPs go only to each user’s registered email. Ticket updates, including internal staff events, go to the shared inbox.</p>
         <Button type="button" className="btn btn-primary" disabled={busy} onClick={() => setDefault(data.default_provider_id, data.notifications_enabled)}>Save email defaults</Button>
+        {data.last_ticket_delivery && <p role="status">Last ticket email: {data.last_ticket_delivery.status === 'sent' ? 'Accepted by provider' : data.last_ticket_delivery.status === 'sending' ? 'Sending or awaiting confirmation' : data.last_ticket_delivery.status === 'uncertain' ? 'Delivery unconfirmed; check the inbox before retrying' : data.last_ticket_delivery.status === 'failed' ? 'Delivery failed. Check your email settings or contact your server administrator' : data.last_ticket_delivery.status}.</p>}
       </div>
       <div className="mail-section">
         <h4>Configured providers</h4>
         {providers.length === 0 ? <p>No email providers configured. Add one below to enable outgoing mail.</p>
           : <div className="mail-providers">{providers.map(provider => <div className="mail-provider-row" key={provider.id}>
-            <div><b>{provider.name}</b><small>{provider.driver.toUpperCase()} · {provider.from_email} · {provider.is_active ? 'Active' : 'Disabled'}</small></div>
+            <div><b>{provider.name}</b><small>{provider.driver.toUpperCase()} · {provider.from_email} · {provider.is_active ? 'Active' : 'Disabled'}{savedDefaultId === provider.id ? ' · Default sender' : ''}</small></div>
             <div className="mail-provider-actions">
               <Button type="button" className="btn btn-secondary" disabled={busy || !provider.is_active} onClick={() => testProvider(provider.id)}>Test</Button>
-              <Button type="button" className="btn btn-secondary" disabled={busy} onClick={() => { setEditingKeyId(provider.id); setReplacementKey(''); }}>Replace secret</Button>
+              {provider.is_active && savedDefaultId !== provider.id && <Button type="button" disabled={busy} onClick={() => setDefault(provider.id, data.notifications_enabled)}>Use as default</Button>}
+              <Button type="button" className="btn btn-secondary" disabled={busy} onClick={() => editProvider(provider)}>Edit provider</Button>
               <Button type="button" className="btn btn-secondary" disabled={busy} onClick={() => toggleProvider(provider)}>{provider.is_active ? 'Disable' : 'Enable'}</Button>
+              <Button type="button" variant="danger" disabled={busy} onClick={() => setDeleteTarget(provider)}>Delete provider</Button>
             </div>
-            {editingKeyId === provider.id && <div className="mail-replace-secret">
-              <Field>New {provider.driver === 'smtp' ? 'SMTP password' : 'API key'}
-                <Input type="password" autoComplete="off" value={replacementKey} onChange={e => setReplacementKey(e.target.value)}/>
-              </Field>
-              <Button type="button" className="btn btn-primary" disabled={!replacementKey || busy} onClick={() => rotateSecret(provider)}>Save new secret</Button>
-              <Button type="button" className="btn btn-secondary" onClick={() => { setEditingKeyId(null); setReplacementKey(''); }}>Cancel</Button>
-            </div>}
           </div>)}</div>}
       </div>
       <div className="mail-section">
-        <h4>Add a provider</h4>
-        <div className="mail-form-grid">
-          <Field>Provider name<Input value={name} maxLength={120} onChange={e => setName(e.target.value)}/></Field>
-          <Field>Transport<SearchableDropdown value={driver} onChange={e => { setDriver(e.target.value as Driver); setSecret(''); }}>
-            <option value="resend">Resend API</option><option value="postmark">Postmark API</option><option value="smtp">SMTP</option>
-          </SearchableDropdown></Field>
-          <Field>From email<Input type="email" value={fromEmail} onChange={e => setFromEmail(e.target.value)}/></Field>
-          <Field>From display name<Input value={fromName} onChange={e => setFromName(e.target.value)}/></Field>
-          {driver === 'smtp' && <>
-            <Field>SMTP hostname<Input value={host} onChange={e => setHost(e.target.value)}/></Field>
-            <Field>SMTP port<Input type="number" min={1} max={65535} value={port} onChange={e => setPort(e.target.value)}/></Field>
-            <Field>Encryption<SearchableDropdown value={encryption} onChange={e => setEncryption(e.target.value)}><option value="tls">STARTTLS</option><option value="ssl">TLS (implicit)</option></SearchableDropdown></Field>
-            <Field>SMTP username<Input value={username} onChange={e => setUsername(e.target.value)}/></Field>
-          </>}
-          <Field>{driver === 'smtp' ? 'SMTP password' : 'Provider API key'}
-            <Input type="password" autoComplete="off" value={secret} onChange={e => setSecret(e.target.value)}/></Field>
-        </div>
-        <Button type="button" className="btn btn-primary" disabled={busy || !name || !fromName || !fromEmail || !secret} onClick={createProvider}>Add provider</Button>
+        <h4>{editingProvider ? 'Edit provider' : 'Add a provider'}</h4>
+        {driver === 'smtp' && <p>Your SMTP connection and credentials are verified before changes are saved. This check does not send an email.</p>}
+        <EmailProviderFields disabled={busy} lockDriver={!!editingProvider} values={{driver, from_name: fromName, from_email: fromEmail, host, port, encryption, username, secret}}
+          onChange={(field: keyof EmailProviderValues, value: string) => {
+            if (field === 'driver') { setDriver(value as Driver); setSecret(''); }
+            else ({from_name: setFromName, from_email: setFromEmail, host: setHost, port: setPort, encryption: setEncryption, username: setUsername, secret: setSecret})[field](value);
+          }}>
+          <Field>Provider name<Input required disabled={busy} value={name} maxLength={120} onChange={e => setName(e.target.value)}/></Field>
+        </EmailProviderFields>
+        {editingProvider && <p>Saved secret is hidden. Leave the password or API key blank to keep it.</p>}
+        <div className="mail-provider-actions"><Button type="button" className="btn btn-primary" disabled={busy || !name || !fromName || !fromEmail || (!editingProvider && !secret)} onClick={createProvider}>{editingProvider ? 'Save provider' : 'Add provider'}</Button>{editingProvider && <Button type="button" disabled={busy} onClick={resetProvider}>Cancel editing</Button>}</div>
       </div>
       <div className="mail-section">
-        <h4>Client-specific email routing</h4>
+        <h4>Customer-specific senders (optional)</h4>
+        <p>Leave these settings unchanged to use the default sender. Choose another provider only when a customer needs a different sender for contract reminders. Sign-in codes use the default sender when selected; ticket emails always use the shared notification inbox.</p>
 
         <Field>Client organization<SearchableDropdown value={customerId} onChange={e => setCustomerId(e.target.value)}>
           <option value="">Select a client</option>
@@ -217,5 +234,10 @@ export default function EmailDeliverySettings({ customers }: { customers: Record
 
       </div>
     </>}
+    {deleteTarget && <ConfirmationDialog title="Delete email provider?" confirmLabel="Delete provider" busy={busy}
+      onConfirm={deleteProvider} onClose={() => {if (!busy) setDeleteTarget(null);}}>
+      <p>Delete {deleteTarget.name} and its saved credentials? Providers used for default or customer email delivery must be replaced first.</p>
+      <Field>Current Contractor Admin password<Input type="password" autoComplete="current-password" required disabled={busy} value={password} onChange={event => setPassword(event.target.value)}/></Field>
+    </ConfirmationDialog>}
   </Card>;
 }

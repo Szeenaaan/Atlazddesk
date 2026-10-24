@@ -3,6 +3,7 @@ import { Button, Checkbox, Input } from './ui';
 import { useState, type FormEvent } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { client } from '../api/client';
+import { getApiErrorMessage } from '../api/contracts';
 import FeedbackToast, { type Feedback } from './FeedbackToast';
 
 export type MfaLoginResult = {
@@ -32,10 +33,7 @@ type Props = {
 };
 
 function errorMessage(error: unknown): string {
-  const response = (error as { response?: { data?: { message?: string; errors?: Record<string, string[]> } } }).response;
-  return Object.values(response?.data?.errors ?? {}).flat().join(' ')
-    || response?.data?.message
-    || 'Verification failed. Please try again.';
+  return getApiErrorMessage(error, 'We could not complete verification. Please try again.');
 }
 
 /** The server, not the browser, decides which factors are required and finished. */
@@ -81,7 +79,7 @@ export default function MfaLogin({ challenge, onComplete, onCancel }: Props) {
         status: data.status,
       });
     } else {
-      setError('Unexpected verification response. Please sign in again.');
+      setError('We could not complete verification. Please sign in again.');
     }
   }
 
@@ -98,7 +96,7 @@ export default function MfaLogin({ challenge, onComplete, onCancel }: Props) {
 
   const sendEmail = () => void call(async () => {
     await client.post('/auth/mfa/email/send');
-    setFeedback({ tone: 'success', message: 'Verification code sent to your registered email.' });
+    setFeedback({ tone: 'success', message: 'Check your email for your verification code. It may take a moment to arrive.' });
   });
 
   const verify = (event: FormEvent) => {

@@ -7,10 +7,17 @@ use Illuminate\Http\Request;
 
 final class AmcAudit
 {
+    public static function actorId(Request $request): ?int
+    {
+        return $request->attributes->get('amc_workspace_actor')?->id ?? $request->user()?->id;
+    }
+
     public static function record(Request $request, string $event, object $subject, array $properties = []): void
     {
+        $actor = $request->attributes->get('amc_workspace_actor');
+        if ($actor) $properties['acting_as_user_id'] = $request->user()?->id;
         ActivityLog::create([
-            'user_id' => $request->user()?->id,
+            'user_id' => $actor?->id ?? $request->user()?->id,
             'customer_id' => $subject->customer_id ?? $request->user()?->customer_id,
             'event' => $event,
             'subject_type' => $subject::class,

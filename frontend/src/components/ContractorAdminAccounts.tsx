@@ -1,3 +1,4 @@
+import { useFeedbackState } from './feedbackContext';
 import { Field, InlineNotice } from './ui';
 import RowActions from './RowActions';
 import { UserCheck, UserX } from 'lucide-react';
@@ -14,8 +15,8 @@ export default function ContractorAdminAccounts() {
   const [admins, setAdmins] = useState<Admin[]>([]);
   const [form, setForm] = useState(blank);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
+  const [error, setError] = useFeedbackState('error');
+  const [, setNotice] = useFeedbackState('success');
   const [sort, setSort] = useState<{sort?: string; direction?: string}>({});
   async function load() {
     const { data } = await client.get<ApiResponse<Admin[]>>('/system/admins', {params: sort});
@@ -33,7 +34,7 @@ export default function ContractorAdminAccounts() {
   }
   async function toggle(admin: Admin) {
     setBusy(true); setError(''); setNotice('');
-    try { await client.patch(`/system/admins/${admin.id}/status`, {status:admin.status === 'active' ? 'inactive' : 'active'}); await load(); }
+    try { await client.patch(`/system/admins/${admin.id}/status`, {status:admin.status === 'active' ? 'inactive' : 'active'}); await load(); setNotice('Account status updated.'); }
     catch (error: unknown) { setError(getApiErrorMessage(error, 'Cannot change status.')); }
     finally { setBusy(false); }
   }
@@ -47,7 +48,7 @@ export default function ContractorAdminAccounts() {
       <Field>Confirm password<Input required type="password" minLength={8} autoComplete="new-password" value={form.password_confirmation} onChange={e => setForm(p => ({...p,password_confirmation:e.target.value}))} /></Field>
       <Button type="submit" className="btn btn-primary" disabled={busy}>{busy ? 'Saving…' : 'Create Contractor Admin'}</Button>
     </form>
-    {error && <InlineNotice tone="error">{error}</InlineNotice>}{notice && <InlineNotice tone="success">{notice}</InlineNotice>}
+    {error && <InlineNotice tone="error">{error}</InlineNotice>}
     <div className="table-scroll"><SortableTable onSort={({column, direction}) => setSort({sort: ['name','email','status'][column], direction})}><thead><tr><th>Admin</th><th>Email</th><th>Status</th><th>Action</th></tr></thead><tbody>
       {admins.map(admin => <tr key={admin.id}><td>{admin.name}</td><td>{admin.email}</td><td>{admin.status}</td><td><RowActions name={admin.name} actions={[{label: admin.status === 'active' ? 'Deactivate' : 'Activate', icon: admin.status === 'active' ? <UserX size={16}/> : <UserCheck size={16}/>, disabled: busy, onClick: () => void toggle(admin)}]}/></td></tr>)}
     </tbody></SortableTable></div>

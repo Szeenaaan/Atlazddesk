@@ -1,38 +1,50 @@
+import { useFeedbackState } from './feedbackContext';
 import { Field } from './ui';
 import { Button, Card, Switch, Input } from './ui';
 import SearchableDropdown from './SearchableDropdown';
 import { useEffect, useState } from 'react';
 import { client } from '../api/client';
+import { getApiErrorMessage } from '../api/contracts';
 import FeedbackToast, { type Feedback } from './FeedbackToast';
 import { QRCodeSVG } from 'qrcode.react';
 
 type Flags = { totp_enabled: boolean; email_enabled: boolean };
 type Status = { totp_enabled: boolean; email_enabled: boolean; email_verified: boolean; required: boolean; recovery_remaining: number; available: Flags };
 
-function errorText(e: any): string {
-  if (e.response?.status === 422 && e.response?.data?.errors) return Object.values(e.response.data.errors).flat().join(' ');
-  return e.response?.data?.message || 'Request failed. Please try again.';
+function errorText(error: unknown): string {
+  return getApiErrorMessage(error, 'The sign-in security settings could not be updated. Please try again.');
 }
 
 export function ContractorMfaSettings() {
   const [flags, setFlags] = useState<Flags | null>(null);
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
-  useEffect(() => { client.get('/admin/security/mfa').then(({ data }) => setFlags(data.data)).catch(e => setError(errorText(e))); }, []);
+  const [reauthRequired, setReauthRequired] = useState(false);
+  const [, setMessage] = useFeedbackState(reauthRequired ? 'warning' : 'success');
+  const [error, setError] = useFeedbackState('error');
+  const load = async () => {
+    setBusy(true); setError('');
+    try { const { data } = await client.get('/admin/security/mfa'); setFlags(data.data); }
+    catch (e) { setError(errorText(e)); }
+    finally { setBusy(false); }
+  };
+  useEffect(() => { void load(); }, []);
   const save = async () => {
     if (!flags) return;
     setBusy(true); setError(''); setMessage('');
     try {
       const { data } = await client.patch('/admin/security/mfa', { ...flags, current_password: password });
-      setFlags(data.data); setPassword(''); setMessage('MFA policy saved. Users will complete any newly required Email OTP or enrolled authenticator verification at their next sign-in.');
+      if (typeof data.data?.totp_enabled !== 'boolean' || typeof data.data?.email_enabled !== 'boolean') {
+        throw new Error('Security settings could not be confirmed.');
+      }
+      setFlags(data.data); setPassword(''); setReauthRequired(Boolean(data.reauthentication_required));
+      setMessage(data.message || 'Sign-in security settings saved.');
     } catch (e) { setError(errorText(e)); }
     finally { setBusy(false); }
   };
   return <Card className="panel mfa-config-panel">
     <h3>Workforce authentication</h3>
-    {!flags ? <p>Loading security configuration…</p> : <>
+    {!flags ? error ? <Button type="button" disabled={busy} onClick={() => void load()}>Retry loading security settings</Button> : <p>Loading security configuration…</p> : <>
       <Field className="mfa-switch"><span><b>Allow Google Authenticator enrollment</b></span>
         <Switch type="checkbox" checked={flags.totp_enabled} onChange={e => setFlags(f => f && ({ ...f, totp_enabled: e.target.checked }))}/></Field>
       <Field className="mfa-switch"><span><b>Require Email OTP</b></span>
@@ -40,10 +52,11 @@ export function ContractorMfaSettings() {
       <Field className="mfa-field">Confirm with your Contractor Admin password
         <Input type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)}/>
       </Field>
-      <Button className="btn btn-primary" type="button" disabled={!password || busy} onClick={save}>{busy ? 'Saving…' : 'Save MFA settings'}</Button>
+      <Button className="btn btn-primary" type="button" disabled={!password || busy || reauthRequired} onClick={save}>{busy ? 'Saving…' : 'Save MFA settings'}</Button>
+      {reauthRequired && <Button type="button" onClick={() => window.location.reload()}>Continue to sign-in</Button>}
     </>}
     {error && <p className="error" role="alert">{error}</p>}
-    {message && <p className="mfa-notice">{message}</p>}
+
   </Card>;
 }
 
@@ -60,12 +73,12 @@ export function MyMfaSettings() {
   const [replaceSecret, setReplaceSecret] = useState('');
   const [replaceUri, setReplaceUri] = useState('');
   const [replaceBusy, setReplaceBusy] = useState(false);
-  const [replaceError, setReplaceError] = useState('');
+  const [replaceError, setReplaceError] = useFeedbackState('error');
   const [disableMethod, setDisableMethod] = useState<'totp' | 'email'>('totp');
   const [disablePassword, setDisablePassword] = useState('');
   const [disableCode, setDisableCode] = useState('');
-  const [notice, setNotice] = useState('');
-  const [error, setError] = useState('');
+  const [, setNotice] = useFeedbackState('success');
+  const [error, setError] = useFeedbackState('error');
   const [busy, setBusy] = useState(false);
   const [recoveryFeedback, setRecoveryFeedback] = useState<Feedback | null>(null);
   const reload = async () => { const { data } = await client.get('/auth/mfa/status'); setStatus(data); };
@@ -123,12 +136,12 @@ export function MyMfaSettings() {
   };
   const sendEmail = () => void call(async () => {
     await client.post('/auth/mfa/email/enroll/send', { password });
-    setNotice('Verification email sent.');
+    setNotice('Check your email for your verification code. It may take a moment to arrive.');
   });
   const confirmEmail = () => void call(async () => {
     const { data } = await client.post('/auth/mfa/email/enroll/confirm', { code });
     if (data.recovery_codes?.length) setRecovery(data.recovery_codes);
-    setCode(''); await reload(); setNotice('Email OTP enabled. Save your recovery codes if shown.');
+    setCode(''); await reload(); setNotice('Email OTP enabled.');
   });
   const disableMfa = () => void call(async () => {
     await client.post('/auth/mfa/disable', { method: status?.totp_enabled ? disableMethod : 'email', password: disablePassword, code: disableCode });
@@ -137,7 +150,7 @@ export function MyMfaSettings() {
   });
   const sendDisableEmail = () => void call(async () => {
     await client.post('/auth/mfa/email/disable/send', { password: disablePassword });
-    setNotice('Email verification code sent.');
+    setNotice('Check your email for your verification code. It may take a moment to arrive.');
   });
   return <Card className="panel mfa-config-panel">
     {status && (status.available.totp_enabled || status.available.email_enabled || status.totp_enabled || status.email_enabled) && <h3>My account security</h3>}
@@ -197,10 +210,10 @@ export function MyMfaSettings() {
         </div>}
         {replaceError && <p className="error" role="alert">{replaceError}</p>}
       </div>}
-      {(status.totp_enabled || status.email_enabled) && <div className="mfa-method-card">
-        <b>Recovery codes</b>
+      {status.totp_enabled && <div className="mfa-method-card">
+        <b>Google Authenticator recovery codes</b>
         <p>{status.recovery_remaining} unused recovery code{status.recovery_remaining === 1 ? '' : 's'} remain.</p>
-        <p>Replace your recovery codes after signing in and confirming your password. Old codes will stop working.</p>
+        <p>Use a recovery code if you cannot access Google Authenticator. Each code works once and cannot replace Email OTP. Generating new codes invalidates the old codes.</p>
         <Button className="btn btn-secondary" type="button" disabled={!password || busy} onClick={regenerateCodes}>
           Generate new recovery codes
         </Button>
@@ -221,10 +234,10 @@ export function MyMfaSettings() {
         <Field>Verification or recovery code<Input autoComplete="one-time-code" value={disableCode} onChange={e => setDisableCode(e.target.value)}/></Field>
         <Button type="button" className="btn btn-secondary" disabled={!disablePassword || !disableCode || busy} onClick={disableMfa}>Remove selected method</Button>
       </div>}
-      {recovery.length > 0 && <div className="mfa-method-card"><b>Save recovery codes now — they will not be shown again.</b><pre className="mfa-recovery">{recovery.join('\n')}</pre><Button className="btn btn-secondary" onClick={() => setRecovery([])}>I've saved the codes</Button></div>}
+      {status.totp_enabled && recovery.length > 0 && <div className="mfa-method-card"><b>Save recovery codes now — they will not be shown again.</b><pre className="mfa-recovery">{recovery.join('\n')}</pre><Button className="btn btn-secondary" onClick={() => setRecovery([])}>I've saved the codes</Button></div>}
     </>}
     <FeedbackToast feedback={recoveryFeedback} onDismiss={() => setRecoveryFeedback(null)}/>
-    {notice && <p className="mfa-notice">{notice}</p>}
+
     {error && <p className="error" role="alert">{error}</p>}
   </Card>;
 }

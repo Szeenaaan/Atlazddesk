@@ -1,3 +1,4 @@
+import { useFeedbackState } from './feedbackContext';
 import { Field } from './ui';
 import { ConfirmationDialog } from './ui/Dialog';
 import { Pagination } from './ui';
@@ -11,7 +12,8 @@ import { useEffect, useState } from 'react';
 import { client } from '../api/client';
 import FeedbackToast, { type Feedback } from './FeedbackToast';
 import type { Role, RecordItem } from '../data';
-import { HardDrive, ShieldCheck, UserCheck, UserX, Trash2 } from 'lucide-react';
+import { HardDrive, LayoutDashboard, ShieldCheck, UserCheck, UserX, Trash2 } from 'lucide-react';
+import { reloadCustomerWorkspace } from '../auth/customerWorkspace';
 import RowActions from './RowActions';
 import SlidingDrawer from './SlidingDrawer';
 
@@ -30,7 +32,7 @@ export default function UserDirectory({ role, customerId, customers }: Props) {
   const roles: Role[] = role === 'admin' ? ['technician', 'customer_admin', 'customer_user']
     : role === 'customer_admin' ? ['customer_user'] : [];
   const [deleteTarget, setDeleteTarget] = useState<Account | null>(null);
-  const [deleteError, setDeleteError] = useState('');
+  const [deleteError, setDeleteError] = useFeedbackState('error');
   const [assetIds, setAssetIds] = useState<number[]>([]);
   const [detailId, setDetailId] = useState<number | null>(null);
   const [assetTarget, setAssetTarget] = useState<Account | null>(null);
@@ -45,12 +47,12 @@ export default function UserDirectory({ role, customerId, customers }: Props) {
   const [form, setForm] = useState({ name: '', email: '', password: '', password_confirmation: '', role: roles[0] ?? 'customer_user', customer_id: '' });
   const [busy, setBusy] = useState(false);
   const [updatingUser, setUpdatingUser] = useState<number | null>(null);
-  const [error, setError] = useState('');
-  const [message, setMessage] = useState('');
+  const [error, setError] = useFeedbackState('error');
+  const [, setMessage] = useFeedbackState('success');
   const [recoveryTarget, setRecoveryTarget] = useState<Account | null>(null);
   const [recoveryReason, setRecoveryReason] = useState('');
   const [recoveryPassword, setRecoveryPassword] = useState('');
-  const [recoveryError, setRecoveryError] = useState('');
+  const [recoveryError, setRecoveryError] = useFeedbackState('error');
   const [recoveryFeedback, setRecoveryFeedback] = useState<Feedback | null>(null);
   const [sort, setSort] = useState<{sort?: string; direction?: string}>({});
   async function load(targetPage = pageNumber) {
@@ -77,7 +79,7 @@ export default function UserDirectory({ role, customerId, customers }: Props) {
       const requiresCustomer = form.role === 'customer_admin' || form.role === 'customer_user';
       const payload = {
         ...form,
-        ...(form.role === 'customer_user' ? { asset_ids: assetIds } : {}),
+        ...(role === 'customer_admin' && form.role === 'customer_user' ? { asset_ids: assetIds } : {}),
         ...(role === 'customer_admin' ? { customer_id: undefined } : { customer_id: requiresCustomer ? Number(form.customer_id) : undefined }),
       };
       if (requiresCustomer && role !== 'customer_admin' && !payload.customer_id) throw new Error('Choose a client company.');
@@ -95,6 +97,14 @@ export default function UserDirectory({ role, customerId, customers }: Props) {
     try { await client.patch(`/users/${user.id}/status`, { status: user.status === 'active' ? 'inactive' : 'active' }); await load(); setMessage(`${user.name} ${user.status === 'active' ? 'deactivated' : 'activated'}.`); }
     catch (e: any) { setError(errorText(e)); }
     finally { setUpdatingUser(null); }
+  }
+  async function goToDashboard(user: Account) {
+    if (busy || updatingUser !== null) return;
+    setUpdatingUser(user.id); setError('');
+    try {
+      await client.post(`/users/${user.id}/dashboard`);
+      reloadCustomerWorkspace();
+    } catch (failure) { setError(errorText(failure)); setUpdatingUser(null); }
   }
   async function removeAccount() {
     if (!deleteTarget || updatingUser !== null) return;
@@ -134,13 +144,13 @@ export default function UserDirectory({ role, customerId, customers }: Props) {
           <option value="">Select company</option>{customers.map(c => <option value={c.id} key={c.id}>{String(c.company_name)}</option>)}
         </SearchableDropdown></Field>}
 
-      {form.role === 'customer_user' && <UserAssetPicker customerId={role === 'customer_admin' ? customerId : Number(form.customer_id) || null} value={assetIds} onChange={setAssetIds} disabled={busy}/>}
+      {role === 'customer_admin' && form.role === 'customer_user' && <UserAssetPicker customerId={role === 'customer_admin' ? customerId : Number(form.customer_id) || null} value={assetIds} onChange={setAssetIds} disabled={busy}/>}
       <Field>Temporary password<Input required type="password" minLength={8} autoComplete="new-password" value={form.password} onChange={e => setForm(p => ({ ...p, password: e.target.value }))}/></Field>
       <Field>Confirm password<Input required type="password" minLength={8} autoComplete="new-password" value={form.password_confirmation} onChange={e => setForm(p => ({ ...p, password_confirmation: e.target.value }))}/></Field>
       <Button className="btn btn-primary" disabled={busy} type="submit">{busy ? 'Creating…' : 'Create account'}</Button>
     </form>
-    {error && <p role="alert" className="error">{error}</p>}{message && <p className="success-note">{message}</p>}
-    {detailId !== null && <UserDetails hideRole={role === 'customer_admin'} hideCompany={role === 'customer_admin'} key={detailId} id={detailId} onClose={() => setDetailId(null)}/>}
+    {error && <p role="alert" className="error">{error}</p>}
+    {detailId !== null && <UserDetails hideAssets={role === 'admin'} hideRole={role === 'customer_admin'} hideCompany={role === 'customer_admin'} key={detailId} id={detailId} onClose={() => setDetailId(null)}/>}
     {assetTarget && <SlidingDrawer title={`Assign assets · ${assetTarget.name}`} onClose={() => setAssetTarget(null)}>{close => <div className="drawer-body user-action-panel"><UserAssetEditor key={assetTarget.id} user={assetTarget} onClose={close}/></div>}</SlidingDrawer>}
     {recoveryTarget && <SlidingDrawer title={`Reset authenticator · ${recoveryTarget.name}`} onClose={() => { setRecoveryTarget(null); setRecoveryPassword(''); setRecoveryReason(''); setRecoveryError(''); }}>{close => <div className="drawer-body user-action-panel"><form className="admin-form" onSubmit={event => void submitRecovery(event, close)}>
       <p className="amc-inline-warning">Only perform this after verifying the person's identity. Existing sessions and backup codes will be invalidated. The user may enroll a replacement in My Security. Required Email OTP remains enforced.</p>
@@ -172,7 +182,8 @@ export default function UserDirectory({ role, customerId, customers }: Props) {
     <div className="amc-list-summary">{total} users</div>
     <div className="table-scroll"><SortableTable onSort={({column, direction}) => { setSort({sort: (role === 'customer_admin' ? ['name','email','status'] : ['name','email','role','customer','status'])[column], direction}); setPageNumber(1); }}><thead><tr><th>User</th><th>Email</th>{role !== 'customer_admin' && <th>Role</th>}{role !== 'customer_admin' && <th>Client</th>}<th>Status</th><th>Action</th></tr></thead>
       <tbody>{accounts.map(u => <tr key={u.id} className="record-row" onClick={() => setDetailId(u.id)}><td><button type="button" className="record-link" onClick={event => { event.stopPropagation(); setDetailId(u.id); }}>{u.name}</button></td><td>{u.email}</td>{role !== 'customer_admin' && <td>{labels[u.role] || u.role}</td>}{role !== 'customer_admin' && <td>{u.customer_id ? String(customers.find(c => Number(c.id) === Number(u.customer_id))?.company_name || 'Client #' + u.customer_id) : 'Contractor workforce'}</td>}<td><span className={`record-status ${u.status === 'active' ? 'is-active' : ''}`}>{updatingUser === u.id ? 'Updating…' : u.status}</span></td><td onClick={event => event.stopPropagation()}><RowActions name={u.name} actions={[
-        ...(u.role === 'customer_user' ? [{ label: 'Assign assets', icon: <HardDrive size={16}/>, onClick: () => setAssetTarget(u), disabled: busy }] : []),
+        ...(role === 'admin' && u.role === 'customer_admin' ? [{label: 'Go to dashboard', icon: <LayoutDashboard size={16}/>, disabled: busy || updatingUser !== null || u.status !== 'active', onClick: () => void goToDashboard(u)}] : []),
+        ...(role === 'customer_admin' && u.role === 'customer_user' ? [{ label: 'Assign assets', icon: <HardDrive size={16}/>, onClick: () => setAssetTarget(u), disabled: busy }] : []),
         ...(u.role !== 'super_admin' ? [{ label: u.status === 'active' ? 'Deactivate account' : 'Activate account', icon: u.status === 'active' ? <UserX size={16}/> : <UserCheck size={16}/>, danger: u.status === 'active', disabled: updatingUser !== null || busy, onClick: () => { void toggle(u); } }] : []),
         ...(['technician', 'customer_admin', 'customer_user'].includes(u.role) ? [{label: 'Delete account', icon: <Trash2 size={16}/>, danger: true, disabled: busy || updatingUser !== null, onClick: () => {setDeleteTarget(u);setDeleteError('');}}] : []),
         ...(['technician', 'customer_admin', 'customer_user'].includes(u.role) ? [{ label: 'Reset authenticator', icon: <ShieldCheck size={16}/>, disabled: busy, onClick: () => { setRecoveryTarget(u); setRecoveryReason(''); setRecoveryPassword(''); setRecoveryError(''); } }] : []),

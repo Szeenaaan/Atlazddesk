@@ -1,3 +1,4 @@
+import { useFeedbackState } from './feedbackContext';
 import { Field, InlineNotice } from './ui';
 import { Tabs } from './ui';
 import { Button, Card, Input } from './ui';
@@ -7,6 +8,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Activity, AlertTriangle, CheckCircle2, Download, RefreshCw, Search, ShieldCheck, Wrench } from 'lucide-react';
 import { client } from '../api/client';
+import { getApiErrorMessage } from '../api/contracts';
 import SystemLogs from './SystemLogs';
 import SystemPerformance from './SystemPerformance';
 import TechnicalSecuritySettings from './TechnicalSecuritySettings';
@@ -26,7 +28,7 @@ type AuditRow = { id: number; created_at: string; user_id: number | null; event:
 type FailedJob = { uuid: string; connection: string; queue: string; failed_at: string };
 
 type Tab = 'overview' | 'performance' | 'failures' | 'audit' | 'configuration' | 'logs';
-const fallbackSettings: Settings = { installation_label: 'Atlazddesk', support_email: '', queue_warning_depth: 100, disk_warning_percent: 15, country_code: '', timezone: 'UTC' };
+const fallbackSettings: Settings = { installation_label: 'SupportDesk', support_email: '', queue_warning_depth: 100, disk_warning_percent: 15, country_code: '', timezone: 'UTC' };
 
 export default function SystemSupport({ initialTab = 'overview', retentionSettings }: { initialTab?: Tab; retentionSettings?: ReactNode }) {
   const [tab, setTab] = useState<Tab>(initialTab);
@@ -40,15 +42,12 @@ export default function SystemSupport({ initialTab = 'overview', retentionSettin
   const [eventFilter, setEventFilter] = useState('');
   const [requestFilter, setRequestFilter] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
+  const [error, setError] = useFeedbackState('error');
+  const [, setNotice] = useFeedbackState('success');
   const [loading, setLoading] = useState(false);
   const [zones, setZones] = useState<string[]>(['UTC']);
 
-  const getError = (e: unknown): string => {
-    const err = e as { response?: { data?: { message?: string; errors?: Record<string, string[]> } } };
-    return Object.values(err.response?.data?.errors || {}).flat().join(' ') || err.response?.data?.message || 'Request failed. Check connectivity and retry.';
-  };
+  const getError = (error: unknown): string => getApiErrorMessage(error, 'The requested system information is unavailable. Check your connection and try again.');
 
   const load = useCallback(async (what: Tab, filters?: { event: string; request_id: string; q?: string }) => {
     setLoading(true); setError('');
@@ -105,7 +104,7 @@ export default function SystemSupport({ initialTab = 'overview', retentionSettin
       document.body.appendChild(a);
       a.click(); a.remove();
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-      setNotice('Sanitized diagnostic report downloaded. Review it before sharing with support.');
+      setNotice('Diagnostic report downloaded. Review it before sharing with support.');
     } catch (e) { setError(getError(e)); }
     finally { setLoading(false); }
   }
@@ -114,7 +113,7 @@ export default function SystemSupport({ initialTab = 'overview', retentionSettin
     e.preventDefault(); setLoading(true); setNotice(''); setError('');
     try {
       const { data } = await client.put<{ data: Settings }>('/system/support/settings', { ...settings, current_password: password });
-      setSettings(data.data); setInstallationTimezone(data.data.timezone, data.data.country_code); setPassword(''); setNotice('Installation preferences saved and audited.');
+      setSettings(data.data); setInstallationTimezone(data.data.timezone, data.data.country_code); setPassword(''); setNotice('Preferences saved.');
     } catch (e) { setError(getError(e)); }
     finally { setLoading(false); }
   }
@@ -131,13 +130,13 @@ export default function SystemSupport({ initialTab = 'overview', retentionSettin
       ['overview','Health & runtime'],['performance','Metrics & traces'],['failures','Failed jobs'],['logs','System logs'],['audit','Audit history'],['configuration','Configuration'],
     ]} onChange={key => {setTab(key);setError('');setNotice('');}}/>
     {error && <InlineNotice tone="error">{error}</InlineNotice>}
-    {notice && <InlineNotice tone="success">{notice}</InlineNotice>}
+
     {loading && <p className="hint" role="status">Checking installation…</p>}
 
     {tab === 'overview' && overview && <>
       <div className="support-checks">
         {Object.entries(overview.checks).map(([name, check]) => <div className="panel support-check" key={name}>
-          <div className="support-check-head">{check.status === 'healthy' ? <CheckCircle2 size={20} color="var(--palette-success-text)"/> : <AlertTriangle size={20} color={check.status === 'unhealthy' ? 'var(--palette-error)' : 'var(--palette-warning-text)'}/>}<b>{name.replaceAll('_',' ')}</b><span className={'support-status ' + check.status}>{check.status}</span></div>
+          <div className="support-check-head">{check.status === 'healthy' ? <CheckCircle2 size={20} color="var(--color-success)"/> : <AlertTriangle size={20} color={check.status === 'unhealthy' ? 'var(--color-danger)' : 'var(--color-warning)'}/>}<b>{name.replaceAll('_',' ')}</b><span className={'support-status ' + check.status}>{check.status}</span></div>
           <p>{check.detail}</p>
           {check.pending !== undefined && check.pending !== null && <small>Pending: {check.pending}</small>}
           {check.count !== undefined && <small>Count: {check.count}</small>}

@@ -30,7 +30,7 @@ test('shared light-theme text and action colors meet normal text contrast',()=>{
   const css=fs.readFileSync(path.join(root,'styles/tokens.css'),'utf8');
   const palette=Object.fromEntries([...css.matchAll(/(--palette-[\w-]+):\s*(#[\da-f]{6});/gi)].map(m=>[m[1],m[2]]));
   const luminance=hex=>[0,2,4].map(index=>parseInt(hex.slice(1+index,3+index),16)/255).map(c=>c<=.04045?c/12.92:((c+.055)/1.055)**2.4).reduce((sum,c,index)=>sum+c*[.2126,.7152,.0722][index],0);
-  for(const [foreground,background] of [['muted','white'],['subtle','white'],['white','brand'],['white','brand-bright'],['error','error-soft'],['info','info-soft']]){
+  for(const [foreground,background] of [['muted','white'],['subtle','white'],['white','brand'],['white','brand-bright'],['error','error-soft'],['info','info-soft'],['white','error'],['success-text','white'],['warning-text','white'],['dark-info','dark-surface'],['critical','dark-surface'],['success','dark-surface']]){
     const a=luminance(palette['--palette-'+foreground]),b=luminance(palette['--palette-'+background]);
     assert.ok((Math.max(a,b)+.05)/(Math.min(a,b)+.05)>=4.5,`${foreground} on ${background}`);
   }

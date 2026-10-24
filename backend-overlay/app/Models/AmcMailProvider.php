@@ -24,6 +24,8 @@ final class AmcMailProvider extends Model
     {
         return $this->only(['id', 'name', 'driver', 'from_email', 'from_name', 'is_active', 'created_at']) + [
             'credential_configured' => ! empty($this->credentials),
+            'smtp' => $this->driver === 'smtp' ? array_intersect_key($this->credentials ?? [],
+                array_flip(['host', 'port', 'encryption', 'username'])) : null,
         ];
     }
 }

@@ -58,14 +58,6 @@ __pycache__/
 *.tgz
 *.7z
 /release-evidence/
-/php-lint-results.txt
-/php-lint-v7.txt
-/PATCH-FILES.txt
-/RETENTION-STYLES.css
-/STYLES-V10.2.css
-
-# Accidental terminal scratch file; not PHP source.
-/backend-overlay/er = AppModelsUser::where('role', 'super_admin')->first();q
 
 # Machine-specific tools and editor state.
 .DS_Store
@@ -81,62 +73,8 @@ Thumbs.db
 *.tmp
 *.temp
 
-# Superseded documentation: consolidated into README.md, TESTING.md and ROLES.md.
-/ACCEPTANCE-17.md
-/API-CONTRACT.md
-/ARCHITECTURE-V10.md
-/ARCHITECTURE.md
-/ATLASDESK-BRANDING.md
-/CHANGES-V10.1.md
-/CHANGES-V10.3.md
-/CHANGES-V8.md
-/CHANGES-V9.md
-/DELIVERY-CHECKLIST.md
-/DEPLOY-TOMORROW.md
-/GITHUB-PREPARATION.md
-/INSTALL-KALI.md
-/INSTALL-MFA.md
-/INSTALL-V10-PHASE1.md
-/INSTALL-V10.1-MAIL-MFA.md
-/INSTALL-V10.2.md
-/INSTALL-V10.3.md
-/INSTALL-V6.md
-/INSTALL-V7.md
-/INSTALL-V8.md
-/INSTALL-V9.1.md
-/INSTALL-V9.md
-/README-AUTH-FEEDBACK-V10.4.md
-/README-CONTRACTOR-V10.12.md
-/README-V10.11.md
-/README-V10.3.md
-/README-V10.4.md
-/README-V10.5.md
-/README-V10.6.md
-/README-V10.7.md
-/README-V10.8.md
-/README-V10.9.md
-/RELEASE-GATE-README.md
-/ROLES-V6.md
-/ROLES-V7.md
-/TEST-AND-OBSERVABILITY.md
-/TESTING-V10-PHASE1.md
-/TESTING-V6.md
-/TESTING-V7.md
-/TESTING-V8.md
-/TESTING-V9.md
-/backend-overlay/INTEGRATION.md
-/backend-overlay/README-BACKEND.md
-/backend-overlay/README.md
-
-# Historical patch installers and duplicate payloads; current source is complete.
-/scripts/apply-*.py
-/scripts/*-payload/
-/scripts/recovery-v10.5-templates/
-/scripts/templates/
-/scripts/ui-feedback-v104-templates/
-/scripts/support-v10.6-style.css
-/templates/
-/v10.3-overlay/
+# Local history, notes, evidence and archived patch installers are never published.
+/notes/local/
 
 # Per-installation Docker configuration, certificates and backup artifacts.
 /installation/
@@ -152,3 +90,20 @@ Thumbs.db
 *.sql.bz2
 *.sql.xz
 *.rdb
+
+# Per-installation credential/configuration files, even if copied outside installation/.
+**/access.json
+**/app.env
+**/database.env
+**/redis.env
+**/compose.env
+**/updates.env
+
+# Local tool caches and Python test output.
+/.cache/
+/.npm/
+/frontend/.vite/
+.pytest_cache/
+
+# Local coding assistant instructions.
+/AGENTS.md

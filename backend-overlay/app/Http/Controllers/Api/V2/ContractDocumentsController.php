@@ -37,7 +37,7 @@ final class ContractDocumentsController extends Controller
             $document = DB::transaction(function () use ($file, $path, $contract, $request) {
                 $name = preg_replace('/[\x00-\x1F\x7F\/\\\\]/u', '_', $file->getClientOriginalName()) ?: 'document';
                 $record = [
-                    'amc_contract_id' => $contract->id, 'uploaded_by' => $request->user()->id,
+                    'amc_contract_id' => $contract->id, 'uploaded_by' => \App\Support\AmcAudit::actorId($request),
                     'file_name' => mb_substr($name, 0, 200), 'file_path' => $path,
                     'mime_type' => $file->getMimeType(), 'file_size' => $file->getSize(),
                     'created_at' => now(), 'updated_at' => now(),
