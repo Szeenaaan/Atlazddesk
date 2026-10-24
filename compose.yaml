@@ -27,6 +27,22 @@ x-app: &app
       max-file: '3'
 
 services:
+  clamav:
+    image: clamav/clamav:stable@sha256:e19130cdebaeacc71fa46eab3ed6f69941f2f22aa5e08d55e9197f8edf43ce5e
+    restart: unless-stopped
+    networks: [backend, outbound]
+    volumes:
+      - clamav_signatures:/var/lib/clamav
+      - ./infra/docker/clamd.conf:/etc/clamav/clamd.conf:ro
+    mem_limit: 4g
+    healthcheck:
+      test: [CMD-SHELL, 'printf "PING\n" | nc -w 2 127.0.0.1 3310 | grep -qx PONG']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 180s
+    logging: *logging
+
   app:
     <<: *app
     healthcheck:
@@ -38,7 +54,7 @@ services:
 
   worker:
     <<: *app
-    command: [php, artisan, 'queue:work', redis, '--queue=notifications,maintenance,default', '--sleep=3', '--tries=3', '--timeout=60']
+    command: [php, artisan, 'queue:work', redis, '--queue=security,notifications,maintenance,default', '--sleep=3', '--tries=3', '--timeout=60']
     healthcheck:
       test: [CMD, php, /opt/atlazddesk/health.php, worker]
       interval: 30s
@@ -145,6 +161,7 @@ networks:
     internal: true
 
 volumes:
+  clamav_signatures:
   database_data:
   redis_data:
   private_uploads:

@@ -6,7 +6,7 @@ After=network.target redis-server.service mariadb.service
 User=www-data
 Group=www-data
 WorkingDirectory=/var/www/amc-platform/backend-overlay
-ExecStart=/usr/bin/php artisan queue:work redis --queue=notifications,maintenance,default --sleep=3 --tries=3 --timeout=60 --max-time=3600
+ExecStart=/usr/bin/php artisan queue:work redis --queue=security,notifications,maintenance,default --sleep=3 --tries=3 --timeout=60 --max-time=3600
 Restart=always
 RestartSec=5
 TimeoutStopSec=75

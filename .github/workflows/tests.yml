@@ -3,9 +3,16 @@ name: Tests
 on:
   push:
   pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 3 * * *'
 
 permissions:
   contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   backend:
@@ -130,6 +137,10 @@ jobs:
       - run: npm run build
 
   docker:
+    needs: [backend, frontend]
+    permissions:
+      contents: read
+      packages: write
     name: Docker release build
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -138,7 +149,34 @@ jobs:
         with:
           persist-credentials: false
       - uses: docker/setup-buildx-action@v3
+      - name: Validate container update guards
+        run: |
+          bash -n scripts/auto-update-containers.sh
+          python3 -m unittest discover -s scripts/tests -p 'test_*.py'
       - name: Validate Compose release configuration
         run: docker compose --env-file .env.example config --quiet
       - name: Build application and production web images
-        run: docker compose --env-file .env.example build app web
+        env:
+          PHP_IMAGE: php:${{ needs.backend.outputs.php_version }}-fpm-bookworm
+          NODE_IMAGE: node:${{ needs.frontend.outputs.node_version }}-bookworm-slim
+        run: |
+          schema=$(find backend-overlay/database/migrations -type f -name '*.php' -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -d ' ' -f 1)
+          application=$(git ls-files -z backend-overlay/app backend-overlay/bootstrap backend-overlay/config backend-overlay/resources backend-overlay/routes backend-overlay/public frontend/src frontend/public frontend/index.html frontend/vite.config.ts infra/docker Dockerfile .dockerignore scripts/check-php-version.php scripts/check-node-version.mjs | sort -z | xargs -0 sha256sum | sha256sum | cut -d ' ' -f 1)
+          labels=(--label "org.supportdesk.application=$application" --label "org.opencontainers.image.revision=$GITHUB_SHA" --label "org.supportdesk.release=$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" --label "org.supportdesk.schema=$schema" --label "org.supportdesk.validation=passed")
+          docker build --pull --build-arg "PHP_IMAGE=$PHP_IMAGE" --build-arg "NODE_IMAGE=$NODE_IMAGE" "${labels[@]}" --target app -t supportdesk-verified-app .
+          docker build --pull --build-arg "PHP_IMAGE=$PHP_IMAGE" --build-arg "NODE_IMAGE=$NODE_IMAGE" "${labels[@]}" --target web -t supportdesk-verified-web .
+      - name: Publish the exact verified images
+        if: >-
+          github.ref == 'refs/heads/main' && github.event_name != 'pull_request' &&
+          vars.SUPPORTDESK_AUTO_RELEASES == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          current=$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)
+          test "$current" = "$GITHUB_SHA" || { echo 'Main advanced; refusing to publish an obsolete revision.'; exit 1; }
+          repository="${GITHUB_REPOSITORY,,}"
+          echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker tag supportdesk-verified-app "ghcr.io/$repository/app:tested"
+          docker tag supportdesk-verified-web "ghcr.io/$repository/web:tested"
+          docker push "ghcr.io/$repository/app:tested"
+          docker push "ghcr.io/$repository/web:tested"

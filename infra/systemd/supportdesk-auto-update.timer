@@ -1,0 +1,11 @@
+[Unit]
+Description=Check hourly for validated SupportDesk container updates
+
+[Timer]
+OnCalendar=hourly
+RandomizedDelaySec=10min
+Persistent=true
+Unit=supportdesk-auto-update.service
+
+[Install]
+WantedBy=timers.target

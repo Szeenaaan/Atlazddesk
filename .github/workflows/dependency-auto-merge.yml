@@ -1,0 +1,50 @@
+name: Enable tested dependency auto-merge
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+permissions:
+  contents: read
+jobs:
+  enable:
+    if: >-
+      vars.SUPPORTDESK_AUTO_DEPENDENCY_MERGE == 'true' &&
+      github.event.pull_request.user.login == 'dependabot[bot]' &&
+      github.event.pull_request.base.ref == 'main' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      # No checkout and no execution of pull-request code in this privileged workflow.
+      - uses: dependabot/fetch-metadata@v2
+        id: metadata
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Require protected branch and dependency-only change
+        if: >-
+          steps.metadata.outputs.update-type == 'version-update:semver-patch' ||
+          steps.metadata.outputs.update-type == 'version-update:semver-minor'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          gh api "repos/$GH_REPO/rules/branches/main" > /tmp/rules.json
+          gh pr view "$PR_URL" --json files > /tmp/files.json
+          python3 <<'PY'
+          import json
+          rules = json.load(open('/tmp/rules.json'))
+          status = [r for r in rules if r['type'] == 'required_status_checks']
+          required = {'Laravel tests', 'Frontend tests and build', 'Docker release build'}
+          contexts = {c['context'] for r in status for c in r['parameters']['required_status_checks']}
+          assert required <= contexts, 'All three CI jobs must be required by an active main ruleset.'
+          assert any(r['parameters'].get('strict_required_status_checks_policy') for r in status), 'Require an up-to-date branch.'
+          assert any(r['type'] == 'pull_request' for r in rules), 'Pull requests must be required.'
+          files = {f['path'] for f in json.load(open('/tmp/files.json'))['files']}
+          allowed = {'backend-overlay/composer.json', 'backend-overlay/composer.lock', 'frontend/package.json', 'frontend/package-lock.json'}
+          assert files and files <= allowed, 'Only dependency manifests and lockfiles may auto-merge.'
+          PY
+          gh pr merge "$PR_URL" --auto --merge --match-head-commit "$PR_HEAD"

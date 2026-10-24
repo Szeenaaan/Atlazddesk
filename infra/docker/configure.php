@@ -25,7 +25,7 @@ $rootPassword = bin2hex(random_bytes(32));
 $redis = bin2hex(random_bytes(32));
 $host = $url['host'].(isset($url['port']) ? ':'.$url['port'] : '');
 $app = [
-    'APP_NAME' => 'Atlazddesk', 'APP_ENV' => 'production', 'APP_DEBUG' => 'false',
+    'APP_NAME' => 'SupportDesk', 'APP_ENV' => 'production', 'APP_DEBUG' => 'false',
     'APP_KEY' => $key, 'APP_URL' => $origin,
     'LOG_CHANNEL' => 'stack', 'LOG_STACK' => 'daily', 'LOG_LEVEL' => 'warning',
     'DB_CONNECTION' => 'mysql', 'DB_HOST' => 'database', 'DB_PORT' => '3306',
@@ -39,7 +39,7 @@ $app = [
     'FILESYSTEM_DISK' => 'local', 'AMC_SEED_DEMO_USERS' => 'false',
     'MAIL_MAILER' => 'smtp', 'MAIL_HOST' => '', 'MAIL_PORT' => '587',
     'MAIL_USERNAME' => '', 'MAIL_PASSWORD' => '', 'MAIL_SCHEME' => 'smtp',
-    'MAIL_FROM_ADDRESS' => '', 'MAIL_FROM_NAME' => 'Atlazddesk',
+    'MAIL_FROM_ADDRESS' => '', 'MAIL_FROM_NAME' => 'SupportDesk',
 ];
 $sets = [
     'app.env' => $app,

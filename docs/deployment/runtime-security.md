@@ -8,7 +8,7 @@ The production web container serves compiled assets with Nginx and does not run 
 
 Default local Docker builds pin these minimum versions. CI refreshes supported PHP 8.4/Node 24, records the exact resolved versions, and builds with those exact versions. Composer requires patched PHP in the 8.4 line;
 npm requires patched Node.js in the 24.x line. Version checks reject older runtimes.
-These minimums do not automatically track future fixes. Deployment automation is maintained on the deployment/docker-compose branch.
+These minimums do not automatically track future fixes. The opt-in tested image update pipeline is documented in [AUTO-UPDATES.md](automatic-updates.md); it must be activated separately.
 Do not bypass platform requirements or use `--ignore-platform-reqs` to install on an older PHP.
 
 ## Local development host

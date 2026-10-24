@@ -1,0 +1,10 @@
+# Use alongside the existing deployment Compose file; preserve its project and volumes.
+services:
+  app:
+    image: ${SUPPORTDESK_APP_IMAGE:?set tested registry application image}
+  worker:
+    image: ${SUPPORTDESK_APP_IMAGE:?set tested registry application image}
+  scheduler:
+    image: ${SUPPORTDESK_APP_IMAGE:?set tested registry application image}
+  web:
+    image: ${SUPPORTDESK_WEB_IMAGE:?set tested registry frontend image}
