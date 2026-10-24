@@ -30,6 +30,8 @@
 !frontend/public/**
 !frontend/tsconfig.json
 !frontend/vite.config.ts
+!frontend/build-version.mjs
+!frontend/build-version.d.mts
 !frontend/index.html
 !frontend/src/
 !frontend/src/**

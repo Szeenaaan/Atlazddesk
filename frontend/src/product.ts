@@ -1,6 +1,4 @@
-import { version } from '../package.json';
-
-export const APP_VERSION = version;
+export const APP_VERSION = __APP_VERSION__;
 // Public About details: fill in company, email and your full https:// GitHub profile URL.
 // These values ship in the browser bundle; never put secrets here.
 export const PRODUCT = {
