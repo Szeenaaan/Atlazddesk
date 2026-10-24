@@ -148,6 +148,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+          fetch-depth: 0
       - uses: docker/setup-buildx-action@v3
       - name: Validate container update guards
         run: |
@@ -160,11 +161,16 @@ jobs:
           PHP_IMAGE: php:${{ needs.backend.outputs.php_version }}-fpm-bookworm
           NODE_IMAGE: node:${{ needs.frontend.outputs.node_version }}-bookworm-slim
         run: |
+          if [[ "$GITHUB_REF_TYPE" == tag ]]; then
+            app_version="$GITHUB_REF_NAME"
+          else
+            app_version=$(git describe --tags --always)
+          fi
           schema=$(find backend-overlay/database/migrations -type f -name '*.php' -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -d ' ' -f 1)
-          application=$(git ls-files -z backend-overlay/app backend-overlay/bootstrap backend-overlay/config backend-overlay/resources backend-overlay/routes backend-overlay/public frontend/src frontend/public frontend/index.html frontend/vite.config.ts infra/docker Dockerfile .dockerignore scripts/check-php-version.php scripts/check-node-version.mjs | sort -z | xargs -0 sha256sum | sha256sum | cut -d ' ' -f 1)
+          application=$(git ls-files -z backend-overlay/app backend-overlay/bootstrap backend-overlay/config backend-overlay/resources backend-overlay/routes backend-overlay/public frontend/src frontend/public frontend/index.html frontend/vite.config.ts frontend/build-version.mjs frontend/build-version.d.mts infra/docker Dockerfile .dockerignore scripts/check-php-version.php scripts/check-node-version.mjs | sort -z | xargs -0 sha256sum | sha256sum | cut -d ' ' -f 1)
           labels=(--label "org.supportdesk.application=$application" --label "org.opencontainers.image.revision=$GITHUB_SHA" --label "org.supportdesk.release=$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" --label "org.supportdesk.schema=$schema" --label "org.supportdesk.validation=passed")
           docker build --pull --build-arg "PHP_IMAGE=$PHP_IMAGE" --build-arg "NODE_IMAGE=$NODE_IMAGE" "${labels[@]}" --target app -t supportdesk-verified-app .
-          docker build --pull --build-arg "PHP_IMAGE=$PHP_IMAGE" --build-arg "NODE_IMAGE=$NODE_IMAGE" "${labels[@]}" --target web -t supportdesk-verified-web .
+          docker build --pull --build-arg "PHP_IMAGE=$PHP_IMAGE" --build-arg "NODE_IMAGE=$NODE_IMAGE" --build-arg "APP_VERSION=$app_version" "${labels[@]}" --target web -t supportdesk-verified-web .
       - name: Publish the exact verified images
         if: >-
           github.ref == 'refs/heads/main' && github.event_name != 'pull_request' &&

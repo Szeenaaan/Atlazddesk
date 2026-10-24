@@ -180,3 +180,9 @@ See [Secure ticket uploads](docs/deployment/ticket-upload-security.md) for scann
 See [Automatic application updates](docs/deployment/automatic-updates.md) for opt-in tested runtime/dependency updates and one-time server activation.
 
 Browse the [documentation index](docs/README.md) for deployment, UI and verification guides. Local historical files are organized under ignored `notes/local/`.
+
+## About-page version
+
+The About page and copied app details show the version embedded when the frontend is built. Local builds read the checkout's Git tag; commits after a tag include the commit distance and hash. GitHub tag builds embed the pushed tag name. Builds without Git metadata or an explicit version show `Unversioned build`.
+
+For a Docker Compose release, check out the release tag and set `RELEASE` in the Compose environment file to that same tag before rebuilding the web image. `APP_VERSION` can override the displayed version independently of the Docker image tag (for example, when staging images are named `staging`). Pushing a tag alone does not change an already deployed application; rebuild and deploy the release to update its displayed version.

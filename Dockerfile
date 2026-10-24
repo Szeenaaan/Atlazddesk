@@ -42,6 +42,8 @@ COPY frontend/.npmrc ./
 COPY scripts/check-node-version.mjs /scripts/check-node-version.mjs
 RUN npm ci
 COPY frontend/ ./
+ARG APP_VERSION
+ENV APP_VERSION=${APP_VERSION}
 RUN npm run build
 
 FROM nginx:1.28-alpine AS web
