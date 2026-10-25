@@ -1,5 +1,5 @@
 import { Field } from './ui';
-import { Button, Checkbox, Input } from './ui';
+import { Button, Checkbox, Input, UIState } from './ui';
 import { useState, type FormEvent } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { client } from '../api/client';
@@ -50,6 +50,7 @@ export default function MfaLogin({ challenge, onComplete, onCancel }: Props) {
   const [error, setError] = useState('');
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [busy, setBusy] = useState(false);
+  const [verifying, setVerifying] = useState(false);
 
   const required = progress.required_methods ?? (progress.setup_method ? [progress.setup_method] : progress.methods ?? []);
   const remaining = progress.remaining_methods ?? (progress.setup_method ? [progress.setup_method] : progress.methods ?? []);
@@ -103,25 +104,30 @@ export default function MfaLogin({ challenge, onComplete, onCancel }: Props) {
   const verify = (event: FormEvent) => {
     event.preventDefault();
     void call(async () => {
-      let result: ChallengeResponse | null = null;
-      let issuedRecoveryCodes: string[] = [];
-      for (const method of remaining) {
-        const { data } = method === 'totp' && secret
-          ? await client.post<ChallengeResponse>('/auth/mfa/totp/confirm', { code: codes[method] })
-          : await client.post<ChallengeResponse>('/auth/mfa/verify', {
-            method: method === 'totp' && useRecovery ? 'recovery' : method,
-            code: codes[method],
-          });
-        result = data;
-        issuedRecoveryCodes = [...issuedRecoveryCodes, ...(data.recovery_codes ?? [])];
-        if (issuedRecoveryCodes.length) { setRecoveryCodes(issuedRecoveryCodes); setNextStep(data); }
-        setCodes(previous => ({ ...previous, [method]: '' }));
-        if (method === 'totp') { setSecret(''); setUri(''); }
-        if (data.status === 'mfa_required' || data.status === 'setup_required') {
-          setProgress({ ...data, status: data.status });
+      setVerifying(true);
+      try {
+        let result: ChallengeResponse | null = null;
+        let issuedRecoveryCodes: string[] = [];
+        for (const method of remaining) {
+          const { data } = method === 'totp' && secret
+            ? await client.post<ChallengeResponse>('/auth/mfa/totp/confirm', { code: codes[method] })
+            : await client.post<ChallengeResponse>('/auth/mfa/verify', {
+              method: method === 'totp' && useRecovery ? 'recovery' : method,
+              code: codes[method],
+            });
+          result = data;
+          issuedRecoveryCodes = [...issuedRecoveryCodes, ...(data.recovery_codes ?? [])];
+          if (issuedRecoveryCodes.length) { setRecoveryCodes(issuedRecoveryCodes); setNextStep(data); }
+          setCodes(previous => ({ ...previous, [method]: '' }));
+          if (method === 'totp') { setSecret(''); setUri(''); }
+          if (data.status === 'mfa_required' || data.status === 'setup_required') {
+            setProgress({ ...data, status: data.status });
+          }
         }
+        if (result) applyResult({ ...result, recovery_codes: issuedRecoveryCodes });
+      } finally {
+        setVerifying(false);
       }
-      if (result) applyResult({ ...result, recovery_codes: issuedRecoveryCodes });
     });
   };
 
@@ -135,8 +141,8 @@ export default function MfaLogin({ challenge, onComplete, onCancel }: Props) {
 
   return <div className="login-bg"><div className="login-panel mfa-login-panel">
     <div className="login-heading"><h1>Verify your sign-in</h1><ThemeToggle/></div>
-    <p>Complete all verification steps enabled for your account to continue.</p>
-    {recoveryCodes.length > 0 ? <section aria-label="One-time recovery codes">
+    <p>{verifying ? 'Please wait while we verify your sign-in.' : 'Complete all verification steps enabled for your account to continue.'}</p>
+    {verifying ? <UIState tone="loading">Verifying your sign-in…</UIState> : recoveryCodes.length > 0 ? <section aria-label="One-time recovery codes">
       <h2>Save your recovery codes</h2>
       <p>These codes are displayed once. Store them securely before continuing.</p>
       <pre className="mfa-recovery">{recoveryCodes.join('\n')}</pre>
