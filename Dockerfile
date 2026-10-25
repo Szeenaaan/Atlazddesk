@@ -25,13 +25,13 @@ RUN mkdir -p bootstrap/cache storage/app/private storage/app/public storage/logs
 
 FROM php-base AS app
 COPY --from=php-build --chown=www-data:www-data /var/www/html /var/www/html
-COPY infra/docker/php.ini /usr/local/etc/php/conf.d/atlazddesk.ini
-COPY infra/docker/fpm.conf /usr/local/etc/php-fpm.d/zz-atlazddesk.conf
-COPY --chmod=755 infra/docker/entrypoint.sh /usr/local/bin/atlazddesk-entrypoint
-COPY infra/docker/health.php infra/docker/configure.php /opt/atlazddesk/
-COPY scripts/check-php-version.php /opt/atlazddesk/check-php-version.php
+COPY infra/docker/php.ini /usr/local/etc/php/conf.d/supportdesk.ini
+COPY infra/docker/fpm.conf /usr/local/etc/php-fpm.d/zz-supportdesk.conf
+COPY --chmod=755 infra/docker/entrypoint.sh /usr/local/bin/supportdesk-entrypoint
+COPY infra/docker/health.php infra/docker/configure.php /opt/supportdesk/
+COPY scripts/check-php-version.php /opt/supportdesk/check-php-version.php
 USER www-data
-ENTRYPOINT ["atlazddesk-entrypoint"]
+ENTRYPOINT ["supportdesk-entrypoint"]
 CMD ["php-fpm", "-F"]
 EXPOSE 9000
 

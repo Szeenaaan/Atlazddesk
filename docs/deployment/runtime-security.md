@@ -48,7 +48,7 @@ For a root-Compose deployment, from that checkout:
 docker compose --env-file .env config --quiet
 docker compose --env-file .env build --pull app web
 docker compose --env-file .env up -d --no-deps --wait app worker scheduler web
-docker compose --env-file .env exec -T app php /opt/atlazddesk/check-php-version.php
+docker compose --env-file .env exec -T app php /opt/supportdesk/check-php-version.php
 docker compose --env-file .env ps
 ```
 
