@@ -46,7 +46,7 @@ services:
   app:
     <<: *app
     healthcheck:
-      test: [CMD, php, /opt/atlazddesk/health.php, app]
+      test: [CMD, php, /opt/supportdesk/health.php, app]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -56,7 +56,7 @@ services:
     <<: *app
     command: [php, artisan, 'queue:work', redis, '--queue=security,notifications,maintenance,default', '--sleep=3', '--tries=3', '--timeout=60']
     healthcheck:
-      test: [CMD, php, /opt/atlazddesk/health.php, worker]
+      test: [CMD, php, /opt/supportdesk/health.php, worker]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -66,7 +66,7 @@ services:
     <<: *app
     command: [php, artisan, 'schedule:work', '--no-interaction']
     healthcheck:
-      test: [CMD, php, /opt/atlazddesk/health.php, scheduler]
+      test: [CMD, php, /opt/supportdesk/health.php, scheduler]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -149,7 +149,7 @@ services:
       target: app
     profiles: [tools]
     user: '0:0'
-    entrypoint: [php, /opt/atlazddesk/configure.php]
+    entrypoint: [php, /opt/supportdesk/configure.php]
     environment:
       APP_ORIGIN: ${APP_ORIGIN:?set APP_ORIGIN}
     volumes:
