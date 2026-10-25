@@ -99,7 +99,7 @@ class ReportsController extends Controller
                 fflush($out);
             });
             fclose($out);
-        }, 'atlazddesk-tickets-'.now()->format('Ymd').'.csv', [
+        }, 'supportdesk-tickets-'.now()->format('Ymd').'.csv', [
             'Content-Type'=>'text/csv; charset=UTF-8',
             'Cache-Control'=>'no-store',
         ]);

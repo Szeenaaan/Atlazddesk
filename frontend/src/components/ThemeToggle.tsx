@@ -5,7 +5,7 @@ export function initializeTheme() {
   let theme: string | null = null;
   try { theme = localStorage.getItem('atlazddesk-theme'); } catch { /* Storage may be disabled. */ }
   document.documentElement.dataset.theme = theme === 'light' || theme === 'dark'
-    ? theme : window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    ? theme : 'light';
 }
 
 export default function ThemeToggle() {

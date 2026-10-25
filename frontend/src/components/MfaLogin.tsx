@@ -4,6 +4,7 @@ import { useState, type FormEvent } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { client } from '../api/client';
 import { getApiErrorMessage } from '../api/contracts';
+import ThemeToggle from './ThemeToggle';
 import FeedbackToast, { type Feedback } from './FeedbackToast';
 
 export type MfaLoginResult = {
@@ -39,7 +40,8 @@ function errorMessage(error: unknown): string {
 /** The server, not the browser, decides which factors are required and finished. */
 export default function MfaLogin({ challenge, onComplete, onCancel }: Props) {
   const [progress, setProgress] = useState<MfaChallenge>(challenge);
-  const [code, setCode] = useState('');
+  const [codes, setCodes] = useState<Record<string, string>>({});
+  const [emailSent, setEmailSent] = useState(false);
   const [secret, setSecret] = useState('');
   const [uri, setUri] = useState('');
   const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
@@ -51,10 +53,8 @@ export default function MfaLogin({ challenge, onComplete, onCancel }: Props) {
 
   const required = progress.required_methods ?? (progress.setup_method ? [progress.setup_method] : progress.methods ?? []);
   const remaining = progress.remaining_methods ?? (progress.setup_method ? [progress.setup_method] : progress.methods ?? []);
-  const current = remaining[0] ?? 'totp';
-  const needsSetup = (progress.setup_methods ?? (progress.status === 'setup_required' ? [progress.setup_method ?? 'totp'] : [])).includes(current);
-  const finished = Math.max(0, required.length - remaining.length);
-  const factorName = current === 'email' ? 'Email OTP' : 'Google Authenticator';
+  const setupMethods = progress.setup_methods ?? (progress.status === 'setup_required' ? [progress.setup_method ?? 'totp'] : []);
+  const needsSetup = setupMethods.includes('totp') && remaining.includes('totp');
   const canUseRecovery = (progress.methods ?? []).includes('recovery');
 
   async function call(task: () => Promise<void>) {
@@ -65,7 +65,7 @@ export default function MfaLogin({ challenge, onComplete, onCancel }: Props) {
   }
 
   function applyResult(data: ChallengeResponse) {
-    setCode(''); setSecret(''); setUri(''); setUseRecovery(false);
+    setCodes({}); setSecret(''); setUri(''); setUseRecovery(false);
     if (data.recovery_codes?.length) {
       setRecoveryCodes(data.recovery_codes);
       setNextStep(data);
@@ -96,19 +96,32 @@ export default function MfaLogin({ challenge, onComplete, onCancel }: Props) {
 
   const sendEmail = () => void call(async () => {
     await client.post('/auth/mfa/email/send');
+    setEmailSent(true);
     setFeedback({ tone: 'success', message: 'Check your email for your verification code. It may take a moment to arrive.' });
   });
 
   const verify = (event: FormEvent) => {
     event.preventDefault();
     void call(async () => {
-      const { data } = secret
-        ? await client.post<ChallengeResponse>('/auth/mfa/totp/confirm', { code })
-        : await client.post<ChallengeResponse>('/auth/mfa/verify', {
-          method: useRecovery ? 'recovery' : current,
-          code,
-        });
-      applyResult(data);
+      let result: ChallengeResponse | null = null;
+      let issuedRecoveryCodes: string[] = [];
+      for (const method of remaining) {
+        const { data } = method === 'totp' && secret
+          ? await client.post<ChallengeResponse>('/auth/mfa/totp/confirm', { code: codes[method] })
+          : await client.post<ChallengeResponse>('/auth/mfa/verify', {
+            method: method === 'totp' && useRecovery ? 'recovery' : method,
+            code: codes[method],
+          });
+        result = data;
+        issuedRecoveryCodes = [...issuedRecoveryCodes, ...(data.recovery_codes ?? [])];
+        if (issuedRecoveryCodes.length) { setRecoveryCodes(issuedRecoveryCodes); setNextStep(data); }
+        setCodes(previous => ({ ...previous, [method]: '' }));
+        if (method === 'totp') { setSecret(''); setUri(''); }
+        if (data.status === 'mfa_required' || data.status === 'setup_required') {
+          setProgress({ ...data, status: data.status });
+        }
+      }
+      if (result) applyResult({ ...result, recovery_codes: issuedRecoveryCodes });
     });
   };
 
@@ -121,52 +134,54 @@ export default function MfaLogin({ challenge, onComplete, onCancel }: Props) {
   }
 
   return <div className="login-bg"><div className="login-panel mfa-login-panel">
-    <h1>Verify your sign-in</h1>
+    <div className="login-heading"><h1>Verify your sign-in</h1><ThemeToggle/></div>
     <p>Complete all verification steps enabled for your account to continue.</p>
     {recoveryCodes.length > 0 ? <section aria-label="One-time recovery codes">
       <h2>Save your recovery codes</h2>
       <p>These codes are displayed once. Store them securely before continuing.</p>
       <pre className="mfa-recovery">{recoveryCodes.join('\n')}</pre>
-      <Button type="button" className="btn btn-primary wide" onClick={continueAfterRecovery}>
+      <Button type="button" className="btn btn-primary wide" disabled={busy} onClick={continueAfterRecovery}>
         I saved my recovery codes — Continue
       </Button>
     </section> : <>
-      <p className="mfa-notice" role="status">
-        Step {Math.min(finished + 1, Math.max(required.length, 1))} of {Math.max(required.length, 1)} · {factorName}
-      </p>
-      {required.length > 1 && <p>
-        {required.map(method => `${method === 'totp' ? 'Google Authenticator' : 'Email OTP'}: ${remaining.includes(method) ? 'Pending' : 'Verified'}`).join(' · ')}
-      </p>}
-      {current === 'totp' && needsSetup && !secret && <>
+      <form onSubmit={verify}>
+      {needsSetup && !secret && <>
         <p>You must enroll your own authenticator before accessing the dashboard.</p>
         <Button type="button" className="btn btn-secondary wide" disabled={busy} onClick={setupAuthenticator}>Generate my authenticator key</Button>
       </>}
-      {current === 'totp' && secret && <div className="mfa-instructions">
+      {remaining.includes('totp') && secret && <div className="mfa-instructions">
         <p>Scan with Google Authenticator or another compatible app, or enter this time-based setup key manually.</p>
         {uri && <div className="mfa-qr"><QRCodeSVG value={uri} size={176} /></div>}
         <code className="mfa-secret">{secret}</code>
         <Button className="btn btn-secondary wide" type="button" disabled={busy} onClick={copyKey}>Copy setup key</Button>
       </div>}
-      {current === 'email' && <>
-        <p>{needsSetup ? 'Verify your registered email to activate Email OTP.' : 'Enter a one-time code from your registered email.'}</p>
-        <Button className="btn btn-secondary wide" type="button" disabled={busy} onClick={sendEmail}>Send email verification code</Button>
-      </>}
-      {(current === 'email' || !needsSetup || Boolean(secret)) && <form onSubmit={verify}>
-        {canUseRecovery && (current === 'totp' || required.length === 1) && !secret && <Field>
-          <Checkbox type="checkbox" checked={useRecovery} onChange={e => { setUseRecovery(e.target.checked); setCode(''); }} />
-          Use a one-time recovery code instead
-        </Field>}
-        <Field>{useRecovery ? 'Recovery code' : 'Six-digit verification code'}
-          <Input autoFocus required type="text" inputMode={useRecovery ? 'text' : 'numeric'}
-            autoComplete="one-time-code" value={code} maxLength={useRecovery ? 30 : 6}
-            onChange={e => setCode(e.target.value)} />
-          {error && <span className="amc-field-error" role="alert">{error}</span>}
-        </Field>
-        <Button type="submit" className="btn btn-primary wide" disabled={busy}>
-          {busy ? 'Verifying…' : remaining.length > 1 ? 'Verify and continue' : 'Verify and sign in'}
-        </Button>
-      </form>}
-      {error && !(current === 'email' || !needsSetup || Boolean(secret)) && <p className="amc-field-error" role="alert">{error}</p>}
+      {canUseRecovery && remaining.includes('totp') && !needsSetup && <Field>
+        <Checkbox type="checkbox" checked={useRecovery} disabled={busy}
+          onChange={e => { setUseRecovery(e.target.checked); setCodes(previous => ({ ...previous, totp: '' })); }} />
+        Use a one-time recovery code instead of Google Authenticator
+      </Field>}
+      {required.filter(method => method === 'email' || method === 'totp').map(method => {
+        const verified = !remaining.includes(method);
+        const recovery = method === 'totp' && useRecovery;
+        return <Field key={method}>
+          {method === 'email' ? 'Email verification code' : recovery ? 'Recovery code' : 'Google Authenticator code'}
+          {verified ? <span role="status">Verified</span> : <div className={method === 'email' ? 'mfa-email-input' : undefined}>
+            <Input required type="text" inputMode={recovery ? 'text' : 'numeric'}
+              aria-label={method === 'email' ? 'Email verification code' : recovery ? 'Recovery code' : 'Google Authenticator code'}
+              autoComplete="one-time-code" value={codes[method] ?? ''} maxLength={recovery ? 30 : 6}
+              pattern={recovery ? undefined : '[0-9]{6}'} disabled={busy || (method === 'totp' && needsSetup && !secret)}
+              onChange={e => setCodes(previous => ({ ...previous, [method]: e.target.value }))} />
+            {method === 'email' && <Button className="btn btn-secondary" type="button" disabled={busy} onClick={sendEmail}>
+              {emailSent ? 'Resend' : 'Send code'}
+            </Button>}
+          </div>}
+        </Field>;
+      })}
+      {error && <p className="amc-field-error" role="alert">{error}</p>}
+      <Button type="submit" className="btn btn-primary wide" disabled={busy || (needsSetup && !secret)}>
+        {busy ? 'Verifying…' : 'Verify and sign in'}
+      </Button>
+      </form>
       <FeedbackToast feedback={feedback} onDismiss={() => setFeedback(null)}/>
       <Button type="button" className="btn btn-secondary wide" disabled={busy}
         onClick={() => void client.post('/auth/mfa/cancel').catch(() => undefined).finally(onCancel)}>

@@ -1,6 +1,6 @@
-# Atlazddesk roles
+# SupportDesk roles
 
-Atlazddesk is self-hosted per contractor. The technical owner and business operator have separate responsibilities. No hidden vendor/support account is created.
+SupportDesk is self-hosted per contractor. The technical owner and business operator have separate responsibilities. No hidden vendor/support account is created.
 
 | Role | Responsibilities | Boundary |
 |---|---|---|
