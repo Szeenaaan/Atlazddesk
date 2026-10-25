@@ -1,6 +1,6 @@
-# Atlazddesk
+# SupportDesk
 
-Atlazddesk is a portable, self-hosted support and maintenance workspace for contractors and their customers. It manages tickets, assets, AMC contracts, assignments, work reports, notifications, and account security.
+SupportDesk is a portable, self-hosted support and maintenance workspace for contractors and their customers. It manages tickets, assets, AMC contracts, assignments, work reports, notifications, and account security.
 
 Read [ROLES.md](ROLES.md) for permissions and [TESTING.md](TESTING.md) for validation. This source tree includes the complete application; old overlay installers are not required.
 
@@ -142,8 +142,8 @@ Never use `migrate:fresh`, `db:wipe`, `docker compose down -v`, or volume prunin
 Quiesce all web/worker/scheduler writes for a consistent release backup, and keep backups outside the Docker host too. `docker compose down` without `-v` keeps volumes, but does not replace a backup. Example commands (Linux or PowerShell) avoid host-shell redirection of binary data:
 
 ```sh
-docker compose exec database sh -ec 'MYSQL_PWD="$MARIADB_ROOT_PASSWORD" mariadb-dump --user=root --single-transaction --routines --events "$MARIADB_DATABASE" > /tmp/atlazddesk.sql'
-docker compose cp database:/tmp/atlazddesk.sql ./backups/database.sql
+docker compose exec database sh -ec 'MYSQL_PWD="$MARIADB_ROOT_PASSWORD" mariadb-dump --user=root --single-transaction --routines --events "$MARIADB_DATABASE" > /tmp/supportdesk.sql'
+docker compose cp database:/tmp/supportdesk.sql ./backups/database.sql
 docker compose run --rm --no-deps --entrypoint tar app -czf /var/www/html/storage/logs/uploads-backup.tgz -C /var/www/html/storage/app/private .
 docker compose cp app:/var/www/html/storage/logs/uploads-backup.tgz ./backups/uploads.tgz
 docker compose exec redis sh -ec 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli SAVE'

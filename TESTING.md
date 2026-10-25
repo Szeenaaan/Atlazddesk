@@ -1,4 +1,4 @@
-# Atlazddesk testing
+# SupportDesk testing
 
 ## Database safety
 
@@ -111,6 +111,6 @@ Run `vendor/bin/pint --test` from `backend-overlay` for the full formatting base
 
 ## Isolated Docker staging verification
 
-The local `installation/staging/` configuration is Git-ignored and uses project `atlazddesk_staging`, loopback ports 8080/8443, independent credentials and named volumes. It does not use development data. Real production-image checks passed for six healthy services, fresh migrations/catalog initialization, HTTPS CSRF/login/session restoration for five roles, queued ticket notifications/internal-note isolation, and database backup restored to a separate staging restore-test database (5 users, 1 ticket). The local certificate was explicitly accepted by browser automation; public certificate trust, real SMTP delivery, MFA device enrollment, attachment scanning and full upload/restore coverage remain separate checks.
+The local `installation/staging/` configuration is Git-ignored and uses project `supportdesk_staging`, loopback ports 8080/8443, independent credentials and named volumes. It does not use development data. Real production-image checks passed for six healthy services, fresh migrations/catalog initialization, HTTPS CSRF/login/session restoration for five roles, queued ticket notifications/internal-note isolation, and database backup restored to a separate staging restore-test database (5 users, 1 ticket). The local certificate was explicitly accepted by browser automation; public certificate trust, real SMTP delivery, MFA device enrollment, attachment scanning and full upload/restore coverage remain separate checks.
 
 The build exposed two corrected issues: transient PECL download failures now have bounded retries in a separately cached layer; `.dockerignore` explicitly excludes host runtime caches/storage and dependencies even under allowed source directories. Never copy host `bootstrap/cache` manifests into a production image.
