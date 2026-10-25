@@ -1563,6 +1563,23 @@ tr:last-child td {
   color: var(--palette-success-text);
   font-size: var(--text-label);
   }
+.mfa-email-input {
+  position: relative;
+  width: 100%;
+}
+.mfa-email-input input {
+  padding-right: 112px;
+}
+.mfa-email-input .btn {
+  position: absolute;
+  right: 4px;
+  top: 4px;
+  margin: 0;
+  min-height: 44px;
+}
+.login-panel .mfa-email-input input {
+  min-height: 52px;
+}
 .mfa-login-panel .btn {
   justify-content: center;
   }

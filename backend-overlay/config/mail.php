@@ -112,8 +112,7 @@ return [
 
     'from' => [
         'address' => env('MAIL_FROM_ADDRESS', 'hello@example.com'),
-        'name' => in_array(strtolower((string) env('MAIL_FROM_NAME', env('APP_NAME', ''))), ['', 'atlazddesk', 'altazzdesk'], true)
-            ? 'SupportDesk' : env('MAIL_FROM_NAME', env('APP_NAME')),
+        'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'SupportDesk')) ?: 'SupportDesk',
     ],
 
 ];

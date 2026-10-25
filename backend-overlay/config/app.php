@@ -13,8 +13,7 @@ return [
     |
     */
 
-    'name' => in_array(strtolower((string) env('APP_NAME', '')), ['', 'atlazddesk', 'altazzdesk'], true)
-        ? 'SupportDesk' : env('APP_NAME'),
+    'name' => env('APP_NAME', 'SupportDesk') ?: 'SupportDesk',
 
     /*
     |--------------------------------------------------------------------------
