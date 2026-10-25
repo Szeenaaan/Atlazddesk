@@ -1,6 +1,6 @@
 import { Field } from './ui';
-import { Button, Checkbox, Input, UIState } from './ui';
-import { useState, type FormEvent } from 'react';
+import { Button, Checkbox, Input, InlineNotice, UIState } from './ui';
+import { useEffect, useState, type FormEvent } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { client } from '../api/client';
 import { getApiErrorMessage } from '../api/contracts';
@@ -50,7 +50,12 @@ export default function MfaLogin({ challenge, onComplete, onCancel }: Props) {
   const [error, setError] = useState('');
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [busy, setBusy] = useState(false);
-  const [verifying, setVerifying] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [verifiedUser, setVerifiedUser] = useState<MfaLoginResult | null>(null);
+
+  useEffect(() => {
+    if (verifiedUser) onComplete(verifiedUser);
+  }, [verifiedUser, onComplete]);
 
   const required = progress.required_methods ?? (progress.setup_method ? [progress.setup_method] : progress.methods ?? []);
   const remaining = progress.remaining_methods ?? (progress.setup_method ? [progress.setup_method] : progress.methods ?? []);
@@ -73,7 +78,7 @@ export default function MfaLogin({ challenge, onComplete, onCancel }: Props) {
       return;
     }
     if (data.status === 'authenticated' && data.user) {
-      onComplete(data.user);
+      setVerifiedUser(data.user);
     } else if (data.status === 'mfa_required' || data.status === 'setup_required') {
       setProgress({
         ...data,
@@ -104,7 +109,7 @@ export default function MfaLogin({ challenge, onComplete, onCancel }: Props) {
   const verify = (event: FormEvent) => {
     event.preventDefault();
     void call(async () => {
-      setVerifying(true);
+      setSubmitting(true);
       try {
         let result: ChallengeResponse | null = null;
         let issuedRecoveryCodes: string[] = [];
@@ -126,7 +131,7 @@ export default function MfaLogin({ challenge, onComplete, onCancel }: Props) {
         }
         if (result) applyResult({ ...result, recovery_codes: issuedRecoveryCodes });
       } finally {
-        setVerifying(false);
+        setSubmitting(false);
       }
     });
   };
@@ -141,8 +146,8 @@ export default function MfaLogin({ challenge, onComplete, onCancel }: Props) {
 
   return <div className="login-bg"><div className="login-panel mfa-login-panel">
     <div className="login-heading"><h1>Verify your sign-in</h1><ThemeToggle/></div>
-    <p>{verifying ? 'Please wait while we verify your sign-in.' : 'Complete all verification steps enabled for your account to continue.'}</p>
-    {verifying ? <UIState tone="loading">Verifying your sign-in…</UIState> : recoveryCodes.length > 0 ? <section aria-label="One-time recovery codes">
+    <p>{verifiedUser ? 'Your verification was successful.' : 'Complete all verification steps enabled for your account to continue.'}</p>
+    {verifiedUser ? <UIState tone="loading">Sign-in verified. Opening your workspace…</UIState> : recoveryCodes.length > 0 ? <section aria-label="One-time recovery codes">
       <h2>Save your recovery codes</h2>
       <p>These codes are displayed once. Store them securely before continuing.</p>
       <pre className="mfa-recovery">{recoveryCodes.join('\n')}</pre>
@@ -183,9 +188,9 @@ export default function MfaLogin({ challenge, onComplete, onCancel }: Props) {
           </div>}
         </Field>;
       })}
-      {error && <p className="amc-field-error" role="alert">{error}</p>}
+      {error && <InlineNotice tone="error">{error}</InlineNotice>}
       <Button type="submit" className="btn btn-primary wide" disabled={busy || (needsSetup && !secret)}>
-        {busy ? 'Verifying…' : 'Verify and sign in'}
+        {submitting ? 'Verifying…' : 'Verify and sign in'}
       </Button>
       </form>
       <FeedbackToast feedback={feedback} onDismiss={() => setFeedback(null)}/>

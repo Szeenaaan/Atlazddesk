@@ -3,7 +3,7 @@ import { Moon, Sun } from 'lucide-react';
 
 export function initializeTheme() {
   let theme: string | null = null;
-  try { theme = localStorage.getItem('atlazddesk-theme'); } catch { /* Storage may be disabled. */ }
+  try { theme = localStorage.getItem('supportdesk-theme'); } catch { /* Storage may be disabled. */ }
   document.documentElement.dataset.theme = theme === 'light' || theme === 'dark'
     ? theme : 'light';
 }
@@ -13,7 +13,7 @@ export default function ThemeToggle() {
   function toggle() {
     const next = dark ? 'light' : 'dark';
     document.documentElement.dataset.theme = next;
-    try { localStorage.setItem('atlazddesk-theme', next); } catch { /* Theme still works for this session. */ }
+    try { localStorage.setItem('supportdesk-theme', next); } catch { /* Theme still works for this session. */ }
     setDark(!dark);
   }
   return <button type="button" className="theme-toggle" onClick={toggle}

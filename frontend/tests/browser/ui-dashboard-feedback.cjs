@@ -9,7 +9,7 @@ const base = process.env.UI_BASE_URL || 'http://127.0.0.1:5175';
   let checks = 0;
   for (const width of [390, 1440]) for (const theme of ['dark', 'light']) {
     const context = await browser.newContext({ viewport: { width, height: 844 }, reducedMotion: 'reduce' });
-    await context.addInitScript(value => localStorage.setItem('atlazddesk-theme', value), theme);
+    await context.addInitScript(value => localStorage.setItem('supportdesk-theme', value), theme);
     const page = await context.newPage();
     page.setDefaultTimeout(7000);
     const failures = [];

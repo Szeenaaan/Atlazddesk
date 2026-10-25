@@ -1,9 +1,9 @@
 // UI-only fixtures. All API traffic is intercepted; no real credentials or business writes.
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE || 'playwright'),assert=require('node:assert/strict'),fs=require('fs');
-const {response}=require('./ui-pages.cjs');const out=(process.env.UI_REPORT_DIR || require('node:path').join(require('node:os').tmpdir(),'atlazddesk-ui-review'));fs.mkdirSync(out,{recursive:true});
+const {response}=require('./ui-pages.cjs');const out=(process.env.UI_REPORT_DIR || require('node:path').join(require('node:os').tmpdir(),'supportdesk-ui-review'));fs.mkdirSync(out,{recursive:true});
 (async()=>{const browser=await chromium.launch({headless:true,args:['--no-sandbox']});const results=[];
 for(const theme of ['dark','light'])for(const width of [1440,390]){
- const ctx=await browser.newContext({viewport:{width,height:900},reducedMotion:'reduce'});await ctx.addInitScript(t=>localStorage.setItem('atlazddesk-theme',t),theme);
+ const ctx=await browser.newContext({viewport:{width,height:900},reducedMotion:'reduce'});await ctx.addInitScript(t=>localStorage.setItem('supportdesk-theme',t),theme);
  const page=await ctx.newPage();await page.route('**/api/maintenance-status', route => route.fulfill({json:{maintenance:false}}));page.setDefaultTimeout(6000);const errors=[];page.on('pageerror',e=>errors.push(e.message));let role='admin',post=null,mode='normal',login=false;
  await page.route('**/api/v2/**',async route=>{const req=route.request(),path=new URL(req.url()).pathname.replace('/api/v2','');const user={id:2,name:'UI test account',email:'test@example.test',role,customer_id:role.startsWith('customer')?1:null};
   if(path==='/auth/me'&&login)return route.fulfill({status:401,contentType:'application/json',body:'{}'});
