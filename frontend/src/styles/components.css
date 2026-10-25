@@ -943,3 +943,35 @@ small {font-size: var(--text-label);line-height: var(--leading-label)}
     width: auto
     }
   }
+
+/* Inline input actions share the field border and stay in normal flow. */
+.ui-input-action {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-control);
+  background: var(--control-bg);
+}
+.ui-input-action:focus-within {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+.login-panel .ui-input-action .ui-input {
+  flex: 1;
+  width: 0;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  outline: none;
+}
+.login-panel .ui-input-action button.ui-button {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: var(--space-2);
+  min-width: var(--control-height);
+  font-size: var(--text-label);
+  line-height: var(--leading-label);
+}
