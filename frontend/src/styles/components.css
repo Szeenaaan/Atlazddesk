@@ -968,6 +968,7 @@ small {font-size: var(--text-label);line-height: var(--leading-label)}
   outline: none;
 }
 .login-panel .ui-input-action button.ui-button {
+  border: 0;
   flex: 0 0 auto;
   margin: 0;
   padding: var(--space-2);
