@@ -46,7 +46,7 @@ const ClientOnboarding = React.lazy(() => import('./components/ClientOnboarding'
 const ClientMfaPolicies = React.lazy(() => import('./components/ClientMfaPolicies'));
 const EmailDeliverySettings = React.lazy(() => import('./components/EmailDeliverySettings'));
 const configuredBrand = String(import.meta.env.VITE_APP_NAME || '').trim();
-const AMC_BRAND_NAME = !configuredBrand || /^(atlazddesk|altazzdesk)$/i.test(configuredBrand) ? 'SupportDesk' : configuredBrand;
+const AMC_BRAND_NAME = configuredBrand || 'SupportDesk';
 const PAGE_DESCRIPTIONS: Record<string, string> = {
     Tickets: 'Track service requests and their progress.',
     'My Inbox': 'Review assigned jobs and submit work updates.',
@@ -322,7 +322,7 @@ function App() {
             const lines = [['Ticket', 'Subject', 'Customer', 'Priority', 'Status', 'Assigned'],
                 ...visibleTickets.map(t => [t.ticket_number, t.subject, t.customer, t.priority, t.status, t.assignee])]
                 .map(row => row.map(safe).join(',')).join('\n');
-            downloadBlob(new Blob([lines], { type: 'text/csv' }), 'atlazddesk-demo-tickets.csv');
+            downloadBlob(new Blob([lines], { type: 'text/csv' }), 'supportdesk-demo-tickets.csv');
             return;
         }
         try {

@@ -6,7 +6,7 @@ const customer={id:1,company_name:'UI test customer',customer_code:'UI-1',city:'
 const asset={id:1,name:'Assigned workstation',asset_tag:'ASSET-1',customer_id:1,category_id:1,status:'active',customer,category:{id:1,name:'Hardware'}};
 const ticket={id:1,ticket_number:'UI-001',subject:'Long ticket subject to verify wrapping and sidebar layout across narrow viewports',description:'Stored ticket description. '.repeat(20),customer_id:1,customer:customer.company_name,category:'Hardware',priority:'Critical',status:'New',assigned_to:4,assignee:'Assigned technician',created_at:'2026-10-20T10:00:00Z',sla_response_due_at:'2026-10-20T12:00:00Z',sla_resolution_due_at:'2026-10-21T10:00:00Z',asset:asset.name,comments:[{author:'Assigned technician',text:'A long internal note '.repeat(12),internal:true,time:'2026-10-20T10:15:00Z'}]};
 const contract={id:1,contract_number:'AMC-UI-001',customer_id:1,customer,contract_type:'Annual maintenance',start_date:'2026-01-01',end_date:'2027-01-01',status:'active',contract_value:'1000.00',currency:'INR',sla_policy:{id:1,name:'Business hours'},services:[{id:1,name:'Support',description:'Service coverage',is_active:true}],notes:'Stored notes'};
-const settings={installation_label:'Atlazddesk',support_email:'',queue_warning_depth:100,disk_warning_percent:15,country_code:'IN',timezone:'Asia/Kolkata'};
+const settings={installation_label:'SupportDesk',support_email:'',queue_warning_depth:100,disk_warning_percent:15,country_code:'IN',timezone:'Asia/Kolkata'};
 function response(path,user){
  if(path==='/auth/me')return {user};
  if(path==='/bootstrap')return {user,tickets:[ticket],customers:user.role==='technician'?[]:[customer],assets:user.role==='technician'?[]:[asset],contracts:user.role==='admin'?[contract]:[],maintenance:[],technicians:[{id:4,name:'Assigned technician',email:'tech@example.test',role:'technician',status:'active'}]};
@@ -35,7 +35,7 @@ function response(path,user){
  if(path==='/admin/mail/providers')return {data:{providers:[],default_provider_id:null}};
  if(path==='/admin/metrics')return {failed_jobs:0,incidents_open:0,queue_connection:'redis',cache_store:'redis',php_version:'8.4',laravel_version:'12'};
  if(path.includes('incidents'))return {data:[]};
- if(path==='/system/support/overview')return {data:{generated_at:'2026-10-20T10:00:00Z',installation:'Atlazddesk',checks:{database:{status:'healthy',detail:'Available'}},runtime:{php:'8.4'},limitations:[]}};
+ if(path==='/system/support/overview')return {data:{generated_at:'2026-10-20T10:00:00Z',installation:'SupportDesk',checks:{database:{status:'healthy',detail:'Available'}},runtime:{php:'8.4'},limitations:[]}};
  if(path==='/system/support/settings')return {data:settings};
  if(path==='/system/support/timezones')return {data:['Asia/Kolkata']};
  if(path==='/system/admins')return {data:[{id:7,name:'Contractor administrator with a long name',email:'administrator@example.test',status:'active',created_at:'2026-10-20T10:00:00Z'}]};
