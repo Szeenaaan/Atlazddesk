@@ -11,7 +11,7 @@ final class DockerInstallConfigTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->directory = sys_get_temp_dir().'/atlazddesk-install-test-'.bin2hex(random_bytes(8));
+        $this->directory = sys_get_temp_dir().'/supportdesk-install-test-'.bin2hex(random_bytes(8));
         mkdir($this->directory, 0700);
     }
 
