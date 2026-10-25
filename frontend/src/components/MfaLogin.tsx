@@ -165,14 +165,14 @@ export default function MfaLogin({ challenge, onComplete, onCancel }: Props) {
         const recovery = method === 'totp' && useRecovery;
         return <Field key={method}>
           {method === 'email' ? 'Email verification code' : recovery ? 'Recovery code' : 'Google Authenticator code'}
-          {verified ? <span role="status">Verified</span> : <div className={method === 'email' ? 'mfa-email-input' : undefined}>
+          {verified ? <span role="status">Verified</span> : <div className={method === 'email' ? 'ui-input-action' : undefined}>
             <Input required type="text" inputMode={recovery ? 'text' : 'numeric'}
               aria-label={method === 'email' ? 'Email verification code' : recovery ? 'Recovery code' : 'Google Authenticator code'}
               autoComplete="one-time-code" value={codes[method] ?? ''} maxLength={recovery ? 30 : 6}
               pattern={recovery ? undefined : '[0-9]{6}'} disabled={busy || (method === 'totp' && needsSetup && !secret)}
               onChange={e => setCodes(previous => ({ ...previous, [method]: e.target.value }))} />
-            {method === 'email' && <Button className="btn btn-secondary" type="button" disabled={busy} onClick={sendEmail}>
-              {emailSent ? 'Resend' : 'Send code'}
+            {method === 'email' && <Button className="btn btn-secondary" type="button" disabled={busy} aria-label={emailSent ? 'Resend email verification code' : 'Send email verification code'} onClick={sendEmail}>
+              {emailSent ? 'Resend' : 'Send'}
             </Button>}
           </div>}
         </Field>;
