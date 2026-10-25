@@ -9,7 +9,7 @@ const base = process.env.UI_BASE_URL || 'https://localhost:8443';
   let checks = 0;
   for (const width of [390, 1440]) for (const theme of ['dark', 'light']) {
     const context = await browser.newContext({viewport: {width, height: 1000}, ignoreHTTPSErrors: true, reducedMotion: 'reduce'});
-    await context.addInitScript(value => localStorage.setItem('atlazddesk-theme', value), theme);
+    await context.addInitScript(value => localStorage.setItem('supportdesk-theme', value), theme);
     const page = await context.newPage(); page.setDefaultTimeout(7000);
     let provider = {id: 1, name: 'Business provider', driver: 'smtp', from_email: 'support@example.test', from_name: 'Support', is_active: true, credential_configured: true};
     let assigned = false;

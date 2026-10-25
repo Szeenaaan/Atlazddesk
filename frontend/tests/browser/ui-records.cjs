@@ -2,10 +2,10 @@
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
 const {response}=require('./ui-pages.cjs');
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os');
-const out=process.env.UI_REPORT_DIR||path.join(os.tmpdir(),'atlazddesk-ui-review');fs.mkdirSync(out,{recursive:true});
+const out=process.env.UI_REPORT_DIR||path.join(os.tmpdir(),'supportdesk-ui-review');fs.mkdirSync(out,{recursive:true});
 (async()=>{const browser=await chromium.launch({headless:true,args:['--no-sandbox']});const results=[];
 for(const theme of ['dark','light'])for(const width of [1440,390]){
- const ctx=await browser.newContext({viewport:{width,height:900},reducedMotion:'reduce'});await ctx.addInitScript(t=>localStorage.setItem('atlazddesk-theme',t),theme);
+ const ctx=await browser.newContext({viewport:{width,height:900},reducedMotion:'reduce'});await ctx.addInitScript(t=>localStorage.setItem('supportdesk-theme',t),theme);
  const page=await ctx.newPage();await page.route('**/api/maintenance-status', route => route.fulfill({json:{maintenance:false}}));page.setDefaultTimeout(6000);const errors=[];page.on('pageerror',e=>errors.push(e.message));const user={id:2,name:'UI review',email:'test@example.test',role:'admin',customer_id:null};const queries=[];
  await page.route('**/api/v2/**',async route=>{const url=new URL(route.request().url());queries.push(url);const data=response(url.pathname.replace('/api/v2',''),user);await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data)});});
  const go=async name=>{if(width<800)await page.locator('.mobile-menu').click();await page.locator('.sidebar .nav-item').filter({hasText:new RegExp('^'+name+'$')}).click();await page.waitForTimeout(500);};

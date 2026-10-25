@@ -1,6 +1,6 @@
 // UI-only fixtures. All API traffic is intercepted; no real credentials or business writes.
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE || 'playwright'), fs=require('fs');
-const out=(process.env.UI_REPORT_DIR || require('node:path').join(require('node:os').tmpdir(),'atlazddesk-ui-review'));fs.mkdirSync(out,{recursive:true});
+const out=(process.env.UI_REPORT_DIR || require('node:path').join(require('node:os').tmpdir(),'supportdesk-ui-review'));fs.mkdirSync(out,{recursive:true});
 const roles=['admin','customer_admin','customer_user','technician','super_admin'];
 const customer={id:1,company_name:'UI test customer',customer_code:'UI-1',city:'Kochi',status:'active'};
 const asset={id:1,name:'Assigned workstation',asset_tag:'ASSET-1',customer_id:1,category_id:1,status:'active',customer,category:{id:1,name:'Hardware'}};
@@ -51,7 +51,7 @@ if(require.main===module)(async()=>{
  for(const theme of ['dark','light'])for(const size of [{width:1440,height:1000},{width:390,height:844}])for(const role of roles){
   const context=await browser.newContext({viewport:size});const page=await context.newPage();await page.route('**/api/maintenance-status', route => route.fulfill({json:{maintenance:false}}));const errors=[];page.setDefaultTimeout(5000);
   page.on('pageerror',e=>errors.push(e.message));
-  await context.addInitScript(theme=>localStorage.setItem('atlazddesk-theme',theme),theme);
+  await context.addInitScript(theme=>localStorage.setItem('supportdesk-theme',theme),theme);
   const user={id:role==='technician'?4:2,name:'UI test account',email:'test@example.test',role,customer_id:role.startsWith('customer')?1:null};
   await page.route('**/api/v2/**',async route=>{const path=new URL(route.request().url()).pathname.replace('/api/v2','');const data=response(path,user);await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data)});});
   await page.goto((process.env.UI_BASE_URL || 'http://127.0.0.1:4173'));await page.waitForTimeout(700);

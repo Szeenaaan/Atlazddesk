@@ -8,7 +8,7 @@ const fs = require('node:fs');
  try {
   for(const theme of ['light','dark']) for(const width of [390,1440]) for(const role of ['admin','customer_admin','customer_user','technician','super_admin']) {
    const context=await browser.newContext({viewport:{width,height:1000},ignoreHTTPSErrors:true,reducedMotion:'reduce'});
-   await context.addInitScript(theme=>localStorage.setItem('atlazddesk-theme',theme),theme);
+   await context.addInitScript(theme=>localStorage.setItem('supportdesk-theme',theme),theme);
    const page=await context.newPage();page.setDefaultTimeout(7000);
    const errors=[];page.on('pageerror',e=>errors.push(e.message));
    await page.route('**/api/maintenance-status',r=>r.fulfill({json:{maintenance:false}}));

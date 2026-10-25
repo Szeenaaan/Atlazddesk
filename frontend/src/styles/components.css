@@ -963,7 +963,8 @@ small {font-size: var(--text-label);line-height: var(--leading-label)}
   box-shadow: none;
   outline: none;
 }
-.login-panel .ui-input-action button.ui-button {
+.login-panel .ui-input-action button.ui-button.btn-secondary {
+  background: var(--control-bg);
   border: 0;
   flex: 0 0 auto;
   margin: 0;
