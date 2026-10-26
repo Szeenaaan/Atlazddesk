@@ -71,7 +71,7 @@ export default function TicketWorkReports({ ticketId, role, ticketStatus }: Prop
   if (!allowed || DEMO) return null;
   return <section id={`ticket-${ticketId}-reports`} className="ticket-work-reports" aria-label="Technician work reports">
     <h3>Technician work reports</h3>
-    <p className="muted">Internal contractor records. Work results do not automatically resolve or close the customer ticket.</p>
+    <p className="muted">Internal contractor records. Work results do not automatically resolve or close the client ticket.</p>
     {loading && <p className="muted">Loading reports…</p>}
     {!loading && !reports.length && <p className="muted">No work reports submitted yet.</p>}
     <div className="report-history">

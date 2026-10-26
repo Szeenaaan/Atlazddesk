@@ -677,7 +677,7 @@ input.ui-input[role=switch] {
   background: var(--control-hover);
   color: var(--color-primary)
   }
-.ui-filters {
+.ui-filters:not(.report-filters) {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-3);

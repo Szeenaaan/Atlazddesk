@@ -24,9 +24,9 @@ export default function ClientOnboarding({ onClose, onCreated }: Props) {
     { key: 'phone', label: 'Contact number', required: false },
     { key: 'city', label: 'City', required: false },
     { key: 'country', label: 'Country', required: false },
-    { key: 'customer_admin_name', label: 'Customer Admin full name', required: true },
-    { key: 'customer_admin_email', label: 'Customer Admin login email', required: true, type: 'email' },
-    { key: 'customer_admin_password', label: 'Customer Admin password', required: true, type: 'password' },
+    { key: 'customer_admin_name', label: 'Client Admin full name', required: true },
+    { key: 'customer_admin_email', label: 'Client Admin login email', required: true, type: 'email' },
+    { key: 'customer_admin_password', label: 'Client Admin password', required: true, type: 'password' },
     { key: 'customer_admin_password_confirmation', label: 'Confirm password', required: true, type: 'password' },
   ];
   async function submit(e: React.FormEvent) {
@@ -38,7 +38,7 @@ export default function ClientOnboarding({ onClose, onCreated }: Props) {
     } finally { setBusy(false); }
   }
   return <Dialog label="Register client" onClose={onClose}><div className="modal onboarding-modal" onMouseDown={e => e.stopPropagation()}>
-    <div className="drawer-top"><span>Register client + Customer Admin</span><CloseButton type="button" onClick={onClose} aria-label="Close"/></div>
+    <div className="drawer-top"><span>Register client + Client Admin</span><CloseButton type="button" onClick={onClose} aria-label="Close"/></div>
     <form onSubmit={submit}>
       <div className="modal-body onboarding-fields">{fields.map(f => <Field key={f.key}>{f.label}
         <Input type={f.type || 'text'} required={f.required} maxLength={f.type === 'password' ? 200 : 255}

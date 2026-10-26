@@ -71,7 +71,7 @@ export default function SystemLogs() {
     <div className="support-section-title">
       <h3>System logs</h3>
     </div>
-    <p>Recent technical events from this installation. Secrets, customer data, stack traces and raw log files are intentionally excluded.</p>
+    <p>Recent technical events from this installation. Secrets, client data, stack traces and raw log files are intentionally excluded.</p>
     <form className="support-search-form" role="search" onSubmit={e => {
       e.preventDefault();
       const q = search.trim();

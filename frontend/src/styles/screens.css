@@ -1124,6 +1124,46 @@ tr:last-child td {
 .reports .report-panel {
   margin-top: var(--space-5)
   }
+.reports .report-filters {
+  display: grid;
+  grid-template-columns: repeat(5,minmax(0,1fr)) auto;
+  gap: var(--space-3);
+  align-items: end;
+  width: 100%
+  }
+.reports .report-filters>label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  font-size: var(--text-label);
+  font-weight: 600;
+  color: var(--color-muted)
+  }
+.reports .report-filters :is(.ui-input,.searchable-dropdown,.select-search-input) {
+  width: 100%;
+  min-width: 0
+  }
+.reports .report-filters>.btn {
+  align-self: end;
+  min-height: 44px;
+  white-space: nowrap
+  }
+@media(max-width: 1152px) {
+  .reports .report-filters {
+    grid-template-columns: repeat(3,minmax(0,1fr))
+    }
+  }
+@media(max-width: 600px) {
+  .reports .report-filters {
+    grid-template-columns: repeat(2,minmax(0,1fr))
+    }
+  }
+@media(max-width: 480px) {
+  .reports .report-filters {
+    grid-template-columns: minmax(0,1fr)
+    }
+  }
 .health-banner {
   padding: var(--space-6);
   background: var(--palette-border-soft);
