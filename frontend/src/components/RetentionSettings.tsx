@@ -1,6 +1,6 @@
 import { useFeedbackState } from './feedbackContext';
 import { Field } from './ui';
-import { Button, Card, Switch, Input } from './ui';
+import { Button, Card, Switch, Input, InlineNotice } from './ui';
 import { useCallback, useEffect, useState } from 'react';
 import { client } from '../api/client';
 import { getApiErrorMessage } from '../api/contracts';
@@ -75,11 +75,15 @@ export default function RetentionSettings({ scope }: { scope: Scope }) {
   return <Card className="panel amc-retention" aria-label="Data retention and scheduled cleanup">
     <div className="amc-retention-head">
       <div>
-        <h3>{scope === 'technical' ? 'Technical data retention' : 'Notification retention'}</h3>
-
+        <h3>{scope === 'technical' ? 'Logs and scheduled cleanup' : 'Notification retention'}</h3>
+        <p>Choose how long to keep data and how often to remove older items. Enabled categories are cleaned automatically in the background.</p>
       </div>
       <Button className="btn btn-secondary" type="button" disabled={busy} onClick={() => void load()}>Refresh</Button>
     </div>
+    {scope === 'technical' && <InlineNotice>
+      Cleanup covers old request traces, resolved incidents, failed queue jobs and rotated technical logs.
+      Active logs, unresolved incidents, audit history, tickets, clients and uploaded files are preserved.
+    </InlineNotice>}
     {error && <p className="amc-retention-error" role="alert">{error}</p>}
     <form onSubmit={e => void save(e)}>
       <div className="amc-retention-policies">
@@ -90,15 +94,15 @@ export default function RetentionSettings({ scope }: { scope: Scope }) {
               onChange={e => update(policy.category, { enabled: e.target.checked })} />
           </Field>
           <div className="amc-retention-fields">
-            <Field>Keep records for (days)
+            <Field>Keep data for (days)
               <Input type="number" min={policy.minimum_days} max={policy.category === 'rotated_logs' ? 365 : 3650} step={1} required disabled={busy || !policy.enabled}
                 value={policy.retention_days} onChange={e => update(policy.category, { retention_days: Number(e.target.value) })}/>
             </Field>
-            <Field>Run every (days)
+            <Field>Clean up every (days)
               <Input type="number" min={1} max={30} step={1} required disabled={busy || !policy.enabled}
                 value={policy.run_every_days} onChange={e => update(policy.category, { run_every_days: Number(e.target.value) })}/>
             </Field>
-            <Field>Items per batch
+            <Field>Items per cleanup batch
               <Input type="number" min={25} max={1000} step={1} required disabled={busy || !policy.enabled}
                 value={policy.batch_size} onChange={e => update(policy.category, { batch_size: Number(e.target.value) })}/>
             </Field>
