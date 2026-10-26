@@ -3,13 +3,51 @@
 namespace App\Http\Controllers\Api\V2;
 
 use App\Http\Controllers\Controller;
-use App\Models\Ticket;
 use App\Support\AmcAccess;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ReportsController extends Controller
 {
+    private function filtered(Request $request): \Illuminate\Database\Eloquent\Builder
+    {
+        abort_if(AmcAccess::isSuperAdmin($request->user()), 403);
+        $filters = $request->validate([
+            'from' => ['sometimes', 'date_format:Y-m-d'],
+            'to' => ['sometimes', 'date_format:Y-m-d', ...($request->filled('from') ? ['after_or_equal:from'] : [])],
+            'status' => ['sometimes', 'string', 'max:100'],
+            'priority' => ['sometimes', 'string', 'max:100'],
+            'customer_id' => ['sometimes', 'integer', 'min:1'],
+            'search' => ['sometimes', 'string', 'max:100'],
+        ]);
+        $query = \App\Support\TicketQueries::visible($request->user());
+        $zone = app(\App\Services\System\InstallationTimezoneService::class)->settings()['timezone'];
+        if (isset($filters['from'])) $query->where('tickets.created_at', '>=', \Carbon\CarbonImmutable::parse($filters['from'], $zone)->startOfDay()->utc());
+        if (isset($filters['to'])) $query->where('tickets.created_at', '<', \Carbon\CarbonImmutable::parse($filters['to'], $zone)->startOfDay()->addDay()->utc());
+        if (isset($filters['customer_id'])) $query->where('tickets.customer_id', $filters['customer_id']);
+        foreach (['status', 'priority'] as $relation) {
+            if (isset($filters[$relation])) $query->whereHas($relation, fn ($q) => $q->where('name', $filters[$relation]));
+        }
+        if (!empty($filters['search'])) {
+            $term = addcslashes($filters['search'], '%_\\');
+            $query->where(fn ($q) => $q->where('tickets.subject', 'like', "%{$term}%")
+                ->orWhere('tickets.ticket_number', 'like', "%{$term}%"));
+        }
+        return $query;
+    }
+
+    public function tickets(Request $request)
+    {
+        $request->validate(['page' => ['sometimes', 'integer', 'min:1', 'max:1000000']]);
+        $query = $this->filtered($request);
+        return \App\Http\Resources\AmcTicketResource::collection(
+            \App\Support\GridSort::apply($query, $request, ['ticket_number', 'created_at'],
+                ['customer' => ['customer', 'company_name'], 'priority' => ['priority', 'level'],
+                 'status' => ['status', 'name'], 'assignee' => ['assignee', 'name']], 'created_at')
+                ->orderByDesc('tickets.id')->paginate(25)
+        )->response()->header('Cache-Control', 'private, no-store');
+    }
+
     public function summary(Request $request)
     {
         abort_if(AmcAccess::isSuperAdmin($request->user()), 403);
@@ -18,7 +56,8 @@ class ReportsController extends Controller
         $end = now('UTC');
         $seconds = ['1h' => 3600, '4h' => 14400, 'day' => 86400, 'week' => 604800, 'month' => 2592000, 'year' => 31536000];
         $start = $period ? $end->copy()->subSeconds($seconds[$period]) : null;
-        $visible = fn () => AmcAccess::scopeTicket(Ticket::query(), $request->user())
+        $base = $this->filtered($request);
+        $visible = fn () => (clone $base)
             ->when($start, fn ($query) => $query->where('tickets.created_at', '>=', $start)->where('tickets.created_at', '<=', $end));
         $closed = ['resolved','closed','cancelled'];
         $total = $visible()->count();
@@ -73,18 +112,10 @@ class ReportsController extends Controller
     public function ticketCsv(Request $request): StreamedResponse
     {
         abort_if(AmcAccess::isSuperAdmin($request->user()), 403);
-        $request->validate(['search'=>['sometimes','string','max:100']]);
-        $query = AmcAccess::scopeTicket(Ticket::query(), $request->user())
-            ->with(['customer','priority','status','assignee'])
-            ->orderBy('id');
-        if ($request->filled('search')) {
-            $term=str_replace(['%','_'],['\\%','\\_'],(string)$request->input('search'));
-            $query->where(fn ($q)=>$q->where('subject','like',"%{$term}%")
-                ->orWhere('ticket_number','like',"%{$term}%"));
-        }
+        $query = $this->filtered($request)->orderBy('tickets.id');
         return response()->streamDownload(function () use ($query) {
             $out=fopen('php://output','wb');
-            fputcsv($out,['Ticket','Subject','Customer','Priority','Status','Assignee','Created']);
+            fputcsv($out,['Ticket','Subject','Client','Priority','Status','Assignee','Created']);
             // Prevent formula execution when CSV is opened in spreadsheet software.
             $safe=fn ($value) => preg_match('/^[\s]*[=+\-@]/u',(string)$value)
                     ? "'".(string)$value : (string)$value;

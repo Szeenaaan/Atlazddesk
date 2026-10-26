@@ -120,7 +120,7 @@ export default function SystemSupport({ initialTab = 'overview', retentionSettin
 
   return <div className="system-support">
     <Card className="panel support-intro">
-      <div className="support-intro-head"><div><h3>Technical support console</h3><p>Diagnostics for this contractor's own installation. No access to customer records, ticket management, server shell, or other contractors' VPSs.</p></div><ShieldCheck size={24}/></div>
+      <div className="support-intro-head"><div><h3>Technical support console</h3><p>Diagnostics for this contractor's own installation. No access to client records, ticket management, server shell, or other contractors' VPSs.</p></div><ShieldCheck size={24}/></div>
       <div className="support-actions">
         {tab !== 'performance' && tab !== 'logs' && <Button type="button" className="btn btn-secondary" disabled={loading} onClick={() => void load(tab, { event: eventFilter, request_id: requestFilter, q: appliedJobSearch })}><RefreshCw size={16}/> Refresh</Button>}
         <Button type="button" className="btn btn-secondary" disabled={loading} onClick={() => void exportReport()}><Download size={16}/> Export safe diagnostics</Button>

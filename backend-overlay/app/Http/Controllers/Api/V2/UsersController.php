@@ -4,13 +4,103 @@ namespace App\Http\Controllers\Api\V2;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\Auth\{MfaService, MfaSettings};
 use App\Support\{AmcAccess, AmcAudit};
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\{DB, Hash};
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 
 final class UsersController extends Controller
 {
+    public function __construct(
+        private readonly MfaService $mfa,
+        private readonly MfaSettings $mfaSettings,
+    ) {}
+
+    private function manageableTarget(Request $request, int $id): User
+    {
+        $actor = $request->user();
+        abort_unless(in_array($actor->role, ['admin', 'customer_admin'], true), 403);
+        abort_if($request->attributes->has('amc_workspace_actor'), 403,
+            'Return to your own workspace to edit account details.');
+        abort_unless($request->hasSession()
+            && (int) $request->session()->get(\Illuminate\Support\Facades\Auth::guard('web')->getName()) === (int) $actor->id
+            && (int) $request->session()->get('amc_mfa_verified_user_id') === (int) $actor->id,
+            403, 'Sign in through your browser to edit account details.');
+        $query = User::query()->whereIn('role', ['technician', 'customer_admin', 'customer_user']);
+        if ($actor->role === 'customer_admin') {
+            abort_unless($actor->customer_id, 403);
+            $query->where('role', 'customer_user')->where('customer_id', $actor->customer_id);
+        }
+        return $query->lockForUpdate()->findOrFail($id);
+    }
+
+    private function verifyDetailsOtp(Request $request, User $actor): void
+    {
+        if (! $this->mfaSettings->email($actor)) return;
+        $code = $request->input('otp_code');
+        abort_unless(is_string($code) && preg_match('/^\d{6}$/D', $code), 422,
+            'Enter the verification code sent to your email.');
+        abort_unless($this->mfa->consumeEmail($request, $code, $this->detailsPurpose($request, $actor)), 422,
+            'The verification code is invalid or expired.');
+    }
+
+    private function detailsPurpose(Request $request, User $actor): string
+    {
+        return 'user_details:'.$actor->id.':'.$actor->mfa_security_version.':'.$request->route('id');
+    }
+
+    public function sendDetailsOtp(Request $request, int $id)
+    {
+        $this->manageableTarget($request, $id);
+        $actor = $request->user();
+        abort_unless($this->mfaSettings->email($actor), 422, 'Email OTP is not enabled for your account.');
+        $this->mfa->sendEmail($request, $actor, $this->detailsPurpose($request, $actor));
+        return response()->json(['message' => 'Check your inbox for the verification code. It may take a moment to arrive.'])
+            ->header('Cache-Control', 'no-store');
+    }
+
+    public function updateDetails(Request $request, int $id)
+    {
+        return DB::transaction(function () use ($request, $id) {
+        $target = $this->manageableTarget($request, $id);
+        $actor = $request->user();
+        $data = $request->validate([
+            'name' => ['sometimes','required','string','max:255'],
+            'email' => ['sometimes','required','email','max:255', Rule::unique('users','email')->ignore($target->id)],
+            'password' => ['sometimes','required','string','max:1024','confirmed', Password::min(8)->mixedCase()->numbers()->symbols()],
+            'current_password' => ['nullable','string','max:1024'],
+            'otp_code' => ['nullable','string','max:12'],
+        ]);
+        foreach (['name', 'email'] as $field) {
+            if (isset($data[$field]) && $data[$field] === $target->{$field}) unset($data[$field]);
+        }
+        $changesIdentity = isset($data['name']) || isset($data['email']);
+        abort_unless($changesIdentity || isset($data['password']), 422,
+            'Change the name, email address or password before saving.');
+        if ($changesIdentity) {
+            abort_unless(Hash::check((string) $request->input('current_password'), $actor->password), 422,
+                'Your account password is incorrect.');
+        }
+        if ($this->mfaSettings->email($actor)) $this->verifyDetailsOtp($request, $actor);
+        unset($data['current_password'], $data['otp_code']);
+        $changed = array_values(array_intersect(['name','email','password'], array_keys($data)));
+        if (isset($data['email'])) $data['email_verified_at'] = null;
+        if (isset($data['password']) || isset($data['email'])) {
+            $data['mfa_security_version'] = (int) $target->mfa_security_version + 1;
+            $data['remember_token'] = null;
+            $target->tokens()->delete();
+            DB::table('password_reset_tokens')->whereIn('email', [$target->email, $data['email'] ?? $target->email])->delete();
+        }
+        $target->forceFill($data)->save();
+        AmcAudit::record($request, 'user.details_updated', $target, [
+            'changed' => $changed,
+        ]);
+        return response()->json(['data' => $target->only(['id','name','email'])])
+            ->header('Cache-Control', 'no-store, private');
+        });
+    }
     /** Admin manages workforce/client accounts; Customer Admin sees only company users. */
     public function index(Request $request)
     {
@@ -125,32 +215,4 @@ final class UsersController extends Controller
         AmcAudit::record($request, 'user.status_changed', $user, ['status'=>$user->status]);
         return response()->json(['data'=>$user->only(['id','status'])]);
     }
-    public function destroy(Request $request, int $id)
-    {
-        $actor = $request->user();
-        abort_unless(AmcAccess::mayManageUsers($actor), 403);
-        $query = User::query()->whereIn('role', ['technician', 'customer_admin', 'customer_user']);
-        if ($actor->role === 'customer_admin') {
-            abort_unless($actor->customer_id, 403);
-            $query->where('customer_id', $actor->customer_id)->where('role', 'customer_user');
-        }
-        abort_if($id === $actor->id, 422, 'You cannot delete your own account.');
-        try {
-            \Illuminate\Support\Facades\DB::transaction(function () use ($query, $id, $request) {
-                $user = $query->lockForUpdate()->findOrFail($id);
-                $user->tokens()->delete();
-                // Foreign keys preserve business history; never cascade ticket deletion.
-                $user->delete();
-                \Illuminate\Support\Facades\DB::table('password_reset_tokens')->where('email', $user->email)->delete();
-                AmcAudit::record($request, 'user.deleted', $user);
-            });
-        } catch (\Illuminate\Database\QueryException $error) {
-            if (($error->errorInfo[1] ?? null) === 1451) {
-                abort(422, 'This account is linked to business history and cannot be deleted. Deactivate it instead.');
-            }
-            throw $error;
-        }
-        return response()->json(['message' => 'Account permanently deleted.']);
-    }
-
 }

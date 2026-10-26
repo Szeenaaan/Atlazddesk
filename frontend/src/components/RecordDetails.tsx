@@ -13,9 +13,9 @@ type Row = Record<string, any>;
 type Resource = 'customers' | 'assets' | 'contracts' | 'technicians';
 const fields: Record<Resource, [string, string][]> = {
   technicians: [['name', 'Name'], ['email', 'Email'], ['status', 'Status'], ['phone', 'Phone'], ['last_login_at', 'Last sign-in']],
-  customers: [['company_name', 'Company'], ['customer_code', 'Customer code'], ['city', 'Location'], ['status', 'Status'], ['email', 'Email'], ['phone', 'Phone'], ['website', 'Website'], ['address', 'Address'], ['country', 'Country'], ['trade_license_no', 'Trade license'], ['vat_no', 'VAT number']],
-  assets: [['name', 'Asset'], ['asset_tag', 'Asset tag'], ['category.name', 'Category'], ['customer.company_name', 'Customer'], ['status', 'Status'], ['location.name', 'Location'], ['manufacturer', 'Manufacturer'], ['model', 'Model'], ['serial_number', 'Serial number'], ['ip_address', 'IP address'], ['mac_address', 'MAC address'], ['purchase_date', 'Purchased'], ['warranty_expiry', 'Warranty expiry'], ['license_expiry', 'License expiry']],
-  contracts: [['contract_number', 'Contract number'], ['customer.company_name', 'Customer'], ['contract_type', 'Contract type'], ['end_date', 'Expiry'], ['status', 'Status'], ['start_date', 'Start date'], ['contract_value', 'Value'], ['currency', 'Currency'], ['sla_policy.name', 'SLA policy']],
+  customers: [['company_name', 'Company'], ['customer_code', 'Client code'], ['city', 'Location'], ['status', 'Status'], ['email', 'Email'], ['phone', 'Phone'], ['website', 'Website'], ['address', 'Address'], ['country', 'Country'], ['trade_license_no', 'Trade license'], ['vat_no', 'VAT number']],
+  assets: [['name', 'Asset'], ['asset_tag', 'Asset tag'], ['category.name', 'Category'], ['customer.company_name', 'Client'], ['status', 'Status'], ['location.name', 'Location'], ['manufacturer', 'Manufacturer'], ['model', 'Model'], ['serial_number', 'Serial number'], ['ip_address', 'IP address'], ['mac_address', 'MAC address'], ['purchase_date', 'Purchased'], ['warranty_expiry', 'Warranty expiry'], ['license_expiry', 'License expiry']],
+  contracts: [['contract_number', 'Contract number'], ['customer.company_name', 'Client'], ['contract_type', 'Contract type'], ['end_date', 'Expiry'], ['status', 'Status'], ['start_date', 'Start date'], ['contract_value', 'Value'], ['currency', 'Currency'], ['sla_policy.name', 'SLA policy']],
 };
 
 export default function RecordDetails({ resource, id, onClose, onChanged, canManageContracts = false }: {
@@ -46,7 +46,7 @@ export default function RecordDetails({ resource, id, onClose, onChanged, canMan
     const value = key.split('.').reduce<any>((object, part) => object?.[part], record);
     return value != null && String(value).trim() !== '' && !(key === 'currency' && record?.contract_value == null);
   };
-  const title = resource === 'customers' ? 'Customer details' : resource === 'assets' ? 'Asset details' : resource === 'technicians' ? 'Technician details' : 'Contract details';
+  const title = resource === 'customers' ? 'Client details' : resource === 'assets' ? 'Asset details' : resource === 'technicians' ? 'Technician details' : 'Contract details';
   return <SlidingDrawer title={title} onClose={onClose}><div className="drawer-body record-details">
     {error ? <div role="alert"><p className="error">{error}</p><Button type="button" className="btn btn-secondary" onClick={() => setRevision(value => value + 1)}>Retry</Button></div> : !record ? <UIState tone="loading">Loading details…</UIState> : <>
       <h2>{record.company_name || record.name || record.contract_number}</h2>

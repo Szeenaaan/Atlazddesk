@@ -52,8 +52,8 @@ export default function About({ role, systemMetrics }: AboutProps) {
     <Card className="panel about-explore" aria-labelledby="about-explore-title">
       <h3 id="about-explore-title">Explore your workspace</h3>
       <details open><summary>Support tickets</summary><p>Follow requests from reporting to resolution, with updates and work reports kept alongside each ticket.</p></details>
-      <details><summary>Assets and maintenance</summary><p>Keep customer assets organized by category and track maintenance contracts and scheduled work.</p></details>
-      <details><summary>Access and privacy</summary><p>Your role determines what you can see and manage. Customer users see their own tickets and assigned assets; technicians see assigned work.</p></details>
+      <details><summary>Assets and maintenance</summary><p>Keep client assets organized by category and track maintenance contracts and scheduled work.</p></details>
+      <details><summary>Access and privacy</summary><p>Your user type determines what you can see and manage. Client users see their own tickets and assigned assets; technicians see assigned work.</p></details>
     </Card>
     {(PRODUCT.email || PRODUCT.github) && <Card className="panel about-contact" aria-labelledby="about-contact-title">
       <h3 id="about-contact-title">Get in touch</h3>

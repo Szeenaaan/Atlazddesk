@@ -69,6 +69,7 @@ Route::prefix('v2')->middleware(['auth:sanctum','amc.active','amc.role','amc.bou
     Route::get('/tickets/{id}/attachments/{attachment}/download', [OperationsController::class,'download'])
         ->whereNumber(['id','attachment']);
     Route::get('/reports/summary', [ReportsController::class,'summary']);
+    Route::get('/reports/tickets', [ReportsController::class,'tickets']);
     Route::get('/reports/tickets.csv', [ReportsController::class,'ticketCsv']);
     Route::get('/health', [HealthController::class,'index']);
     Route::get('/admin/metrics', [AdminOperationsController::class,'metrics']);
@@ -124,8 +125,11 @@ Route::prefix('v2')->middleware(['auth:sanctum','amc.active','amc.role','amc.bou
     Route::put('/users/{id}/assets', [\App\Http\Controllers\Api\V2\UserAssetsController::class,'update'])->middleware('throttle:amc-write')->whereNumber('id');
     Route::get('/users', [UsersController::class,'index']);
     Route::get('/users/{id}', [UsersController::class,'show'])->whereNumber('id');
-    Route::delete('/users/{id}', [UsersController::class,'destroy'])->middleware('throttle:amc-write')->whereNumber('id');
     Route::post('/users', [UsersController::class,'store'])->middleware('throttle:amc-write');
     Route::patch('/users/{id}/status', [UsersController::class,'changeStatus'])
+        ->middleware('throttle:amc-write')->whereNumber('id');
+    Route::post('/users/{id}/details/otp', [UsersController::class,'sendDetailsOtp'])
+        ->middleware('throttle:amc-mfa')->whereNumber('id');
+    Route::patch('/users/{id}/details', [UsersController::class,'updateDetails'])
         ->middleware('throttle:amc-write')->whereNumber('id');
 });

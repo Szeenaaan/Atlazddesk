@@ -148,7 +148,7 @@ export default function EmailDeliverySettings({ customers }: { customers: Record
         notifications_enabled: clientRoute.notifications_enabled,
         current_password: password,
       });
-      setClientRoute(response.data.data); setNotice('Customer email settings saved.');
+      setClientRoute(response.data.data); setNotice('Client email settings saved.');
     });
   }
 
@@ -206,8 +206,8 @@ export default function EmailDeliverySettings({ customers }: { customers: Record
         <div className="mail-provider-actions"><Button type="button" className="btn btn-primary" disabled={busy || !name || !fromName || !fromEmail || (!editingProvider && !secret)} onClick={createProvider}>{editingProvider ? 'Save provider' : 'Add provider'}</Button>{editingProvider && <Button type="button" disabled={busy} onClick={resetProvider}>Cancel editing</Button>}</div>
       </div>
       <div className="mail-section">
-        <h4>Customer-specific senders (optional)</h4>
-        <p>Leave these settings unchanged to use the default sender. Choose another provider only when a customer needs a different sender for contract reminders. Sign-in codes use the default sender when selected; ticket emails always use the shared notification inbox.</p>
+        <h4>Client-specific senders (optional)</h4>
+        <p>Leave these settings unchanged to use the default sender. Choose another provider only when a client needs a different sender for contract reminders. Sign-in codes use the default sender when selected; ticket emails always use the shared notification inbox.</p>
 
         <Field>Client organization<SearchableDropdown value={customerId} onChange={e => setCustomerId(e.target.value)}>
           <option value="">Select a client</option>
@@ -236,7 +236,7 @@ export default function EmailDeliverySettings({ customers }: { customers: Record
     </>}
     {deleteTarget && <ConfirmationDialog title="Delete email provider?" confirmLabel="Delete provider" busy={busy}
       onConfirm={deleteProvider} onClose={() => {if (!busy) setDeleteTarget(null);}}>
-      <p>Delete {deleteTarget.name} and its saved credentials? Providers used for default or customer email delivery must be replaced first.</p>
+      <p>Delete {deleteTarget.name} and its saved credentials? Providers used for default or client email delivery must be replaced first.</p>
       <Field>Current Contractor Admin password<Input type="password" autoComplete="current-password" required disabled={busy} value={password} onChange={event => setPassword(event.target.value)}/></Field>
     </ConfirmationDialog>}
   </Card>;

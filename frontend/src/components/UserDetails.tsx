@@ -10,7 +10,7 @@ import SlidingDrawer from './SlidingDrawer';
 type UserDetailsData = { id: number; name: string; email: string; phone?: string; role: string; status: string;
   created_at?: string; last_login_at?: string; email_verified_at?: string;
   customer?: { id: number; company_name: string }; assets?: { id: number; name: string; asset_tag: string }[] };
-const roles: Record<string, string> = { admin: 'Contractor Admin', technician: 'Technician', customer_admin: 'Customer Admin', customer_user: 'Customer User' };
+const roles: Record<string, string> = { admin: 'Contractor Admin', technician: 'Technician', customer_admin: 'Client Admin', customer_user: 'Client User' };
 export default function UserDetails({ id, onClose, hideRole = false, hideCompany = false, hideAssets = false }: { id: number; onClose: () => void; hideRole?: boolean; hideCompany?: boolean; hideAssets?: boolean }) {
   const [user, setUser] = useState<UserDetailsData | null>(null), [error, setError] = useFeedbackState('error'), [revision, setRevision] = useState(0);
   useEffect(() => {
@@ -20,7 +20,7 @@ export default function UserDetails({ id, onClose, hideRole = false, hideCompany
     return () => controller.abort();
   }, [id, revision]);
   const fields: [string, string | undefined][] = user ? [
-    ['Name', user.name], ['Email', user.email], ['Role', hideRole ? undefined : roles[user.role] || user.role], ['Client', hideCompany ? undefined : user.customer?.company_name],
+    ['Name', user.name], ['Email', user.email], ['User type', hideRole ? undefined : roles[user.role] || user.role], ['Client', hideCompany ? undefined : user.customer?.company_name],
     ['Status', user.status], ['Phone', user.phone],
     ['Joined', user.created_at && formatInstallationDateTime(user.created_at)],
     ['Last sign-in', user.last_login_at && formatInstallationDateTime(user.last_login_at)],

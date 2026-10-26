@@ -78,10 +78,10 @@ export default function ClientMfaPolicies({ customers }: { customers: RecordItem
       </Field>
       <Field>Policy level
         <SearchableDropdown value={scope} onChange={e => setScope(e.target.value as 'customer' | 'user')}>
-          <option value="customer">Whole client company</option><option value="user">Individual customer user</option>
+          <option value="customer">Whole client company</option><option value="user">Individual client user</option>
         </SearchableDropdown>
       </Field>
-      {scope === 'user' && <Field>Customer account
+      {scope === 'user' && <Field>Client account
         <SearchableDropdown value={userId} onChange={e => setUserId(e.target.value)}>
           <option value="">Choose user</option>{filteredUsers.map(u => <option key={u.id} value={u.id}>{u.name} — {u.email}</option>)}
         </SearchableDropdown>

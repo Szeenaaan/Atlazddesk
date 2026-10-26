@@ -56,7 +56,7 @@ export default function ContractEditor({ record, onClose, onSaved }: { record?: 
     {error && <p className="error" role="alert">{error}</p>}
     {loading ? <p role="status">Loading contract options…</p> : <form onSubmit={event => void save(event)}><fieldset disabled={busy}>
       <Field>Contract number<Input required maxLength={80} value={form.contract_number} onChange={e => set('contract_number', e.target.value)}/></Field>
-      <Field>Customer<SearchableDropdown required value={form.customer_id} onChange={e => set('customer_id', e.target.value)}><option value="">Select customer</option>{customers.map(c => <option key={c.id} value={c.id}>{c.company_name}</option>)}</SearchableDropdown></Field>
+      <Field>Client<SearchableDropdown required value={form.customer_id} onChange={e => set('customer_id', e.target.value)}><option value="">Select client</option>{customers.map(c => <option key={c.id} value={c.id}>{c.company_name}</option>)}</SearchableDropdown></Field>
       <Field>Contract type<SearchableDropdown required value={form.contract_type} onChange={e => set('contract_type', e.target.value)}><option value="">Select type</option>{types.map(type => <option key={type}>{type}</option>)}</SearchableDropdown></Field>
       <p>Type describes the agreement. The selected SLA policy sets service targets.</p>
       <Field>Start date<Input required type="date" value={form.start_date} onChange={e => set('start_date', e.target.value)}/></Field>
