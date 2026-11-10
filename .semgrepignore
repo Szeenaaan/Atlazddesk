@@ -1,0 +1,18 @@
+# Explicit exclusions replace Semgrep's default ignore list. Keep application
+# source and tests in scope; .gitignore also applies.
+.git/
+**/vendor/
+**/node_modules/
+**/dist/
+**/build/
+**/coverage/
+**/.phpunit.cache/
+**/.pytest_cache/
+**/__pycache__/
+/backend-overlay/bootstrap/cache/
+/backend-overlay/storage/
+/backend-overlay/public/storage/
+/backend-overlay/public/hot
+*.min.js
+*.min.css
+*.tsbuildinfo

@@ -1,0 +1,52 @@
+name: Semgrep
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  schedule:
+    - cron: '43 4 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  php-security:
+    name: PHP security (Semgrep CE)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    container:
+      image: semgrep/semgrep:1.184.0@sha256:cc1b68266f267878b39739373ea9985b9a78e5d64497dd875c8de100b22695ed
+    env:
+      SEMGREP_SEND_METRICS: 'off'
+      SEMGREP_ENABLE_VERSION_CHECK: '0'
+    steps:
+      - name: Check out source without persisted credentials
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Verify scanner version
+        run: |
+          semgrep --version
+          test "$(semgrep --version)" = '1.184.0'
+      - name: Scan PHP and Laravel source
+        # Full scan on every event. Findings (1) and scanner errors (other nonzero
+        # codes) fail the job; --strict also fails on incomplete/invalid parsing.
+        run: >-
+          semgrep scan
+          --config p/php
+          --oss-only
+          --error
+          --strict
+          --metrics off
+          --disable-version-check
+          --max-target-bytes 0
+          --timeout 0
+          --include '*.php'
+          backend-overlay

@@ -90,7 +90,7 @@ final class AuthController extends Controller
         $data = $request->validate([
             'name'=>['required','string','max:255'],
             'email'=>$user->role === 'super_admin'
-                ? ['sometimes', 'required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)]
+                ? ['sometimes', 'required', 'email', 'max:255', Rule::unique('users', 'email')->ignoreModel($user)]
                 : ['prohibited'],
             'current_password'=>['nullable','required_with:new_password','string','max:1024'],
             'new_password'=>['nullable','string','max:1024','confirmed', Password::min(8)->mixedCase()->numbers()->symbols()],
