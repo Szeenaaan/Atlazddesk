@@ -1,6 +1,6 @@
 import { useFeedbackState } from './feedbackContext';
 import { Field } from './ui';
-import { Button, Card, Checkbox, InlineNotice, Input, UIState } from './ui';
+import { Button, Card, Checkbox, InlineNotice, Input, RefreshButton, UIState } from './ui';
 import EmailProviderFields, { type EmailProviderValues } from './EmailProviderFields';
 import SearchableDropdown from './SearchableDropdown';
 import { useEffect, useState } from 'react';
@@ -9,6 +9,8 @@ import { getApiErrorMessage } from '../api/contracts';
 import type { RecordItem } from '../data';
 import FeedbackToast from './FeedbackToast';
 import { ConfirmationDialog } from './ui/Dialog';
+import RowActions from './RowActions';
+import { Check, Pencil, Power, Send, Trash2 } from 'lucide-react';
 
 type Driver = 'smtp' | 'resend' | 'postmark';
 type Provider = {
@@ -158,10 +160,9 @@ export default function EmailDeliverySettings({ customers }: { customers: Record
 
     {error && <InlineNotice tone="error">{error}</InlineNotice>}
     <FeedbackToast feedback={notice ? {tone: 'success', message: notice} : null} onDismiss={() => setNotice('')}/>
-    {!data ? loading ? <UIState tone="loading">Loading email settings…</UIState> : <Button type="button" onClick={() => void loadSettings()}>Retry</Button> : <>
+    {!data ? loading ? <UIState tone="loading">Loading email settings…</UIState> : <RefreshButton label="Retry loading email settings" onClick={() => void loadSettings()}/> : <>
       <div className="mail-section">
         <h4>Default sender and notification inbox</h4>
-        {!savedDefaultId && providers.some(provider => provider.is_active) && <InlineNotice tone="info">A provider has been added, but no default sender is selected. Choose it below and save email defaults before enabling Email OTP. Sending a test email does not select the default sender.</InlineNotice>}
         <div className="mail-form-grid">
           <Field>Default email provider
             <SearchableDropdown value={data.default_provider_id ?? ''} onChange={e => setData(previous => previous && ({ ...previous, default_provider_id: e.target.value ? Number(e.target.value) : null }))}>
@@ -174,8 +175,9 @@ export default function EmailDeliverySettings({ customers }: { customers: Record
             <Checkbox type="checkbox" disabled={busy} checked={data.notifications_enabled} onChange={e => setData(previous => previous && ({ ...previous, notifications_enabled: e.target.checked }))}/>
           </Field>
         </div>
-        <p>OTPs go only to each user’s registered email. Ticket updates, including internal staff events, go to the shared inbox.</p>
         <Button type="button" className="btn btn-primary" disabled={busy} onClick={() => setDefault(data.default_provider_id, data.notifications_enabled)}>Save email defaults</Button>
+        {!savedDefaultId && providers.some(provider => provider.is_active) && <InlineNotice tone="info">A provider has been added, but no default sender is selected. Choose a default sender and save email defaults before enabling Email OTP. Sending a test email does not select the default sender.</InlineNotice>}
+        <p>Verification codes go to each user’s registered email. Ticket updates, including staff events, go to the shared inbox.</p>
         {data.last_ticket_delivery && <p role="status">Last ticket email: {data.last_ticket_delivery.status === 'sent' ? 'Accepted by provider' : data.last_ticket_delivery.status === 'sending' ? 'Sending or awaiting confirmation' : data.last_ticket_delivery.status === 'uncertain' ? 'Delivery unconfirmed; check the inbox before retrying' : data.last_ticket_delivery.status === 'failed' ? 'Delivery failed. Check your email settings or contact your server administrator' : data.last_ticket_delivery.status}.</p>}
       </div>
       <div className="mail-section">
@@ -183,18 +185,17 @@ export default function EmailDeliverySettings({ customers }: { customers: Record
         {providers.length === 0 ? <p>No email providers configured. Add one below to enable outgoing mail.</p>
           : <div className="mail-providers">{providers.map(provider => <div className="mail-provider-row" key={provider.id}>
             <div><b>{provider.name}</b><small>{provider.driver.toUpperCase()} · {provider.from_email} · {provider.is_active ? 'Active' : 'Disabled'}{savedDefaultId === provider.id ? ' · Default sender' : ''}</small></div>
-            <div className="mail-provider-actions">
-              <Button type="button" className="btn btn-secondary" disabled={busy || !provider.is_active} onClick={() => testProvider(provider.id)}>Test</Button>
-              {provider.is_active && savedDefaultId !== provider.id && <Button type="button" disabled={busy} onClick={() => setDefault(provider.id, data.notifications_enabled)}>Use as default</Button>}
-              <Button type="button" className="btn btn-secondary" disabled={busy} onClick={() => editProvider(provider)}>Edit provider</Button>
-              <Button type="button" className="btn btn-secondary" disabled={busy} onClick={() => toggleProvider(provider)}>{provider.is_active ? 'Disable' : 'Enable'}</Button>
-              <Button type="button" variant="danger" disabled={busy} onClick={() => setDeleteTarget(provider)}>Delete provider</Button>
-            </div>
+            <RowActions name={provider.name} actions={[
+              { label: 'Test', icon: <Send size={16}/>, disabled: busy || !provider.is_active, onClick: () => testProvider(provider.id) },
+              ...(provider.is_active && savedDefaultId !== provider.id ? [{ label: 'Use as default', icon: <Check size={16}/>, disabled: busy, onClick: () => setDefault(provider.id, data.notifications_enabled) }] : []),
+              { label: 'Edit provider', icon: <Pencil size={16}/>, disabled: busy, onClick: () => editProvider(provider) },
+              { label: provider.is_active ? 'Disable' : 'Enable', icon: <Power size={16}/>, disabled: busy, onClick: () => toggleProvider(provider) },
+              { label: 'Delete provider', icon: <Trash2 size={16}/>, danger: true, disabled: busy, onClick: () => setDeleteTarget(provider) },
+            ]}/>
           </div>)}</div>}
       </div>
       <div className="mail-section">
         <h4>{editingProvider ? 'Edit provider' : 'Add a provider'}</h4>
-        {driver === 'smtp' && <p>Your SMTP connection and credentials are verified before changes are saved. This check does not send an email.</p>}
         <EmailProviderFields disabled={busy} lockDriver={!!editingProvider} values={{driver, from_name: fromName, from_email: fromEmail, host, port, encryption, username, secret}}
           onChange={(field: keyof EmailProviderValues, value: string) => {
             if (field === 'driver') { setDriver(value as Driver); setSecret(''); }
@@ -202,30 +203,34 @@ export default function EmailDeliverySettings({ customers }: { customers: Record
           }}>
           <Field>Provider name<Input required disabled={busy} value={name} maxLength={120} onChange={e => setName(e.target.value)}/></Field>
         </EmailProviderFields>
-        {editingProvider && <p>Saved secret is hidden. Leave the password or API key blank to keep it.</p>}
         <div className="mail-provider-actions"><Button type="button" className="btn btn-primary" disabled={busy || !name || !fromName || !fromEmail || (!editingProvider && !secret)} onClick={createProvider}>{editingProvider ? 'Save provider' : 'Add provider'}</Button>{editingProvider && <Button type="button" disabled={busy} onClick={resetProvider}>Cancel editing</Button>}</div>
+        {driver === 'smtp' && <p>Your SMTP connection and credentials are verified before changes are saved. This check does not send an email.</p>}
+        {editingProvider && <p>Saved secret is hidden. Leave the password or API key blank to keep it.</p>}
       </div>
       <div className="mail-section">
-        <h4>Client-specific senders (optional)</h4>
-        <p>Leave these settings unchanged to use the default sender. Choose another provider only when a client needs a different sender for contract reminders. Sign-in codes use the default sender when selected; ticket emails always use the shared notification inbox.</p>
+        <h4>Client email delivery</h4>
 
-        <Field>Client organization<SearchableDropdown value={customerId} onChange={e => setCustomerId(e.target.value)}>
+        <Field>Client<SearchableDropdown value={customerId} onChange={e => setCustomerId(e.target.value)}>
           <option value="">Select a client</option>
           {customers.map(c => <option key={c.id} value={c.id}>{String(c.company_name || c.name || `Client ${c.id}`)}</option>)}
         </SearchableDropdown></Field>
-        {clientRoute && <div className="mail-form-grid">
-          <Field>Delivery provider<SearchableDropdown value={clientRoute.provider_id ?? ''} onChange={e => setClientRoute(r => r && ({ ...r, provider_id: e.target.value ? Number(e.target.value) : null }))}>
+        {clientRoute && <>
+          <h4>Delivery settings for {String(customers.find(c => String(c.id) === customerId)?.company_name || customers.find(c => String(c.id) === customerId)?.name || 'selected client')}</h4>
+          <div className="mail-form-grid">
+          <Field>Client email provider<SearchableDropdown value={clientRoute.provider_id ?? ''} onChange={e => setClientRoute(r => r && ({ ...r, provider_id: e.target.value ? Number(e.target.value) : null }))}>
             <option value="">Use installation default</option>
             {providers.filter(p => p.is_active).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
           </SearchableDropdown></Field>
-          <Field>Email notifications<SearchableDropdown value={clientRoute.notifications_enabled === null ? 'inherit' : clientRoute.notifications_enabled ? 'yes' : 'no'}
+          <Field>Client email notifications<SearchableDropdown value={clientRoute.notifications_enabled === null ? 'inherit' : clientRoute.notifications_enabled ? 'yes' : 'no'}
             onChange={e => setClientRoute(r => r && ({ ...r, notifications_enabled: e.target.value === 'inherit' ? null : e.target.value === 'yes' }))}>
             <option value="inherit">Inherit installation default</option>
             <option value="yes">Enabled for this client</option>
             <option value="no">Disabled for this client</option>
           </SearchableDropdown></Field>
-          <Button type="button" className="btn btn-primary" disabled={busy} onClick={saveClient}>Save client routing</Button>
-        </div>}
+          <Button type="button" className="btn btn-primary" disabled={busy} onClick={saveClient}>Save client email settings</Button>
+          </div>
+        </>}
+        <p>Select a client to review its provider and notification settings. Ticket updates always go to the shared inbox.</p>
       </div>
       <div className="mail-section">
         <Field>Confirm changes with your current password

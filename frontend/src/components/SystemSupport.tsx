@@ -1,12 +1,12 @@
 import { useFeedbackState } from './feedbackContext';
 import { Field, InlineNotice } from './ui';
 import { Tabs } from './ui';
-import { Button, Card, Input } from './ui';
+import { Button, Card, Input, RefreshButton } from './ui';
 import SearchableDropdown from './SearchableDropdown';
 import SortableTable from './SortableTable';
 import { useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Activity, AlertTriangle, CheckCircle2, Download, RefreshCw, Search, ShieldCheck, Wrench } from 'lucide-react';
+import { Activity, AlertTriangle, CheckCircle2, Download, Search, Wrench } from 'lucide-react';
 import { client } from '../api/client';
 import { getApiErrorMessage } from '../api/contracts';
 import SystemLogs from './SystemLogs';
@@ -120,11 +120,11 @@ export default function SystemSupport({ initialTab = 'overview', retentionSettin
 
   return <div className="system-support">
     <Card className="panel support-intro">
-      <div className="support-intro-head"><div><h3>Technical support console</h3><p>Diagnostics for this contractor's own installation. No access to client records, ticket management, server shell, or other contractors' VPSs.</p></div><ShieldCheck size={24}/></div>
+      <div className="support-intro-head"><div><h3>Technical support console</h3></div>{tab !== 'performance' && tab !== 'logs' && <RefreshButton label={`Refresh ${tab}`} disabled={loading} onClick={() => void load(tab, { event: eventFilter, request_id: requestFilter, q: appliedJobSearch })}/>}</div>
       <div className="support-actions">
-        {tab !== 'performance' && tab !== 'logs' && <Button type="button" className="btn btn-secondary" disabled={loading} onClick={() => void load(tab, { event: eventFilter, request_id: requestFilter, q: appliedJobSearch })}><RefreshCw size={16}/> Refresh</Button>}
         <Button type="button" className="btn btn-secondary" disabled={loading} onClick={() => void exportReport()}><Download size={16}/> Export safe diagnostics</Button>
       </div>
+      <p>Diagnostics for this contractor's own installation. No access to client records, ticket management, server shell, or other contractors' VPSs.</p>
     </Card>
     <Tabs label="System support sections" value={tab} items={[
       ['overview','Health & runtime'],['performance','Metrics & traces'],['failures','Failed jobs'],['logs','System logs'],['audit','Audit history'],['configuration','Configuration'],
@@ -156,7 +156,6 @@ export default function SystemSupport({ initialTab = 'overview', retentionSettin
     {tab === 'logs' && <SystemLogs />}
 
     {tab === 'failures' && <Card className="panel support-section"><div className="support-section-title"><AlertTriangle size={16}/><h3>Recent failed jobs</h3></div>
-      <p>Read-only metadata for the 50 most recent failed jobs. Exception traces, job payloads, and client data are intentionally hidden. Job retry is disabled here to prevent duplicate notifications or maintenance operations.</p>
       <form className="support-search-form" role="search" onSubmit={e => {
         e.preventDefault();
         const q = jobSearch.trim();
@@ -179,6 +178,7 @@ export default function SystemSupport({ initialTab = 'overview', retentionSettin
       </form>
       <div className="table-scroll"><SortableTable><thead><tr><th>Failure UUID</th><th>Connection</th><th>Queue</th><th>Failed at</th></tr></thead><tbody>{failedJobs.map(job => <tr key={job.uuid}><td><code>{job.uuid}</code></td><td>{job.connection}</td><td>{job.queue}</td><td>{job.failed_at}</td></tr>)}</tbody></SortableTable></div>
       {!failedJobs.length && !loading && <p>{appliedJobSearch ? 'No failed jobs match your search.' : 'No failed jobs found.'}</p>}
+      <p>Read-only metadata for the 50 most recent failed jobs. Exception traces, job payloads, and client data are intentionally hidden. Job retry is disabled here to prevent duplicate notifications or maintenance operations.</p>
     </Card>}
 
     {tab === 'audit' && <Card className="panel support-section"><div className="support-section-title"><Search size={16}/><h3>Activity audit</h3></div>
@@ -187,16 +187,15 @@ export default function SystemSupport({ initialTab = 'overview', retentionSettin
         <Field>Request ID<Input value={requestFilter} maxLength={100} onChange={e => setRequestFilter(e.target.value)}/></Field>
         <Button type="submit" className="btn btn-secondary" disabled={loading}>Search</Button>
       </form>
-      <p>Most recent 30 matching events. Sensitive event properties and user-agent details are not shown.</p>
       <div className="table-scroll"><SortableTable><thead><tr><th>Date</th><th>Event</th><th>Actor ID</th><th>Request ID</th></tr></thead><tbody>{audit.map(item => <tr key={item.id}><td>{item.created_at}</td><td>{item.event}</td><td>{item.user_id ?? 'System'}</td><td><code>{item.request_id || '—'}</code></td></tr>)}</tbody></SortableTable></div>
+      <p>Most recent 30 matching events. Sensitive event properties and user-agent details are not shown.</p>
     </Card>}
 
     {tab === 'configuration' && <div className="support-config-grid">
       <Card className="panel support-section"><div className="support-section-title"><Wrench size={16}/><h3>Installation settings</h3></div>
-        <p>Nonsecret settings stored in this installation's database. These do not change VPS services, SMTP credentials, or contractor business records.</p>
         <form className="support-form" onSubmit={e => void saveSettings(e)}>
           <Field>Installation label<Input required minLength={2} maxLength={90} value={settings.installation_label} onChange={e => setSettings(p => ({ ...p, installation_label: e.target.value }))}/></Field>
-          <Field>Technical support email (optional)<Input type="email" value={settings.support_email} onChange={e => setSettings(p => ({ ...p, support_email: e.target.value }))}/></Field>
+          <Field>Technical support email<Input type="email" value={settings.support_email} onChange={e => setSettings(p => ({ ...p, support_email: e.target.value }))}/></Field>
           <Field>Country
             <SearchableDropdown value={settings.country_code} onChange={e => { const country = e.target.value; setZones(country ? [] : ['UTC']); setSettings(p => ({ ...p, country_code: country, timezone: country ? '' : 'UTC' })); }}>
               <option value="">No country selected (UTC)</option>
@@ -209,12 +208,13 @@ export default function SystemSupport({ initialTab = 'overview', retentionSettin
               {zones.map(z => <option key={z} value={z}>{z.replaceAll('_', ' ')}</option>)}
             </SearchableDropdown>
           </Field>
-          <p className="hint">All timestamps and background schedules remain UTC. Select a timezone and save settings below to apply it to all users. This controls display only.</p>
           <Field>Queue backlog warning threshold<Input type="number" required min={1} max={100000} value={settings.queue_warning_depth} onChange={e => setSettings(p => ({ ...p, queue_warning_depth: Number(e.target.value) }))}/></Field>
           <Field>Free disk space warning threshold (%)<Input type="number" required min={1} max={70} value={settings.disk_warning_percent} onChange={e => setSettings(p => ({ ...p, disk_warning_percent: Number(e.target.value) }))}/></Field>
           <Field>Confirm Super Admin password<Input type="password" autoComplete="current-password" required value={password} onChange={e => setPassword(e.target.value)}/></Field>
           <Button className="btn btn-primary" type="submit" disabled={loading || !settings.timezone || !zones.includes(settings.timezone)}>Save settings</Button>
+          <p className="hint">All timestamps and background schedules remain UTC. Save a selected timezone to apply it to all users. This controls display only.</p>
         </form>
+        <p>Nonsecret settings stored in this installation's database. These do not change VPS services, SMTP credentials, or contractor business records.</p>
       </Card>
       <TechnicalSecuritySettings />
       {/* AMC-V1011-CONFIG-ONLY-20261019: configuration-only retention */}

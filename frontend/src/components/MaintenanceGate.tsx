@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Button, Card, UIState } from './ui';
+import { Card, RefreshButton, UIState } from './ui';
 import { PRODUCT } from '../product';
 
 /** Keep every SPA entry path behind the server's application-maintenance state. */
@@ -42,6 +42,6 @@ export default function MaintenanceGate({children}: {children: ReactNode}) {
   return <main className="maintenance-screen"><Card>
     <h1>{state === 'maintenance' ? 'Temporarily unavailable' : PRODUCT.name}</h1>
     <UIState tone={state === 'error' ? 'error' : 'loading'}>{state === 'maintenance' ? `${PRODUCT.name} is undergoing maintenance. Please try again shortly.` : state === 'error' ? 'Unable to check application availability.' : 'Checking application availability…'}</UIState>
-    {state !== 'checking' && <Button type="button" onClick={() => setRetry(value => value + 1)}>Check again</Button>}
+    {state !== 'checking' && <RefreshButton label="Check availability again" onClick={() => setRetry(value => value + 1)}/>}
   </Card></main>;
 }

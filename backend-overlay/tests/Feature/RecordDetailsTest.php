@@ -21,7 +21,10 @@ final class RecordDetailsTest extends TestCase
         $service = AmcService::create(['name' => 'Network maintenance', 'description' => 'Router and switch support', 'is_active' => true]);
         $contract->services()->attach($service->id, ['notes' => 'Business hours only']);
         $this->actingAs(User::factory()->create(['role' => 'admin', 'status' => 'active']));
-        $this->getJson("/api/v2/directory/customers/{$customer->id}")->assertOk()->assertJsonPath('company_name', 'Detail Client');
+        $this->getJson("/api/v2/directory/customers/{$customer->id}")->assertOk()->assertJsonPath('company_name', 'Detail Client')
+            ->assertJsonCount(1, 'contracts')->assertJsonPath('contracts.0.id', $contract->id)
+            ->assertJsonPath('contracts.0.contract_number', 'DETAIL-CONTRACT')
+            ->assertJsonMissingPath('contracts.0.customer_id');
         $this->getJson("/api/v2/directory/assets/{$asset->id}")->assertOk()->assertJsonPath('customer.company_name', 'Detail Client')->assertJsonPath('category.name', 'Networking');
         $this->getJson("/api/v2/directory/contracts/{$contract->id}")->assertOk()->assertJsonPath('customer.company_name', 'Detail Client')
             ->assertJsonPath('sla_policy.name', 'Detail SLA')
@@ -35,6 +38,8 @@ final class RecordDetailsTest extends TestCase
             $this->actingAs(User::factory()->create(['role' => $role, 'customer_id' => $customer->id, 'status' => 'active']))
                 ->getJson("/api/v2/directory/contracts/{$contract->id}")->assertForbidden();
         }
+        $this->actingAs(User::factory()->create(['role' => 'customer_admin', 'customer_id' => $customer->id, 'status' => 'active']))
+            ->getJson("/api/v2/directory/customers/{$customer->id}")->assertOk()->assertJsonMissingPath('contracts');
     }
 
     public function test_detail_dto_drops_secrets_unknown_attributes_and_internal_metadata(): void
@@ -60,8 +65,16 @@ final class RecordDetailsTest extends TestCase
         $admin = User::factory()->create(['role' => 'admin', 'status' => 'active']);
         $url = "/api/v2/directory/technicians/{$technician->id}";
         $response = $this->actingAs($admin)->getJson($url)->assertOk()
-            ->assertJsonPath('phone', '+1234567890')->assertJsonPath('role', 'technician');
-        $this->assertEqualsCanonicalizing(['id', 'name', 'email', 'phone', 'role', 'status', 'last_login_at'], array_keys($response->json()));
+            ->assertJsonPath('phone', '+1234567890')->assertJsonPath('role', 'technician')
+            ->assertJsonPath('designation_id', $technician->designation_id)
+            ->assertJsonPath('designation.id', $technician->designation_id)
+            ->assertJsonPath('designation.name', $technician->designation->name)
+            ->assertJsonPath('designation.level', $technician->designation->level)
+            ->assertJsonPath('designation.is_active', true)
+            ->assertJsonPath('workforce_type', 'employee');
+        $this->assertEqualsCanonicalizing(['id', 'name', 'email', 'phone', 'role', 'status', 'last_login_at',
+            'designation_id', 'designation', 'workforce_type'], array_keys($response->json()));
+        $this->assertEqualsCanonicalizing(['id', 'name', 'level', 'is_active'], array_keys($response->json('designation')));
         $this->getJson("/api/v2/directory/technicians/{$admin->id}")->assertNotFound();
         foreach (['super_admin', 'technician', 'customer_admin', 'customer_user'] as $role) {
             $actor = User::factory()->create(['role' => $role, 'status' => 'active']);

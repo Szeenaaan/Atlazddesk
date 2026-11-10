@@ -68,10 +68,8 @@ export default function ClientMfaPolicies({ customers }: { customers: RecordItem
   const filteredUsers = users.filter(u => String(u.customer_id) === customer);
   return <Card className="panel mfa-config-panel client-mfa-settings" aria-label="Client authentication policies">
     <h3>Client MFA management</h3>
-    <p>Choose which sign-in factors each client must complete. Manage client email providers in Email Delivery; technical diagnostics remain with Super Admin.</p>
-    <p>Companies without saved settings use the organization-wide authentication settings. Save a company policy here to control that client’s sign-in requirements. Individual user settings can override the company policy.</p>
     <div className="policy-selectors">
-      <Field>Client company
+      <Field>Client
         <SearchableDropdown value={customer} onChange={e => { setCustomer(e.target.value); setUserId(''); setScope('customer'); }}>
           <option value="">Choose a client</option>{customers.map(c => <option key={c.id} value={c.id}>{String(c.company_name)}</option>)}
         </SearchableDropdown>
@@ -88,14 +86,12 @@ export default function ClientMfaPolicies({ customers }: { customers: RecordItem
       </Field>}
     </div>
     {(scope === 'customer' ? !!customer : !!userId) && <div className="client-policy-form">
-      {scope === 'user' && <p>{override ? 'Custom policy for this account' : 'This user currently inherits the company policy.'}</p>}
       <Field className="mfa-switch"><span><b>Google Authenticator</b><small>Permit time-based authentication on the client account.</small></span>
         <Switch type="checkbox" checked={policy.totp_enabled} onChange={e => setPolicy(p => ({ ...p, totp_enabled: e.target.checked }))}/>
       </Field>
       <Field className="mfa-switch"><span><b>Email OTP</b><small>Available only if the installation has working SMTP delivery.</small></span>
         <Switch type="checkbox" checked={policy.email_enabled} onChange={e => setPolicy(p => ({ ...p, email_enabled: e.target.checked }))}/>
       </Field>
-      <p className="hint">Email OTP is mandatory when enabled. Google Authenticator is available for voluntary enrollment and becomes mandatory for each enrolled user. Both apply after Google enrollment. Configure and test email delivery first.</p>
       <Field className="mfa-field">Confirm with your Admin password
         <Input type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)}/>
       </Field>
@@ -103,8 +99,12 @@ export default function ClientMfaPolicies({ customers }: { customers: RecordItem
         <Button type="button" className="btn btn-primary" disabled={!password || busy} onClick={save}>Save policy</Button>
         {scope === 'user' && override && <Button type="button" className="btn btn-secondary" disabled={!password || busy} onClick={restore}>Restore company policy</Button>}
       </div>
+      {scope === 'user' && <p>{override ? 'Custom policy for this account' : 'This user currently inherits the company policy.'}</p>}
+      <p className="hint">Email OTP is mandatory when enabled. Google Authenticator is available for voluntary enrollment and becomes mandatory for each enrolled user. Both apply after Google enrollment. Configure and test email delivery first.</p>
     </div>}
 
+    <p>Choose which sign-in factors each client must complete. Manage client email providers in Email Delivery; technical diagnostics remain with Super Admin.</p>
+    <p>Companies without saved settings use the organization-wide authentication settings. Save a company policy here to control that client’s sign-in requirements. Individual user settings can override the company policy.</p>
     {error && <p className="error" role="alert">{error}</p>}
   </Card>;
 }

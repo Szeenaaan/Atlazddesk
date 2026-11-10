@@ -13,7 +13,7 @@ class AmcTicketResource extends JsonResource
         $customer = $this->customer;
         return [
             'id' => $this->id,
-            'ticket_number' => $this->ticket_number,
+            'ticket_number' => $this->displayNumber(),
             'subject' => $this->subject,
             'description' => $this->description,
             'customer_id' => $this->customer_id,
@@ -24,6 +24,8 @@ class AmcTicketResource extends JsonResource
             'priority' => $this->priority?->name ?? 'Medium',
             'status_id' => $this->status_id,
             'status' => $this->status?->name ?? 'New',
+            'read_only' => in_array($request->user()->role, ['customer_admin', 'customer_user', 'technician'], true)
+                && ($this->resource->isFinalized() || (bool) $this->escalation_pending),
             'assigned_to' => $this->assigned_to,
             'assignee' => $this->assignee?->name ?? 'Unassigned',
             'asset_id' => $this->asset_id,

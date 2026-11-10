@@ -94,7 +94,6 @@ export default function TechnicalSecuritySettings() {
   return <div className="support-config-grid">
     <Card className="panel support-section">
       <h3>Super Admin account protection</h3>
-      <p>Enable sign-in methods for technical administrators of this installation. Contractor and client MFA policies remain separate.</p>
       {!config ? <p>Loading account policy…</p> : <form className="support-form" onSubmit={saveMfa}>
         <Field className="mfa-switch"><span><b>Google Authenticator</b><small>Each Super Admin generates their own setup key in My Security.</small></span>
           <Switch type="checkbox" checked={config.mfa.totp_enabled} onChange={e => setConfig(p => p && ({ ...p, mfa: { ...p.mfa, totp_enabled: e.target.checked } }))}/></Field>
@@ -105,10 +104,10 @@ export default function TechnicalSecuritySettings() {
         {reauthRequired && <div className="amc-inline-warning" role="status">Your MFA policy has changed. Sign in again to enroll or verify every required method.<div><Button type="button" className="btn btn-secondary" onClick={() => window.location.reload()}>Continue to sign-in</Button></div></div>}
         <p className="hint">Each enabled method is required on every login. Enabling both requires Google Authenticator AND Email OTP. Users enroll individually in My Security or during sign-in. Confirm delivery before enabling Email OTP.</p>
       </form>}
+      <p>Enable sign-in methods for technical administrators of this installation. Contractor and client MFA policies remain separate.</p>
     </Card>
     <Card className="panel support-section email-settings">
       <h3>Technical email provider</h3>
-      <p>Used only for Super Admin security codes and technical test messages. Client notification providers are managed by Contractor Admin.</p>
       {config && <form className="support-form email-provider-form" onSubmit={saveMail}>
         <Field className="mfa-switch"><span><b>Enable technical email delivery</b><small>Turn off only after technical Email OTP has been disabled.</small></span>
           <Switch type="checkbox" checked={config.mail.enabled} onChange={e => setConfig(p => p && ({ ...p, mail: { ...p.mail, enabled: e.target.checked } }))}/></Field>
@@ -124,6 +123,7 @@ export default function TechnicalSecuritySettings() {
         <Field>Confirm password to send test<Input type="password" autoComplete="current-password" value={testPassword} onChange={e => setTestPassword(e.target.value)}/>{error && feedbackArea === 'test' && <span className="amc-field-error" role="alert">{error}</span>}</Field>
         <Button type="button" className="btn btn-secondary" disabled={busy || !testPassword} onClick={testMail}>Send test to my email</Button>
       </div>}
+      <p>Used only for Super Admin security codes and technical test messages. Client notification providers are managed by Contractor Admin.</p>
     </Card>
     <FeedbackToast feedback={feedback} onDismiss={() => setFeedback(null)}/>
   </div>;

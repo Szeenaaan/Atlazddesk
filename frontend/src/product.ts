@@ -7,6 +7,6 @@ export const PRODUCT = {
   copyrightYear: 2026,
   license: 'Proprietary software. All rights reserved.',
   company: '',
-  email: 'pkodinhi@gmail.com',
+  email: 'contact@mhdsinan.dev',
   github: 'https://github.com/Szeenaaan',
 };

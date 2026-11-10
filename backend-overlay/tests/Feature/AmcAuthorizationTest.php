@@ -90,6 +90,61 @@ class AmcAuthorizationTest extends TestCase
         $this->assertDatabaseCount('tickets', 2);
     }
 
+    public function test_only_contractor_admin_can_resolve_a_ticket(): void
+    {
+        \Illuminate\Support\Facades\Queue::fake();
+        [$ticket, , , , $technician] = $this->setupTickets();
+        $admin = User::factory()->create(['role' => 'admin', 'status' => 'active']);
+        $inProgress = TicketStatus::create(['name' => 'In Progress', 'slug' => 'in_progress']);
+        TicketStatus::create(['name' => 'Resolved', 'slug' => 'resolved']);
+        $ticket->update(['assigned_to' => $technician->id, 'status_id' => $inProgress->id]);
+
+        $this->actingAs($technician)->patchJson('/api/v2/tickets/'.$ticket->id, ['status' => 'Resolved'])->assertForbidden();
+        $this->actingAs($admin)->patchJson('/api/v2/tickets/'.$ticket->id, ['status' => 'Resolved'])->assertOk();
+        $this->assertSame('resolved', $ticket->fresh()->status->slug);
+    }
+
+    public function test_client_admin_can_comment_on_active_ticket_but_cannot_change_status(): void
+    {
+        \Illuminate\Support\Facades\Queue::fake();
+        [$ticket] = $this->setupTickets();
+        $actor = User::factory()->create(['role' => 'customer_admin', 'customer_id' => $ticket->customer_id, 'status' => 'active']);
+        TicketStatus::create(['name' => 'In Progress', 'slug' => 'in_progress']);
+        $this->actingAs($actor)->patchJson('/api/v2/tickets/'.$ticket->id, ['status' => 'In Progress'])->assertForbidden();
+        $this->patchJson('/api/v2/tickets/'.$ticket->id, ['status' => 'New'])->assertForbidden();
+        $this->postJson('/api/v2/tickets/'.$ticket->id.'/comments', ['comment' => 'Client reply'])->assertCreated();
+        $this->assertSame('new', $ticket->fresh()->status->slug);
+    }
+
+    public function test_final_tickets_are_read_only_for_clients_and_technicians(): void
+    {
+        \Illuminate\Support\Facades\Queue::fake();
+        [$ticket, , $customer, , $technician] = $this->setupTickets();
+        $clientAdmin = User::factory()->create(['role' => 'customer_admin', 'customer_id' => $ticket->customer_id, 'status' => 'active']);
+        $ticket->update(['assigned_to' => $technician->id]);
+        foreach (['resolved', 'cancelled', 'unresolved', 'closed', 'customer_confirmation'] as $slug) {
+            $status = TicketStatus::create(['name' => $slug, 'slug' => $slug]);
+            $ticket->update(['status_id' => $status->id]);
+            foreach ([$customer, $clientAdmin, $technician] as $actor) {
+                $url = '/api/v2/tickets/'.$ticket->id;
+                $this->actingAs($actor)->getJson($url)->assertOk()->assertJsonPath('data.read_only', true);
+                $this->postJson($url.'/comments', ['comment' => 'Blocked reply'])->assertForbidden();
+                $this->patchJson($url, ['status' => 'In Progress'])->assertForbidden();
+                $this->postJson($url.'/attachments')->assertForbidden();
+            }
+            $this->actingAs($technician)->postJson($url.'/work-logs', [
+                'start_time' => '2026-11-09 10:00:00', 'end_time' => '2026-11-09 10:30:00', 'description' => 'Blocked work',
+            ])->assertForbidden();
+            $this->postJson($url.'/work-reports', ['progress' => 'in_progress', 'outcome' => 'other', 'diagnosis' => 'Blocked report'])->assertForbidden();
+        }
+        $this->assertDatabaseCount('ticket_comments', 0);
+        $this->assertDatabaseCount('ticket_work_logs', 0);
+        $this->assertDatabaseCount('ticket_work_reports', 0);
+        $admin = User::factory()->create(['role' => 'admin', 'status' => 'active']);
+        $this->actingAs($admin)->getJson($url)->assertOk()->assertJsonPath('data.read_only', false);
+        $this->postJson($url.'/comments', ['comment' => 'Admin review'])->assertCreated();
+    }
+
     public function test_ticket_service_also_rejects_contractor_creation(): void
     {
         $actor = User::factory()->create(['role' => 'admin', 'status' => 'active']);

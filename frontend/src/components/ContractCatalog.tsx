@@ -42,7 +42,7 @@ export default function ContractCatalog({ onChanged }: { onChanged?: () => void 
   }
   return <details className="panel contract-catalog"><summary>Manage SLA policies &amp; covered services</summary>
     {error && <p className="error" role="alert">{error}</p>}
-    <section><h3>SLA policies</h3><p>Set response and resolution targets in minutes. Updates affect future ticket calculations; existing ticket deadlines are not recalculated.</p>
+    <section><h3>SLA policies</h3>
       <div className="catalog-items">{options.policies.map(p => <Button type="button" className="btn btn-secondary" disabled={busy} key={p.id} onClick={() => { setPolicy({ ...p }); setPolicyId(p.id); }}>{p.name}{!p.is_active ? ' (inactive)' : ''}</Button>)}</div>
       <form onSubmit={e => void save('policy', e)}><fieldset disabled={busy}>
         <legend>{policyId ? 'Edit SLA policy' : 'Create SLA policy'}</legend>
@@ -52,6 +52,7 @@ export default function ContractCatalog({ onChanged }: { onChanged?: () => void 
         <Button className="btn btn-primary" disabled={busy}>{busy ? 'Saving…' : 'Save SLA policy'}</Button>
         {policyId && <Button type="button" className="btn btn-secondary" onClick={() => { setPolicyId(null); setPolicy(blankPolicy()); }}>Cancel edit</Button>}
       </fieldset></form>
+      <p>Set response and resolution targets in minutes. Updates affect future ticket calculations; existing ticket deadlines are not recalculated.</p>
     </section>
     <section><h3>Covered service catalog</h3><div className="catalog-items">{options.services.map(s => <Button type="button" className="btn btn-secondary" disabled={busy} key={s.id} onClick={() => { setService({ name: s.name, description: s.description || '', is_active: s.is_active }); setServiceId(s.id); }}>{s.name}{!s.is_active ? ' (inactive)' : ''}</Button>)}</div>
       <form onSubmit={e => void save('service', e)}><fieldset disabled={busy}><legend>{serviceId ? 'Edit service' : 'Create service'}</legend>

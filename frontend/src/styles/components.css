@@ -19,7 +19,7 @@ body {
 :is(form,.form-grid,.edit-fields,.amc-user-filters,.support-form,.mail-form-grid) label {
   min-width: 0;
   font-size: var(--form-label-size);
-  line-height: var(--leading-label)
+  line-height: var(--leading-body)
   }
 :is(form,.form-grid,.edit-fields,.amc-user-filters,.support-form,.mail-form-grid) label:not(.check):not(.contract-check):not(.mfa-switch):not(.amc-retention-toggle) {
   gap: var(--space-2)
@@ -95,6 +95,9 @@ label.ui-choice>.ui-choice-copy {
   font-size: var(--text-body)
   }
 .select-search-results button {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-actions);
   overflow-wrap: anywhere
   }
 :is(form,.form-grid,.edit-fields,.support-form,.mail-form-grid) :is(.btn,input[type=submit]) {
@@ -104,7 +107,12 @@ label.ui-choice>.ui-choice-copy {
   line-height: var(--leading-body);
   border-radius: var(--radius-control)
   }
-:is(form,.form-grid,.edit-fields,.support-form,.mail-form-grid) :is(p,.amc-field-error,.error) {
+:is(form,.form-grid,.edit-fields,.support-form,.mail-form-grid) p {
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+  overflow-wrap: anywhere
+  }
+:is(form,.form-grid,.edit-fields,.support-form,.mail-form-grid) :is(.amc-field-error,.error) {
   font-size: var(--text-label);
   line-height: var(--leading-label);
   overflow-wrap: anywhere
@@ -261,14 +269,39 @@ input[type=file]::file-selector-button {
 .select-search-results button {
   min-height: 44px;
   padding: var(--space-2) var(--space-3);
-  font-size: var(--text-body);
-  line-height: var(--leading-body);
+  font: 600 var(--text-body)/var(--leading-body) var(--font-body);
   border-radius: var(--radius-control);
   color: var(--control-text);
   background: transparent
   }
-.select-search-results button:is(:hover,.active) {
-  background: var(--control-hover)
+.select-option-label {
+  flex: 1;
+  min-width: 0
+  }
+.select-option-label small {
+  display: block;
+  font-size: var(--text-label);
+  line-height: var(--leading-label);
+  font-weight: 400
+  }
+.select-option-check {
+  flex: 0 0 var(--icon-control);
+  opacity: 0
+  }
+.select-search-results [aria-selected=true] .select-option-check {
+  opacity: 1
+  }
+.select-search-results button:is(:hover,.active,:focus-visible) {
+  background: var(--color-action-hover);
+  color: var(--palette-white)
+  }
+.select-search-results button:active {
+  background: var(--color-action-active);
+  color: var(--palette-white)
+  }
+.select-search-results button[aria-selected=true] {
+  background: var(--color-action-active);
+  color: var(--palette-white)
   }
 :is(.app,.sliding-drawer,.modal,.login-panel,.ui-dialog,.contract-documents) .search-box {
   min-height: 44px;
@@ -294,7 +327,7 @@ input[type=file]::file-selector-button {
   line-height: var(--leading-body);
   color: var(--control-text)
   }
-:is(.app,.sliding-drawer,.modal,.login-panel,.ui-dialog,.contract-documents) input[type=search],.telemetry-filter input,.user-asset-picker>input {
+:is(.app,.sliding-drawer,.modal,.login-panel,.ui-dialog,.contract-documents) input[type=search],.telemetry-filter input {
   min-height: 44px;
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--control-border);
@@ -309,9 +342,10 @@ input[type=file]::file-selector-button {
   font-size: var(--text-body);
   line-height: var(--leading-body);
   border-radius: var(--radius-control);
-  gap: var(--space-2)
+  gap: var(--space-2);
+  transition: background-color .15s, border-color .15s, color .15s
   }
-:is(.app,.sliding-drawer,.modal,.login-panel,.ui-dialog,.contract-documents) :is(.btn,.text-button),.ticket-section-nav button {
+:is(.app,.sliding-drawer,.modal,.login-panel,.ui-dialog,.contract-documents) :is(.btn,.text-button) {
   min-height: 44px;
   padding: var(--space-2) var(--space-4);
   border-radius: var(--radius-control);
@@ -321,21 +355,72 @@ input[type=file]::file-selector-button {
   box-shadow: none;
   transform: none
   }
-:is(.app,.sliding-drawer,.modal,.login-panel,.ui-dialog,.contract-documents) .btn-primary {
+:is(.app,.sliding-drawer,.modal,.login-panel,.ui-dialog,.contract-documents) :is(.btn-primary,.btn-secondary) {
   background: var(--control-accent);
   color: var(--palette-white);
   border: 1px solid var(--control-accent)
   }
-:is(.app,.sliding-drawer,.modal,.login-panel,.ui-dialog,.contract-documents) .btn-secondary {
-  background: var(--control-bg);
-  color: var(--control-text);
-  border: 1px solid var(--control-border)
+:is(.app,.sliding-drawer,.modal,.login-panel,.ui-dialog,.contract-documents) :is(.row-actions-trigger,.icon-button,.ui-close-button,.ui-refresh-button,.theme-toggle,.mobile-menu,.account-trigger):not(.sidebar *) {
+  background: transparent;
+  color: var(--color-primary);
+  border: 0
   }
-:is(.app,.sliding-drawer,.modal,.login-panel,.ui-dialog,.contract-documents) .btn-secondary:hover:not(:disabled) {
-  background: var(--control-hover)
+:is(.app,.sliding-drawer,.modal,.login-panel,.ui-dialog,.contract-documents) :is(.btn,.text-button,.row-actions-trigger,.ui-tabs button,.support-tabs button):not(.btn-danger):not(.ui-refresh-button):not(.sidebar *):hover:not(:disabled) {
+  background: var(--color-action-hover);
+  border-color: var(--color-action-hover);
+  color: var(--palette-white);
+  filter: none
   }
-:is(.app,.sliding-drawer,.modal,.login-panel,.ui-dialog,.contract-documents) .btn-primary:hover:not(:disabled) {
-  filter: brightness(.96)
+:is(.app,.sliding-drawer,.modal,.login-panel,.ui-dialog,.contract-documents) :is(.btn,.text-button,.row-actions-trigger,.ui-tabs button,.support-tabs button):not(.btn-danger):not(.ui-refresh-button):not(.sidebar *):active:not(:disabled) {
+  background: var(--color-action-active);
+  border-color: var(--color-action-active);
+  color: var(--palette-white);
+  filter: none
+  }
+:is(.app,.sliding-drawer,.modal,.login-panel,.ui-dialog,.contract-documents) :is(.icon-button,.ui-close-button,.ui-refresh-button,.theme-toggle,.mobile-menu):not(.sidebar *):is(:hover,[aria-expanded=true]):not(:disabled) {
+  background: var(--control-hover);
+  color: var(--color-icon-hover)
+  }
+:is(.app,.sliding-drawer,.modal,.login-panel,.ui-dialog,.contract-documents) :is(.icon-button,.ui-close-button,.ui-refresh-button,.theme-toggle,.mobile-menu):not(.sidebar *):active:not(:disabled) {
+  background: var(--control-hover);
+  color: var(--color-icon-active)
+  }
+:is(.app,.sliding-drawer,.modal,.login-panel,.ui-dialog,.contract-documents) :is(.btn,.text-button,.row-actions-trigger,.ui-tabs button,.support-tabs button):not(.btn-danger):not(.ui-refresh-button):not(.sidebar *):not(:disabled):is([aria-pressed=true],[aria-expanded=true],[aria-selected=true],.active) {
+  background: var(--color-action-active);
+  color: var(--palette-white);
+  border-color: var(--color-action-active)
+  }
+.user-record-details h2 {
+  margin: 0;
+  font-size: var(--text-title);
+  line-height: var(--leading-title)
+  }
+.row-actions-menu button {
+  font: 600 var(--text-body)/var(--leading-body) var(--font-body)
+  }
+.account-popover>button {
+  font: 600 var(--text-body)/var(--leading-body) var(--font-body)
+  }
+.row-actions-menu button>svg {
+  color: var(--color-primary)
+  }
+.row-actions-menu button:is(.is-danger,:hover,:focus-visible,:active)>svg {
+  color: inherit
+  }
+.row-actions-menu button:not(.is-danger):is(:hover,:focus-visible):not(:disabled),
+.account-popover>button:not(.logout-action):is(:hover,:focus-visible):not(:disabled) {
+  background: var(--color-action-hover);
+  color: var(--palette-white)
+  }
+.row-actions-menu button:not(.is-danger):active:not(:disabled),
+.account-popover>button:not(.logout-action):active:not(:disabled) {
+  background: var(--color-action-active);
+  color: var(--palette-white)
+  }
+.row-actions-menu button.is-danger:is(:hover,:focus-visible):not(:disabled),
+.account-popover>button.logout-action:is(:hover,:focus-visible):not(:disabled) {
+  background: color-mix(in srgb, var(--color-danger) 12%, var(--color-surface));
+  color: var(--color-danger)
   }
 :is(.app,.sliding-drawer,.modal,.login-panel,.ui-dialog,.contract-documents) .text-button {
   background: transparent;
@@ -480,14 +565,23 @@ button:disabled {
   overflow-wrap: anywhere;
   max-width: 100%
   }
-.ui-button>svg {
+.ui-button>svg,.row-actions-trigger>svg,.row-actions-menu button>svg {
   width: var(--icon-control);
   height: var(--icon-control);
   flex-shrink: 0
   }
+.ui-refresh-button {
+  width: var(--control-height);
+  min-width: var(--control-height);
+  padding: var(--space-2);
+  }
 .ui-button.btn-danger {
   background: var(--color-danger-action);
   border: 1px solid var(--color-danger-action);
+  color: var(--palette-white)
+  }
+.ui-button.btn-danger:hover:not(:disabled) {
+  filter: brightness(.9);
   color: var(--palette-white)
   }
 .ui-button:disabled {
@@ -525,7 +619,7 @@ input.ui-input[role=switch] {
   background: var(--palette-white)
   }
 .ui-input[role=switch]:checked {
-  background: var(--color-primary)
+  background: var(--control-accent)
   }
 .ui-input[role=switch]:checked::before {
   transform: translateX(12px)
@@ -534,7 +628,7 @@ input.ui-input[role=switch] {
   padding: 0;
   border: 0;
   border-radius: var(--radius-dialog);
-  width: min(592px,calc(100vw - 32px));
+  width: var(--dialog-width,min(592px,calc(100vw - 32px)));
   max-width: calc(100vw - 32px);
   max-height: calc(100dvh - 32px);
   background: var(--color-surface);
@@ -547,6 +641,7 @@ input.ui-input[role=switch] {
 .ui-dialog>.modal {
   width: 100%;
   max-height: none;
+  padding: 0;
   box-shadow: none;
   border-radius: inherit
   }
@@ -557,6 +652,38 @@ input.ui-input[role=switch] {
   font: 700 var(--text-title)/var(--leading-title) var(--font-heading);
   margin: 0 0 var(--space-4)
   }
+.ui-dialog .drawer-top {
+  gap: var(--gap-actions);
+  padding: var(--space-6) var(--space-6) 0
+  }
+.ui-dialog .drawer-top h2 {
+  margin: 0
+  }
+.ui-dialog .modal-body {
+  padding: var(--space-6)
+  }
+.ui-dialog .modal-body>.admin-form {
+  margin: 0
+  }
+.ui-dialog .modal-body>.admin-form>label {
+  margin: 0
+  }
+.ui-dialog .modal-body>label {
+  margin: var(--gap-fields) 0 0
+  }
+.ui-dialog .modal-body>label:first-child {
+  margin-top: 0
+  }
+.ui-dialog .onboarding-fields {
+  gap: var(--gap-fields)
+  }
+.ui-dialog .onboarding-fields>label {
+  margin: 0
+  }
+.ui-dialog .modal-actions {
+  margin-top: 0;
+  padding: 0 var(--space-6) var(--space-6)
+  }
 .ui-actions,.ui-pagination {
   display: flex;
   align-items: center;
@@ -564,10 +691,17 @@ input.ui-input[role=switch] {
   gap: var(--space-3);
   margin-top: var(--space-6)
   }
+.admin-form>.ui-actions {
+  grid-column: 1 / -1;
+  margin-top: 0
+  }
 .ui-pagination {
   justify-content: flex-end;
   font-size: var(--text-label);
   line-height: var(--leading-label)
+  }
+.toolbar>.ui-pagination {
+  margin-top: 0
   }
 .ui-state {
   padding: var(--space-4);
@@ -609,9 +743,14 @@ input.ui-input[role=switch] {
   }
 .ui-table {
   width: 100%;
+  table-layout: fixed;
+  text-align: left;
   border-collapse: collapse;
   font-size: var(--text-label);
   line-height: var(--leading-label)
+  }
+:is(.ui-dialog,.sliding-drawer) .ui-table {
+  min-width: 0
   }
 .ui-table th {
   height: var(--control-height);
@@ -621,18 +760,35 @@ input.ui-input[role=switch] {
   color: var(--color-muted);
   background: var(--control-hover);
   border-radius: 0;
-  padding: 0 var(--space-4);
+  padding: 0 var(--table-cell-padding,var(--space-4));
   text-align: left;
-  vertical-align: middle
-  }
-.ui-table td {
-  padding: var(--space-4);
   vertical-align: middle;
   overflow-wrap: anywhere
+  }
+.ui-table td {
+  padding: var(--space-3) var(--table-cell-padding,var(--space-4));
+  vertical-align: middle;
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+  font-weight: 600;
+  color: var(--color-text);
+  overflow-wrap: anywhere
+  }
+.ui-table td .muted {
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+  font-weight: 500
+  }
+.ui-table .record-link {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  white-space: normal
   }
 .grid-sort {
   display: inline-flex;
   align-items: center;
+  flex-wrap: wrap;
+  max-width: 100%;
   gap: var(--space-2);
   min-height: var(--control-height);
   padding: var(--space-2) 0;
@@ -644,6 +800,8 @@ input.ui-input[role=switch] {
   text-transform: inherit;
   cursor: pointer;
   text-align: left;
+  overflow-wrap: anywhere;
+  white-space: normal;
   }
 .grid-sort:hover {
   color: var(--color-primary);
@@ -670,12 +828,12 @@ input.ui-input[role=switch] {
   border: 0;
   border-radius: var(--radius-control);
   font: 600 var(--text-label)/var(--leading-label) var(--font-body);
-  color: var(--color-muted);
+  color: var(--color-primary);
   background: transparent
   }
-.ui-tabs button[aria-selected=true] {
-  background: var(--control-hover);
-  color: var(--color-primary)
+.ui-tabs button[aria-selected=true],.support-tabs button.active {
+  background: var(--color-action-active);
+  color: var(--palette-white)
   }
 .ui-filters:not(.report-filters) {
   display: flex;
@@ -700,6 +858,20 @@ input.ui-input[role=switch] {
   flex-wrap: wrap;
   row-gap: var(--gap-actions)
   }
+.panel-head>.ui-actions {
+  margin-top: 0;
+  margin-inline-start: auto
+  }
+:is(.panel-head,.toolbar,.support-section-title,.support-intro-head,.amc-retention-head,.health-banner)>.ui-refresh-button {
+  margin-inline-start: auto;
+  flex-shrink: 0
+  }
+.panel-head:has(>.ui-refresh-button) {
+  flex-wrap: nowrap
+  }
+.panel-head:has(>.ui-refresh-button)>h3 {
+  min-width: 0
+  }
 .panel-head>:is(.btn,.text-button) {
   flex-shrink: 0;
   max-width: 100%
@@ -709,10 +881,10 @@ input.ui-input[role=switch] {
   font-size: var(--text-title);
   line-height: var(--leading-title)
   }
-.support-section,.support-intro,.info-panel,.user-management {
+.support-section,.support-intro,.info-panel,.user-management:not(.user-directory) {
   padding: var(--space-6)
   }
-.sliding-drawer .drawer-top {
+.sliding-drawer>.drawer-top {
   z-index: 10;
   min-height: 64px;
   padding: var(--space-4) var(--space-6)
@@ -720,13 +892,19 @@ input.ui-input[role=switch] {
 .drawer-body,.modal-body {
   padding: var(--space-6)
   }
+.user-record-details {
+  padding-top: var(--space-4)
+  }
+.drawer-body:has(>.ui-tabs) {
+  padding-top: 0
+  }
 .page-header {
   gap: var(--space-4);
   margin-bottom: var(--space-6)
   }
 .page-header p,.panel-head p,.panel>p {
-  font-size: var(--text-label);
-  line-height: var(--leading-label);
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
   color: var(--color-muted);
   overflow-wrap: anywhere
   }
@@ -744,21 +922,26 @@ input.ui-input[role=switch] {
   }
 @media(max-width:600px) {
   .ui-dialog {
-    width: calc(100vw - 24px);
+    width: var(--dialog-width,calc(100vw - 24px));
     max-width: calc(100vw - 24px);
     max-height: calc(100dvh - 24px)
     }
   .ui-pagination {
     justify-content: space-between
     }
-  .drawer-body,.modal-body,.support-section,.support-intro,.info-panel,.user-management {
+  .drawer-body,.modal-body,.support-section,.support-intro,.info-panel,.user-management:not(.user-directory) {
     padding: var(--space-4)
     }
   .ui-table th {
-    padding: 0 var(--space-3)
+    padding-block: 0;
+    padding-inline: var(--table-cell-padding,var(--space-3))
     }
   .ui-table td {
-    padding: var(--space-3)
+    padding-block: var(--space-3);
+    padding-inline: var(--table-cell-padding,var(--space-3))
+    }
+  .admin-form,.form-grid,.edit-fields {
+    grid-template-columns: var(--form-columns-mobile,minmax(0,1fr))
     }
   }
 @media(prefers-reduced-motion:reduce) {
@@ -789,22 +972,48 @@ input.ui-input[role=switch] {
 .sidebar>nav {
   flex: 1;
   min-height: 0;
+  min-width: 0;
+  margin-top: var(--space-6);
+  padding-inline: var(--space-2);
   overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-gutter: stable;
   overscroll-behavior: contain;
+  touch-action: pan-y;
   padding-bottom: var(--space-4)
   }
-.sidebar>.brand,.sidebar>.sidebar-role,.sidebar>.sidebar-bottom {
+.sidebar .nav-item span {
+  min-width: 0;
+  overflow-wrap: anywhere
+  }
+.sidebar>.brand,.sidebar>.sidebar-bottom {
   flex-shrink: 0
   }
 .sidebar .nav-group:last-child {
   margin-bottom: 0
   }
+.sidebar :is(.nav-item,.nav-label-toggle,.icon-button,.close-mobile):hover:not(:disabled) {
+  background: var(--color-action-hover);
+  color: var(--palette-white)
+  }
+.sidebar :is(.nav-item,.nav-label-toggle,.icon-button,.close-mobile):active:not(:disabled),
+.sidebar .nav-item.active:not(:disabled) {
+  background: var(--color-action-active);
+  color: var(--palette-white)
+  }
+.sidebar .nav-item:is(.active,:hover,:active) i {
+  color: inherit
+  }
 .ticket-subject {
   color: var(--color-muted)
   }
+.dashboard-timeframes .btn {
+  border-color: transparent
+  }
 .dashboard-timeframes .btn[aria-pressed=true] {
-  background: var(--color-primary);
-  border-color: var(--color-primary);
+  background: var(--color-action-active);
+  border-color: var(--color-action-active);
   color: var(--palette-white)
   }
 :is(.theme-toggle,.icon-button:not(.quick-nav-trigger),.mobile-menu,.close-mobile) {
@@ -822,7 +1031,7 @@ input.ui-input[role=switch] {
 .command-search:focus-within {
   border-color: var(--color-primary)
   }
-.ui-field-label{font-size:var(--text-label);line-height:var(--leading-label);font-weight:600;color:var(--color-muted)}
+.ui-field-label{font-size:var(--form-label-size);line-height:var(--leading-body);font-weight:600;color:var(--color-muted)}
 .ui-required{color:var(--color-danger)}
 
 .ui-notice {
@@ -964,7 +1173,6 @@ small {font-size: var(--text-label);line-height: var(--leading-label)}
   outline: none;
 }
 .login-panel .ui-input-action button.ui-button.btn-secondary {
-  background: var(--control-bg);
   border: 0;
   flex: 0 0 auto;
   margin: 0;
@@ -972,4 +1180,46 @@ small {font-size: var(--text-label);line-height: var(--leading-label)}
   min-width: var(--control-height);
   font-size: var(--text-label);
   line-height: var(--leading-label);
+}
+.ui-password-field {
+  display: grid;
+  gap: var(--gap-label);
+  min-width: 0;
+}
+.ui-password-field>label.ui-field-label {
+  display: block;
+  margin: 0;
+}
+:is(.login-panel,.settings-panel) .ui-password-field,
+.modal-body>.ui-password-field { margin: var(--gap-fields) 0; }
+.ui-password-control .ui-input {
+  flex: 1 1 auto;
+  width: 0;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  outline: 0;
+}
+.ui-password-control button.ui-password-toggle {
+  display: grid;
+  place-items: center;
+  flex: 0 0 var(--control-height);
+  width: var(--control-height);
+  min-width: var(--control-height);
+  height: var(--control-height);
+  margin: 0;
+  padding: var(--space-2);
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--color-muted);
+  opacity: 0;
+}
+.ui-password-control:is(:hover, :focus-within) button.ui-password-toggle {
+  opacity: 1;
+}
+.ui-password-control button.ui-password-toggle:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
 }
