@@ -4,7 +4,7 @@ namespace App\Services;
 
 use App\Jobs\DispatchTicketNotice;
 use App\Models\{AmcContract, SlaPolicy, Ticket, TicketAssignment, TicketStatus, User};
-use App\Support\{AmcAudit, AmcAccess};
+use App\Support\{AmcAudit, AmcAccess, TicketQueries};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{DB, Validator};
 use Illuminate\Support\Str;
@@ -12,6 +12,8 @@ use Illuminate\Validation\ValidationException;
 
 class TicketService
 {
+    public function __construct(private readonly TechnicianAssignmentLimits $assignmentLimits) {}
+
     private const TRANSITIONS = [
         'new' => ['assigned', 'in_progress', 'cancelled'],
         'assigned' => ['in_progress', 'waiting_customer', 'waiting_vendor', 'waiting_parts', 'cancelled'],
@@ -39,7 +41,7 @@ class TicketService
         if (! empty($data['asset_id'])) {
             $asset = \App\Models\Asset::findOrFail($data['asset_id']);
             if ($user->role === 'customer_user') {
-                abort_unless($user->assignedAssets()->where('assets.id', $asset->id)->exists(), 422, 'Asset must be assigned to you.');
+                abort_unless($asset->assignment_mode === 'common' || $user->assignedAssets()->where('assets.id', $asset->id)->exists(), 422, 'This asset is not available to your account.');
             }
             $compatible = (int) $asset->category_id === (int) $data['category_id'];
             if (! $compatible) throw ValidationException::withMessages([
@@ -76,21 +78,30 @@ class TicketService
         });
     }
 
-    public function update(Request $request, Ticket $ticket, array $data): Ticket
+    public function update(Request $request, Ticket $ticket, array $data, ?int $approvedEscalationId = null): Ticket
     {
         $user = $request->user();
         $isCustomer = AmcAccess::isCustomer($user);
-        return DB::transaction(function () use ($request, $ticket, $data, $user, $isCustomer) {
-            $ticket = AmcAccess::scopeTicket(Ticket::query(), $user)->lockForUpdate()->findOrFail($ticket->id);
+        abort_if($isCustomer && array_key_exists('status', $data), 403, 'Only Admin can change ticket status.');
+        return DB::transaction(function () use ($request, $ticket, $data, $user, $approvedEscalationId) {
+            $ticket = TicketQueries::locked($user, $ticket->id);
             $changes = [];
             if (array_key_exists('assigned_to', $data)) {
                 abort_unless(AmcAccess::mayAssign($user), 403);
                 $assigneeId = $data['assigned_to'];
-                if ($assigneeId !== null) {
-                    abort_unless(User::whereKey($assigneeId)->where('role','technician')
-                        ->where('status', 'active')->exists(), 422, 'Assignee must be an active technician.');
-                }
+                $assignee = $assigneeId === null ? null : User::whereKey($assigneeId)->lockForUpdate()->first();
+                if ($assigneeId !== null) abort_unless($assignee && $assignee->role === 'technician'
+                    && $assignee->customer_id === null && $assignee->status === 'active', 422,
+                    'Assignee must be an active contractor technician.');
                 if ($ticket->assigned_to !== $assigneeId) {
+                    if ($ticket->assigned_to !== null) {
+                        abort_unless($approvedEscalationId !== null && $ticket->escalations()
+                            ->whereKey($approvedEscalationId)->where('state', 'pending')
+                            ->where('requester_id', $ticket->assigned_to)->exists(), 409,
+                            'This ticket is already assigned. Review the technician’s escalation request to change the assignment.');
+                    }
+                    $newStatus = isset($data['status']) ? Str::of($data['status'])->lower()->replace(' ', '_')->toString() : $ticket->status?->slug;
+                    if ($assignee && $this->assignmentLimits->countsStatus($newStatus)) $this->assignmentLimits->assertAvailable($assignee);
                     TicketAssignment::where('ticket_id', $ticket->id)->whereNull('unassigned_at')
                         ->update(['unassigned_at' => now()]);
                     if ($assigneeId !== null) {
@@ -111,11 +122,9 @@ class TicketService
                 $current = $ticket->status?->slug;
                 if ($target !== $current) {
                     abort_unless(in_array($target, self::TRANSITIONS[$current] ?? [], true), 422, 'Invalid ticket status transition.');
-                    if ($isCustomer) {
-                        abort_unless($current === 'resolved' && in_array($target, ['customer_confirmation','in_progress'], true)
-                            || $current === 'customer_confirmation' && $target === 'closed', 403);
-                    } elseif ($user->role === 'technician') {
-                        abort_unless($ticket->assigned_to === $user->id && ! in_array($target, ['cancelled','closed'], true), 403);
+                    if ($user->role === 'technician') {
+                        abort_unless($ticket->assigned_to === $user->id && ! in_array($target, ['cancelled','closed','resolved'], true), 403,
+                            'Only Admin can resolve a ticket.');
                     }
                     $status = TicketStatus::where('slug', $target)->firstOrFail();
                     $changes['status'] = [$current, $target];
@@ -129,9 +138,9 @@ class TicketService
                 $ticket->save();
                 AmcAudit::record($request, 'ticket.updated', $ticket, $changes);
                 if (array_key_exists('assigned_to', $changes) && $ticket->assigned_to) {
-                    DispatchTicketNotice::dispatch($ticket->id, 'assigned', (int) $ticket->assigned_to, null, AmcAudit::actorId($request), (string) \Illuminate\Support\Str::uuid())->afterCommit();
+                    DispatchTicketNotice::dispatch($ticket->id, 'assigned', (int) $ticket->assigned_to, null, AmcAudit::actorId($request), (string) \Illuminate\Support\Str::uuid(), changes: $changes)->afterCommit();
                 }
-                else DispatchTicketNotice::dispatch($ticket->id, 'updated', null, null, AmcAudit::actorId($request), (string) \Illuminate\Support\Str::uuid())->afterCommit();
+                else DispatchTicketNotice::dispatch($ticket->id, isset($changes['assigned_to']) ? 'unassigned' : 'status_changed', null, null, AmcAudit::actorId($request), (string) \Illuminate\Support\Str::uuid(), changes: $changes)->afterCommit();
             }
             return $ticket;
         });

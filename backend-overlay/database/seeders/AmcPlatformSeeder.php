@@ -74,7 +74,6 @@ class AmcPlatformSeeder extends Seeder
         $password = Hash::make('ChangeMe123!');
         User::updateOrCreate(['email'=>'admin@example.com'], ['name'=>'Platform Admin','password'=>$password,'role'=>'super_admin','status'=>'active','customer_id'=>null]);
         User::updateOrCreate(['email'=>'manager@example.com'], ['name'=>'Operations Admin','password'=>$password,'role'=>'admin','status'=>'active','customer_id'=>null]);
-        User::updateOrCreate(['email'=>'technician@example.com'], ['name'=>'Demo Technician','password'=>$password,'role'=>'technician','status'=>'active','customer_id'=>null]);
         User::updateOrCreate(['email'=>'customer@example.com'], ['name'=>'Customer Admin','password'=>$password,'role'=>'customer_admin','status'=>'active','customer_id'=>$customer->id]);
     }
 }

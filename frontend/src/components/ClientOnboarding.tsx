@@ -40,14 +40,14 @@ export default function ClientOnboarding({ onClose, onCreated }: Props) {
   return <Dialog label="Register client" onClose={onClose}><div className="modal onboarding-modal" onMouseDown={e => e.stopPropagation()}>
     <div className="drawer-top"><span>Register client + Client Admin</span><CloseButton type="button" onClick={onClose} aria-label="Close"/></div>
     <form onSubmit={submit}>
-      <div className="modal-body onboarding-fields">{fields.map(f => <Field key={f.key}>{f.label}
+      <div className="modal-body"><div className="onboarding-fields">{fields.map(f => <Field key={f.key}>{f.label}
         <Input type={f.type || 'text'} required={f.required} maxLength={f.type === 'password' ? 200 : 255}
           minLength={f.type === 'password' ? 8 : undefined} autoComplete={f.type === 'password' ? 'new-password' : 'off'}
           value={form[f.key]} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}/>
       </Field>)}
-      <p className="hint">Share the initial login credentials securely. They are not emailed automatically.</p>
       {error && <p className="error" role="alert">{error}</p>}</div>
-      <div className="modal-actions"><Button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</Button>
+      <div className="ui-actions"><Button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</Button>
         <Button type="submit" className="btn btn-primary" disabled={busy}>{busy ? 'Registering…' : 'Register client'}</Button></div>
+      <p className="hint">Share the initial login credentials securely. They are not emailed automatically.</p></div>
     </form></div></Dialog>;
 }

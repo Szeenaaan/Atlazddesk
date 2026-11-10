@@ -11,7 +11,7 @@ export default function UserAssetEditor({ user, onClose }: { user: { id: number;
     void client.get(`/users/${user.id}/assets`).then(({ data }) => { if (!cancelled) { setIds(data.asset_ids); setLoading(false); } }).catch(() => { if (!cancelled) setError('Unable to load assignments. Close and retry.'); });
     return () => { cancelled = true; };
   }, [user.id]);
-  return <form className="asset-assignment-editor" onSubmit={async e => {
+  return <form className="asset-assignment-editor support-form" onSubmit={async e => {
     e.preventDefault(); if (loading || busy) return; setBusy(true); setError('');
     try { await client.put(`/users/${user.id}/assets`, { asset_ids: ids }); feedback?.({tone: 'success', message: 'Asset assignments saved.'}); onClose(); }
     catch (e: any) { setError(e.response?.data?.message || 'Unable to save assignments.'); }

@@ -1,15 +1,16 @@
 import { useFeedbackState } from './feedbackContext';
 import { CloseButton } from './ui';
 import { formatInstallationDateTime } from '../utils/installationTime';
+import { formatTicketNumber } from '../utils/ticketNumber';
 import { useEffect, useRef, useState } from 'react';
-import { Bell, RefreshCw } from 'lucide-react';
-import { InlineNotice, UIState } from './ui';
+import { Bell } from 'lucide-react';
+import { InlineNotice, RefreshButton, UIState } from './ui';
 import { client, DEMO } from '../api/client';
 import type { ApiResponse } from '../api/contracts';
 
 type Notice = { id: number; ticket_id: number | null; event: string; title: string; message: string; read_at: string | null; created_at: string };
-type Props = { onTicket: (id: number) => void };
-export default function NotificationsPanel({ onTicket }: Props) {
+type Props = { onTicket: (id: number) => void; onEscalation?: () => void; onEscalationDecision?: () => void };
+export default function NotificationsPanel({ onTicket, onEscalation, onEscalationDecision }: Props) {
   const holder = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
@@ -17,6 +18,9 @@ export default function NotificationsPanel({ onTicket }: Props) {
   const [unread, setUnread] = useState(0);
   const [error, setError] = useFeedbackState('error');
   const refreshing = useRef(false);
+  const decisions = useRef(new Set<number>());
+  const decisionHandler = useRef(onEscalationDecision);
+  useEffect(() => { decisionHandler.current = onEscalationDecision; }, [onEscalationDecision]);
   useEffect(() => {
     if (!open) return;
     const outside = (event: PointerEvent) => {if (!holder.current?.contains(event.target as Node)) setOpen(false);};
@@ -31,6 +35,10 @@ export default function NotificationsPanel({ onTicket }: Props) {
     try {
       const { data } = await client.get<ApiResponse<{ unread_count: number; items: Notice[] }>>('/notifications');
       setItems(data.data?.items ?? []); setUnread(data.data?.unread_count ?? 0); setError('');
+      const received = (data.data?.items ?? []).filter(item => ['escalation_approved', 'escalation_rejected'].includes(item.event));
+      const changed = received.some(item => !decisions.current.has(item.id));
+      received.forEach(item => decisions.current.add(item.id));
+      if (changed) decisionHandler.current?.();
     } catch { setError('Notifications could not be loaded.'); }
     finally { refreshing.current = false; }
   }
@@ -50,7 +58,8 @@ export default function NotificationsPanel({ onTicket }: Props) {
       try { await client.patch(`/notifications/${note.id}/read`); await refresh(); }
       catch { setError('Could not mark this notification as read.'); }
     }
-    if (note.ticket_id) { onTicket(note.ticket_id); setOpen(false); }
+    if (note.event === 'escalation_pending' && onEscalation) { onEscalation(); setOpen(false); }
+    else if (note.ticket_id) { onTicket(note.ticket_id); setOpen(false); }
   }
   return <div ref={holder} className="notification-holder">
     <button ref={trigger} className="icon-button notification-toggle" type="button" aria-label={`Notifications, ${unread} unread`}
@@ -58,11 +67,11 @@ export default function NotificationsPanel({ onTicket }: Props) {
       {unread > 0 && <span className="notification-count">{Math.min(unread, 99)}</span>}
     </button>
     {open && <div className="notification-popover" role="dialog" aria-label="Your notifications">
-      <div className="popover-head"><b>Notifications</b><button type="button" className="icon-button" aria-label="Refresh notifications" title="Refresh" onClick={() => void refresh()}><RefreshCw size={16}/></button><CloseButton aria-label="Close notifications" onClick={() => setOpen(false)}/></div>
+      <div className="popover-head"><b>Notifications</b><RefreshButton label="Refresh notifications" onClick={() => void refresh()}/><CloseButton aria-label="Close notifications" onClick={() => setOpen(false)}/></div>
       {error && <InlineNotice tone="error">{error}</InlineNotice>}
       {!items.length ? <UIState>No notifications yet.</UIState> :
         <div className="notice-list">{items.map(note => <button key={note.id} type="button" className={`notice-item ${!note.read_at ? 'unread' : ''}`}
-          onClick={() => void openNotice(note)}><b>{note.title}</b><span>{note.message}</span><small>{formatInstallationDateTime(note.created_at)}{!note.read_at ? ' · Unread' : ''}</small></button>)}</div>}
+          onClick={() => void openNotice(note)}><b>{note.title}</b><span>{note.ticket_id ? note.message.replace(/\bINC-(\d{4})-[A-Z0-9]+\b/gi, (_match, year: string) => formatTicketNumber(note.ticket_id!, year)) : note.message}</span><small>{formatInstallationDateTime(note.created_at)}{!note.read_at ? ' · Unread' : ''}</small></button>)}</div>}
     </div>}
   </div>;
 }

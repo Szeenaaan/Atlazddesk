@@ -33,6 +33,17 @@ class UserFactory extends Factory
         ];
     }
 
+    public function configure(): static
+    {
+        return $this->afterMaking(function (User $user) {
+            if ($user->role === 'technician' && ! $user->designation_id) {
+                $user->designation_id = \App\Models\TechnicianDesignation::firstOrCreate(
+                    ['name' => 'Technician'], ['level' => 1, 'is_active' => true])->id;
+                $user->workforce_type ??= 'employee';
+            }
+        });
+    }
+
     /**
      * Indicate that the model's email address should be unverified.
      */

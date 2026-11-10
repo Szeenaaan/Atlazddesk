@@ -4,6 +4,7 @@ namespace App\Services\Notifications;
 
 use App\Models\AmcUserNotification;
 use App\Support\AmcAccess;
+use App\Support\TicketNoticeText;
 use App\Support\ServiceResult;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -23,7 +24,18 @@ final class NotificationService
         return ServiceResult::ok([
             'unread_count' => $unreadCount,
             'items' => $query->orderByDesc('id')->limit(30)
-                ->get(['id', 'ticket_id', 'event', 'title', 'message', 'read_at', 'created_at']),
+                ->get(['id', 'ticket_id', 'event', 'title', 'message', 'read_at', 'created_at'])
+                ->each(function ($notice) {
+                    if ($notice->event === 'status_changed'
+                        && preg_match('/^(#TK\d{10,}) moved from .+ to Cancelled\.$/u', $notice->message, $match)) {
+                        $notice->title = 'Ticket cancelled';
+                        $notice->message = $match[1].' was cancelled.';
+                    }
+                    if ($notice->event === 'escalation_rejected'
+                        && $notice->message === 'Your escalation request was rejected. Contact Contractor Admin for the next steps.') {
+                        $notice->message = TicketNoticeText::REJECTED_ESCALATION_MESSAGE;
+                    }
+                }),
         ], 'Notifications retrieved.');
     }
 
@@ -46,7 +58,7 @@ final class NotificationService
         // Recipient membership can change after delivery: re-check current access on every read.
         $query->where(fn ($q) => $q->whereNull('ticket_id')->orWhereHas('ticket', fn ($tickets) => AmcAccess::scopeTicket($tickets, $actor)));
         if (AmcAccess::isCustomer($actor)) {
-            $query->whereNotIn('event', ['internal_note', 'work_logged', 'work_report']);
+            $query->whereNotIn('event', ['internal_note', 'work_logged', 'work_report', 'escalation_pending', 'escalation_approved', 'escalation_rejected']);
         }
 
         return $query;

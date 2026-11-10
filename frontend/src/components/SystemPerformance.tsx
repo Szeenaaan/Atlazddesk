@@ -1,11 +1,11 @@
 import { useFeedbackState } from './feedbackContext';
 import { Field } from './ui';
-import { Button, Card, Checkbox, Input, InlineNotice, UIState } from './ui';
+import { Button, Card, Checkbox, Input, InlineNotice, RefreshButton, UIState } from './ui';
 import SearchableDropdown from './SearchableDropdown';
 import SortableTable from './SortableTable';
 import { formatInstallationDateTime } from '../utils/installationTime';
 import { useCallback, useEffect, useState } from 'react';
-import { Activity, AlertTriangle, RefreshCw, Search, Settings2 } from 'lucide-react';
+import { Activity, AlertTriangle, Search, Settings2 } from 'lucide-react';
 import { client } from '../api/client';
 import { getApiErrorMessage } from '../api/contracts';
 
@@ -103,12 +103,11 @@ export default function SystemPerformance() {
 
   return <div className="telemetry-panel">
     <Card className="panel support-section">
-      <div className="support-section-title"><Activity size={20}/><h3>Application performance</h3></div>
+      <div className="support-section-title"><Activity size={20}/><h3>Application performance</h3><RefreshButton label="Refresh system performance" disabled={busy} onClick={() => void load(hours)}/></div>
       <div className="telemetry-toolbar">
         <Field>Time window <SearchableDropdown value={hours} onChange={e => setHours(Number(e.target.value))}>
           <option value={1}>Last hour</option><option value={24}>Last 24 hours</option><option value={168}>Last 7 days</option>
         </SearchableDropdown></Field>
-        <Button className="btn btn-secondary" type="button" disabled={busy} onClick={() => void load(hours)}><RefreshCw size={16}/> Refresh</Button>
       </div>
       {error && <InlineNotice tone="error">{error}</InlineNotice>}
 
@@ -120,7 +119,6 @@ export default function SystemPerformance() {
           <div><small>Average database time</small><strong>{duration(data.average_db_ms)}</strong></div>
           <div><small>Observed server errors</small><strong>{data.server_error_observations}</strong></div>
         </div>
-        <p className="hint">{data.scope}</p>
         <h4>HTTP routes · sampled latency and database profiling</h4>
         {data.routes.length ? <div className="table-scroll"><SortableTable><thead><tr>
           <th>Route</th><th>Samples</th><th>Avg</th><th>P95</th><th>DB avg</th><th>Avg queries</th><th>5xx observations</th>
@@ -144,12 +142,12 @@ export default function SystemPerformance() {
           <div className="telemetry-detail-head"><b>Trace correlation · {trace[0]?.trace_id || 'Not found'}</b><Button type="button" className="btn btn-secondary" onClick={() => setTrace(null)}>Close</Button></div>
           {trace.length ? trace.map(item => <p key={item.request_id}><code>{item.method} {item.route}</code> — {duration(item.duration_ms)}; {item.db_query_count} database queries; HTTP {item.status_code}</p>) : <p>No observations retained for this trace.</p>}
         </div>}
+        <p className="hint">{data.scope}</p>
         <InlineNotice><AlertTriangle size={16}/><div><b>Measurement limitations</b><ul>{data.limitations.map(value => <li key={value}>{value}</li>)}</ul></div></InlineNotice>
       </>}
     </Card>
     {settings && <Card className="panel support-section">
       <div className="support-section-title"><Settings2 size={20}/><h3>Metrics and tracing configuration</h3></div>
-      <p>Controlled by this installation's Super Admin. Metrics are sampled and retained locally. No private client data or SQL statements are collected.</p>
       <form className="support-form telemetry-settings" onSubmit={e => void saveSettings(e)}>
         <Field className="telemetry-switch"><Checkbox type="checkbox" checked={settings.enabled} onChange={e => setSettings(s => s && ({ ...s, enabled: e.target.checked }))}/> Enable request telemetry</Field>
         <Field>Normal request sampling (%)<Input type="number" min={0} max={100} required value={settings.sample_percent} onChange={e => setSettings(s => s && ({ ...s, sample_percent: Number(e.target.value) }))}/></Field>
@@ -158,6 +156,7 @@ export default function SystemPerformance() {
         <Field>Confirm Super Admin password<Input type="password" autoComplete="current-password" required value={password} onChange={e => setPassword(e.target.value)}/></Field>
         <Button type="submit" className="btn btn-primary" disabled={busy}>Save technical settings</Button>
       </form>
+      <p>Controlled by this installation's Super Admin. Metrics are sampled and retained locally. No private client data or SQL statements are collected.</p>
     </Card>}
   </div>;
 }
