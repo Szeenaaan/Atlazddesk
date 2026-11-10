@@ -17,14 +17,15 @@ final class DashboardTimeframeTest extends TestCase
         $category = TicketCategory::create(['name'=>'Network','slug'=>'network']);
         $priority = TicketPriority::create(['name'=>'Critical','slug'=>'critical','level'=>4]);
         $status = TicketStatus::create(['name'=>'New','slug'=>'new','is_closed'=>false]);
+        $inProgress = TicketStatus::create(['name'=>'In Progress','slug'=>'in_progress','is_closed'=>false]);
         foreach ([30, 120, 1500, 500000] as $index => $minutes) {
             $ticket = Ticket::create(['customer_id'=>$customer->id,'created_by'=>$actor->id,'assigned_to'=>$tech->id,
-                'category_id'=>$category->id,'priority_id'=>$priority->id,'status_id'=>$status->id,
+                'category_id'=>$category->id,'priority_id'=>$priority->id,'status_id'=>in_array($index, [0, 2], true) ? $inProgress->id : $status->id,
                 'ticket_number'=>'PERIOD-'.$index,'subject'=>'Issue','description'=>'Issue']);
             $ticket->forceFill(['created_at'=>now()->subMinutes($minutes), 'resolved_at'=>now()])->save();
         }
         Ticket::create(['customer_id'=>$other->id,'created_by'=>$actor->id,
-            'category_id'=>$category->id,'priority_id'=>$priority->id,'status_id'=>$status->id,
+            'category_id'=>$category->id,'priority_id'=>$priority->id,'status_id'=>$inProgress->id,
             'ticket_number'=>'OTHER','subject'=>'Private','description'=>'Private']);
         $this->actingAs($actor);
         foreach (['1h'=>1,'4h'=>2,'day'=>2,'week'=>3,'month'=>3,'year'=>4] as $period => $count) {
@@ -36,6 +37,11 @@ final class DashboardTimeframeTest extends TestCase
             $this->assertEquals($count, $response->json('priorities.Critical'));
             $this->assertSame($count, array_sum(array_column($response->json('daily'), 'tickets')));
             $this->assertSame($count, array_sum(array_column($response->json('daily'), 'resolved')));
+            $this->assertSame(in_array($period, ['1h', '4h', 'day'], true) ? 1 : 2,
+                array_sum(array_column($response->json('daily'), 'in_progress')));
+            if ($period === '1h') {
+                $response->assertJsonPath('daily.6.in_progress', 1)->assertJsonPath('daily.11.in_progress', 0);
+            }
             $queries = collect(DB::getQueryLog())->filter(fn ($query) => str_contains($query['query'], 'TIMESTAMPDIFF'));
             $this->assertCount(2, $queries, 'Chart query count must be independent of bucket count.');
             DB::disableQueryLog();

@@ -1,6 +1,6 @@
 import { useFeedbackState } from './feedbackContext';
 import { Field } from './ui';
-import { Button, Card, Switch, Input, InlineNotice } from './ui';
+import { Button, Card, Switch, Input, InlineNotice, RefreshButton } from './ui';
 import { useCallback, useEffect, useState } from 'react';
 import { client } from '../api/client';
 import { getApiErrorMessage } from '../api/contracts';
@@ -76,14 +76,9 @@ export default function RetentionSettings({ scope }: { scope: Scope }) {
     <div className="amc-retention-head">
       <div>
         <h3>{scope === 'technical' ? 'Logs and scheduled cleanup' : 'Notification retention'}</h3>
-        <p>Choose how long to keep data and how often to remove older items. Enabled categories are cleaned automatically in the background.</p>
       </div>
-      <Button className="btn btn-secondary" type="button" disabled={busy} onClick={() => void load()}>Refresh</Button>
+      <RefreshButton label="Refresh retention settings" disabled={busy} onClick={() => void load()}/>
     </div>
-    {scope === 'technical' && <InlineNotice>
-      Cleanup covers old request traces, resolved incidents, failed queue jobs and rotated technical logs.
-      Active logs, unresolved incidents, audit history, tickets, clients and uploaded files are preserved.
-    </InlineNotice>}
     {error && <p className="amc-retention-error" role="alert">{error}</p>}
     <form onSubmit={e => void save(e)}>
       <div className="amc-retention-policies">
@@ -124,6 +119,11 @@ export default function RetentionSettings({ scope }: { scope: Scope }) {
         <Button type="submit" className="btn btn-primary" disabled={busy}>{busy ? 'Saving…' : 'Save cleanup settings'}</Button>
       </div>}
     </form>
+    <p>Choose how long to keep data and how often to remove older items. Enabled categories are cleaned automatically in the background.</p>
+    {scope === 'technical' && <InlineNotice>
+      Cleanup covers old request traces, resolved incidents, failed queue jobs and rotated technical logs.
+      Active logs, unresolved incidents, audit history, tickets, clients and uploaded files are preserved.
+    </InlineNotice>}
     <FeedbackToast feedback={feedback} onDismiss={() => setFeedback(null)} />
   </Card>;
 }

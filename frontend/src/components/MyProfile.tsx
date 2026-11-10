@@ -32,7 +32,7 @@ export default function MyProfile({ user, onUpdate }: { user: User; onUpdate: (u
     } finally { setBusy(false); }
   };
   return <Card className="panel user-management">
-    <h3>My profile</h3><p>{canEditEmail ? 'Update your display name, email address or password. Confirm your current password to change your email or password.' : 'Update your display name or change your password. Role, client assignment and email are managed by your organization.'}</p>
+    <h3>My profile</h3>
     <form className="admin-form" onSubmit={save}>
       <Field>Display name<Input required value={name} onChange={e => setName(e.target.value)} maxLength={255}/></Field>
       <Field>Email<Input type="email" required maxLength={255} autoComplete="email" value={email} disabled={!canEditEmail} onChange={e => setEmail(e.target.value)}/></Field>
@@ -41,6 +41,7 @@ export default function MyProfile({ user, onUpdate }: { user: User; onUpdate: (u
       <Field>Confirm new password<Input type="password" autoComplete="new-password" value={confirmation} onChange={e => setConfirmation(e.target.value)}/></Field>
       <Button className="btn btn-primary" disabled={busy}>{busy ? 'Saving…' : 'Save profile'}</Button>
     </form>
+    <p>{canEditEmail ? 'Update your display name, email address or password. Confirm your current password to change your email or password.' : 'Update your display name or change your password. Role, client assignment and email are managed by your organization.'}</p>
     {error && <p className="error" role="alert">{error}</p>}
   </Card>;
 }

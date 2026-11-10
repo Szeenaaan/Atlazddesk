@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Support\AmcAccess;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use App\Services\Tickets\TicketReportDocuments;
 
 class ReportsController extends Controller
 {
@@ -30,8 +31,10 @@ class ReportsController extends Controller
         }
         if (!empty($filters['search'])) {
             $term = addcslashes($filters['search'], '%_\\');
+            $ticketId = \App\Models\Ticket::searchId($filters['search']);
             $query->where(fn ($q) => $q->where('tickets.subject', 'like', "%{$term}%")
-                ->orWhere('tickets.ticket_number', 'like', "%{$term}%"));
+                ->orWhere('tickets.ticket_number', 'like', "%{$term}%")
+                ->when($ticketId, fn ($q) => $q->orWhere('tickets.id', $ticketId)));
         }
         return $query;
     }
@@ -41,7 +44,7 @@ class ReportsController extends Controller
         $request->validate(['page' => ['sometimes', 'integer', 'min:1', 'max:1000000']]);
         $query = $this->filtered($request);
         return \App\Http\Resources\AmcTicketResource::collection(
-            \App\Support\GridSort::apply($query, $request, ['ticket_number', 'created_at'],
+            \App\Support\GridSort::apply(\App\Support\TicketQueries::withPendingFlag($query, $request->user()), $request, ['id', 'ticket_number', 'created_at'],
                 ['customer' => ['customer', 'company_name'], 'priority' => ['priority', 'level'],
                  'status' => ['status', 'name'], 'assignee' => ['assignee', 'name']], 'created_at')
                 ->orderByDesc('tickets.id')->paginate(25)
@@ -66,6 +69,19 @@ class ReportsController extends Controller
         $critical = $visible()->whereHas('priority',fn ($q)=>$q->where('slug','critical'))
             ->whereHas('status',fn ($q)=>$q->whereNotIn('slug',$closed))->count();
         $unassigned = $visible()->whereNull('assigned_to')->whereHas('status',fn ($q)=>$q->whereNotIn('slug',$closed))->count();
+        $technicianWork = [];
+        if ($request->user()->role === 'technician') {
+            $completed = ['resolved', 'customer_confirmation', 'closed'];
+            $technicianWork = [
+                'completed' => $visible()->whereHas('status', fn ($q) => $q->whereIn('slug', $completed))->count(),
+                'unresolved' => $visible()->whereHas('status', fn ($q) => $q->whereNotIn('slug', [...$completed, 'cancelled']))->count(),
+                // Only an aggregate of this technician's approved requests is exposed after reassignment.
+                'escalated' => \App\Models\TicketEscalation::where('requester_id', $request->user()->id)
+                    ->where('state', 'approved')
+                    ->when($start, fn ($q) => $q->whereBetween('decided_at', [$start, $end]))
+                    ->distinct()->count('ticket_id'),
+            ];
+        }
         $daily = [];
         $buckets = $period ? ['1h' => 12, '4h' => 16, 'day' => 24, 'week' => 7, 'month' => 30, 'year' => 12][$period] : 7;
         $chartStart = $start ?? $end->copy()->startOfDay()->subDays(6);
@@ -74,16 +90,24 @@ class ReportsController extends Controller
         // Keep the existing created-at timeframe restriction on resolved counts as well.
         $chartEnd = $chartStart->copy()->addSeconds((int) ($buckets * $step));
         $counts = [];
+        $inProgress = [];
         foreach (['created_at', 'resolved_at'] as $column) {
-            $rows = $visible()->where("tickets.$column", '>=', $chartStart)
+            $query = $visible()->where("tickets.$column", '>=', $chartStart)
                 ->where("tickets.$column", $period ? '<=' : '<', $chartEnd)
-                ->selectRaw("FLOOR(TIMESTAMPDIFF(SECOND, ?, tickets.$column) / ?) AS bucket, COUNT(*) AS total", [$chartStart, $step])
-                ->groupBy('bucket')->get();
+                ->selectRaw("FLOOR(TIMESTAMPDIFF(SECOND, ?, tickets.$column) / ?) AS bucket, COUNT(*) AS total", [$chartStart, $step]);
+            if ($column === 'created_at') {
+                $query->join('ticket_statuses as chart_status', 'tickets.status_id', '=', 'chart_status.id')
+                    ->selectRaw('SUM(CASE WHEN chart_status.slug = ? THEN 1 ELSE 0 END) AS in_progress', ['in_progress']);
+            }
+            $rows = $query->groupBy('bucket')->get();
             $counts[$column] = [];
             foreach ($rows as $row) {
                 // An event exactly at the inclusive period end belongs to the last bucket.
                 $bucket = min((int) $row->bucket, $buckets - 1);
                 $counts[$column][$bucket] = ($counts[$column][$bucket] ?? 0) + (int) $row->total;
+                if ($column === 'created_at') {
+                    $inProgress[$bucket] = ($inProgress[$bucket] ?? 0) + (int) $row->in_progress;
+                }
             }
         }
         for ($i = 0; $i < $buckets; $i++) {
@@ -91,13 +115,14 @@ class ReportsController extends Controller
             $daily[] = [
                 'day' => $day->format('D'), 'at' => $day->toIso8601String(),
                 'tickets' => $counts['created_at'][$i] ?? 0,
+                'in_progress' => $inProgress[$i] ?? 0,
                 'resolved' => $counts['resolved_at'][$i] ?? 0,
             ];
         }
         $priorities = $visible()->join('ticket_priorities', 'tickets.priority_id', '=', 'ticket_priorities.id')
             ->selectRaw('ticket_priorities.name, COUNT(*) AS total')->groupBy('ticket_priorities.name')->pluck('total', 'name');
         $recent = $period ? \App\Http\Resources\AmcTicketResource::collection(
-            \App\Support\TicketQueries::visible($request->user())
+            \App\Support\TicketQueries::withPendingFlag(\App\Support\TicketQueries::visible($request->user()), $request->user())
                 ->where('tickets.created_at', '>=', $start)->where('tickets.created_at', '<=', $end)
                 ->latest('tickets.created_at')->orderByDesc('tickets.id')->limit(5)->get()
         )->resolve($request) : [];
@@ -105,6 +130,7 @@ class ReportsController extends Controller
             'total'=>$total,'open'=>$open,'resolved'=>$resolved,'critical_open'=>$critical,'unassigned_open'=>$unassigned,
             'daily'=>$daily,'generated_at'=>$end->toIso8601String(),
             'priorities'=>$priorities, 'recent_tickets'=>$recent, 'timeframe'=>$period,
+            ...$technicianWork,
             'from'=>$start?->toIso8601String(), 'to'=>$end->toIso8601String(),
         ])->header('Cache-Control', 'private, no-store');
     }
@@ -122,7 +148,7 @@ class ReportsController extends Controller
             $query->chunkById(500, function ($tickets) use ($out, $safe) {
                 foreach ($tickets as $ticket) {
                     fputcsv($out, array_map($safe, [
-                    $ticket->ticket_number,$ticket->subject,$ticket->customer?->company_name,
+                    $ticket->displayNumber(),$ticket->subject,$ticket->customer?->company_name,
                     $ticket->priority?->name,$ticket->status?->name,$ticket->assignee?->name,
                     $ticket->created_at?->toDateTimeString(),
                 ]));
@@ -134,5 +160,22 @@ class ReportsController extends Controller
             'Content-Type'=>'text/csv; charset=UTF-8',
             'Cache-Control'=>'no-store',
         ]);
+    }
+
+    public function ticketDocument(Request $request, string $format, TicketReportDocuments $documents)
+    {
+        abort_unless(in_array($format, ['docx', 'xlsx', 'pdf'], true), 404);
+        $query = $this->filtered($request);
+        abort_if((clone $query)->count() > 10000, 422, 'Narrow the report filters to 10,000 tickets or fewer.');
+        $rows = $documents->rows($query);
+        $path = $format === 'pdf' ? $documents->createPdf($rows) : $documents->create($format, $rows);
+        $mime = match ($format) {
+            'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            default => 'application/pdf',
+        };
+        return response()->download($path, 'supportdesk-tickets-'.now()->format('Ymd').'.'.$format, [
+            'Content-Type' => $mime, 'Cache-Control' => 'private, no-store',
+        ])->deleteFileAfterSend(true);
     }
 }

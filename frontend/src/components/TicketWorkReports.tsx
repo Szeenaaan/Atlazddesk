@@ -21,7 +21,7 @@ type WorkReport = {
   technician?: { id: number; name: string };
 };
 
-type Props = { ticketId: number; role: Role; ticketStatus: string };
+type Props = { ticketId: number; role: Role; ticketStatus: string; readOnly?: boolean };
 const outcomes = [
   ['success','Resolved / successful'], ['failed','Repair attempt failed'],
   ['repairable','Repairable — additional work required'], ['unrepairable','Unrepairable — replacement advised'],
@@ -31,7 +31,7 @@ const progressStates = [['in_progress','In progress'], ['completed','Work comple
 const readable = (v: string) => v.replaceAll('_',' ').replace(/\b\w/g, x => x.toUpperCase());
 const blank = { progress:'in_progress', outcome:'warning', diagnosis:'', work_performed:'', recommendation:'', parts_required:'' };
 
-export default function TicketWorkReports({ ticketId, role, ticketStatus }: Props) {
+export default function TicketWorkReports({ ticketId, role, ticketStatus, readOnly = false }: Props) {
   const [reports, setReports] = useState<WorkReport[]>([]);
   const [form, setForm] = useState(blank);
   const [busy, setBusy] = useState(false);
@@ -58,11 +58,12 @@ export default function TicketWorkReports({ ticketId, role, ticketStatus }: Prop
   }, [ticketId, role]);
 
   async function submit(e: React.FormEvent) {
-    e.preventDefault(); setBusy(true); setError(''); setSuccess('');
+    e.preventDefault(); if (readOnly) return;
+    setBusy(true); setError(''); setSuccess('');
     try {
       await client.post(`/tickets/${ticketId}/work-reports`, form);
       setForm(blank);
-      setSuccess('Report submitted. The contractor Admin has been notified. Ticket status was not changed.');
+      setSuccess('Report submitted. Admin has been notified. Ticket status was not changed.');
       await load();
     } catch (error: unknown) {
       setError(getApiErrorMessage(error, 'Unable to submit report.'));
@@ -71,7 +72,6 @@ export default function TicketWorkReports({ ticketId, role, ticketStatus }: Prop
   if (!allowed || DEMO) return null;
   return <section id={`ticket-${ticketId}-reports`} className="ticket-work-reports" aria-label="Technician work reports">
     <h3>Technician work reports</h3>
-    <p className="muted">Internal contractor records. Work results do not automatically resolve or close the client ticket.</p>
     {loading && <p className="muted">Loading reports…</p>}
     {!loading && !reports.length && <p className="muted">No work reports submitted yet.</p>}
     <div className="report-history">
@@ -84,7 +84,7 @@ export default function TicketWorkReports({ ticketId, role, ticketStatus }: Prop
         {r.recommendation && <p><b>Next steps:</b> {r.recommendation}</p>}
       </article>)}
     </div>
-    {role === 'technician' && !closed && <form className="report-form" onSubmit={submit}>
+    {role === 'technician' && !closed && !readOnly && <form className="report-form" onSubmit={submit}>
       <h4>Submit a work report</h4>
       <div className="report-form-grid">
         <Field>Work progress<SearchableDropdown value={form.progress} onChange={e => setForm(p => ({...p, progress:e.target.value}))}>
@@ -96,11 +96,12 @@ export default function TicketWorkReports({ ticketId, role, ticketStatus }: Prop
       </div>
       <Field>Problem / diagnosis *<Textarea required maxLength={10000} rows={3} value={form.diagnosis} onChange={e => setForm(p => ({...p, diagnosis:e.target.value}))} placeholder="Describe what you found, possible cause, troubleshooting…" /></Field>
       <Field>Work performed {form.progress === 'completed' ? '*' : ''}<Textarea required={form.progress === 'completed'} maxLength={10000} rows={3} value={form.work_performed} onChange={e => setForm(p => ({...p, work_performed:e.target.value}))} placeholder="Checks, repairs, replacements and tests completed" /></Field>
-      <Field>Parts needed<Input maxLength={500} value={form.parts_required} onChange={e => setForm(p => ({...p, parts_required:e.target.value}))} placeholder="Optional part names or specifications" /></Field>
+      <Field>Parts needed<Input maxLength={500} value={form.parts_required} onChange={e => setForm(p => ({...p, parts_required:e.target.value}))} placeholder="Part names or specifications" /></Field>
       <Field>Recommendation / follow-up<Textarea maxLength={10000} rows={2} value={form.recommendation} onChange={e => setForm(p => ({...p, recommendation:e.target.value}))} placeholder="Replacement, return visit, escalations, risk mitigation" /></Field>
       <Button className="btn btn-primary" type="submit" disabled={busy || !form.diagnosis.trim() || (form.progress === 'completed' && !form.work_performed.trim())}>{busy ? 'Submitting…' : 'Submit report'}</Button>
     </form>}
     {role === 'technician' && closed && <p className="muted">This ticket is closed; no further work reports can be submitted.</p>}
+    <p className="muted">Internal contractor records. Work results do not automatically resolve or close the client ticket.</p>
 
     {error && <p className="error" role="alert">{error}</p>}
   </section>;

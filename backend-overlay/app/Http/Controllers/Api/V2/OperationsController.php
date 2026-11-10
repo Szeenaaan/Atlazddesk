@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Api\V2;
 use App\Http\Controllers\Controller;
 use App\Jobs\DispatchTicketNotice;
 use App\Models\{Ticket, TicketWorkLog, TicketAttachment};
-use App\Support\{AmcAccess, AmcAudit};
+use App\Support\{AmcAccess, AmcAudit, TicketQueries};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{DB, Storage};
 
@@ -36,6 +36,7 @@ class OperationsController extends Controller
         $duration = (int) round((strtotime($data['end_time']) - strtotime($data['start_time'])) / 60);
         abort_if($duration > 1440, 422, 'Maximum work log duration is 24 hours.');
         $log = DB::transaction(function () use ($data, $id, $request, $ticket, $duration) {
+            $ticket = TicketQueries::locked($request->user(), $ticket->id);
             $log = TicketWorkLog::create([...$data,'ticket_id'=>$id,
                 'user_id'=>\App\Support\AmcAudit::actorId($request), 'duration_minutes'=>$duration]);
             AmcAudit::record($request, 'ticket.work_logged', $ticket, ['minutes'=>$duration]);
@@ -55,6 +56,7 @@ class OperationsController extends Controller
     public function upload(Request $request, int $id)
     {
         $ticket = $this->ticket($request,$id);
+        DB::transaction(fn () => TicketQueries::locked($request->user(), $id));
         abort_unless(config('amc.attachments_enabled',false), 503, 'File uploads are unavailable. Contact your administrator to enable secure uploads.');
         $request->validate(['file'=>['required','file','max:10240','extensions:pdf,png,jpg,jpeg,txt,docx,xlsx','mimes:pdf,png,jpg,jpeg,txt,docx,xlsx']]);
         $file = $request->file('file');
@@ -63,6 +65,7 @@ class OperationsController extends Controller
         abort_unless(is_string($path) && $path !== '', 500, 'Attachment could not be stored.');
         try {
             $attachment = DB::transaction(function () use ($file,$path,$ticket,$request) {
+                $ticket = TicketQueries::locked($request->user(), $ticket->id);
                 $attachment = TicketAttachment::create([
                     'ticket_id'=>$ticket->id,'uploaded_by'=>\App\Support\AmcAudit::actorId($request),
                     'file_name'=>mb_substr(basename($file->getClientOriginalName()),0,200),

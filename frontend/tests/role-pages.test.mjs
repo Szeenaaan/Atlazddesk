@@ -18,6 +18,7 @@ test('contractor Admin can manage client MFA but not system diagnostics', () => 
   assert.equal(canViewPage('admin', 'User Management'), true);
   assert.equal(canViewPage('admin', 'Categories'), true);
   assert.equal(canViewPage('admin', 'Tickets'), true);
+  assert.equal(canViewPage('admin', 'Escalations'), true);
   assert.equal(canViewPage('admin', 'Assets'), false);
   assert.equal(canViewPage('admin', 'Monitoring'), false);
   assert.equal(canViewPage('admin', 'Settings'), false);
@@ -57,6 +58,12 @@ test('unknown role or screen grants no visibility', () => {
 test('category management navigation is exclusive to Contractor Admin', () => {
   for (const role of ['super_admin', 'customer_admin', 'customer_user', 'technician']) {
     assert.equal(canViewPage(role, 'Categories'), false);
+  }
+});
+
+test('escalation queue navigation is exclusive to Contractor Admin', () => {
+  for (const role of ['super_admin', 'customer_admin', 'customer_user', 'technician']) {
+    assert.equal(canViewPage(role, 'Escalations'), false);
   }
 });
 
