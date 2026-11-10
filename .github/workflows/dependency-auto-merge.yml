@@ -18,7 +18,7 @@ jobs:
       pull-requests: write
     steps:
       # No checkout and no execution of pull-request code in this privileged workflow.
-      - uses: dependabot/fetch-metadata@v2
+      - uses: dependabot/fetch-metadata@v3
         id: metadata
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
