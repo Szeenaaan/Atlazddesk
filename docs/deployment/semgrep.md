@@ -11,9 +11,10 @@ or change branch protection.
 Semgrep Community Edition 1.184.0 scans the full `backend-overlay` tree for PHP
 files using the maintained public `p/php` registry ruleset, including its Laravel
 security rules. Controllers, services, models, routes, configuration, migrations,
-PHP views and tests remain in scope. `.semgrepignore` excludes dependencies,
-generated assets, runtime storage and caches; repository `.gitignore` rules also
-apply. No dependencies are installed and no application code is executed.
+PHP views remain in scope. Semgrep's default exclusions and the repository's
+`.gitignore` exclude dependencies, generated assets, runtime storage and caches.
+The default Semgrep exclusions also skip tests. No dependencies are installed
+and no application code is executed.
 
 The scanner image is pinned by version and digest; registry rules are fetched on
 each run and may change independently. Network access to the registry is required. No Semgrep
@@ -60,8 +61,11 @@ to require the check in the repository ruleset.
 ## Initial validation
 
 On 10 November 2026, actionlint 1.7.12 accepted the workflow. The pinned Semgrep
-image reported version 1.184.0. The local scan ran 23 rules across 271 PHP files,
-including 62 test files, with no scanner errors. No dependency, runtime storage,
+image reported version 1.184.0. The initial local scan ran 23 rules across 271
+PHP files, including 62 test files, with no scanner errors. After removing the
+redundant `.semgrepignore`, the final scan ran the same 23 rules across 209 PHP
+source files and exited with code `0`, with no findings or scanner errors.
+No dependency, runtime storage,
 bootstrap cache or generated build paths appeared in the scanned-file list.
 
 The initial scan reported two unsafe-validator findings in `AuthController` and
@@ -69,8 +73,8 @@ The initial scan reported two unsafe-validator findings in `AuthController` and
 authenticated user and a user loaded through the authorized, locked target query.
 These were not confirmed SQL injection vulnerabilities. Both rules now use
 Laravel's explicit `ignoreModel()` API rather than passing a scalar ID. The
-subsequent full backend scan exited with code `0`: zero findings and zero scanner
-errors. No rules were disabled and no findings were suppressed.
+subsequent scan exited with code `0`: zero findings and zero scanner errors.
+No rules were disabled and no findings were suppressed.
 
 Configuration follows the official [CE CI guide](https://docs.semgrep.dev/deployment/oss-deployment),
 [CLI reference](https://docs.semgrep.dev/cli-reference) and

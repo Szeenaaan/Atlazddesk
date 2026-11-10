@@ -60,6 +60,7 @@ __pycache__/
 /release-evidence/
 
 # Machine-specific tools and editor state.
+/.nvmrc
 .DS_Store
 Thumbs.db
 .idea/
@@ -73,8 +74,9 @@ Thumbs.db
 *.tmp
 *.temp
 
-# Local history, notes, evidence and archived patch installers are never published.
-/notes/local/
+# Local testing notes and historical material are never published.
+/TESTING.md
+/notes/
 
 # Per-installation Docker configuration, certificates and backup artifacts.
 /installation/

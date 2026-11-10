@@ -2,7 +2,7 @@
 
 SupportDesk is a portable, self-hosted support and maintenance workspace for contractors and their customers. It manages tickets, assets, AMC contracts, assignments, work reports, notifications, and account security.
 
-Read [ROLES.md](ROLES.md) for permissions and [TESTING.md](TESTING.md) for validation. This source tree includes the complete application; old overlay installers are not required.
+Read [ROLES.md](ROLES.md) for permissions. This source tree includes the complete application; old overlay installers are not required.
 
 Read [Runtime security](docs/deployment/runtime-security.md) for patched runtime requirements and existing-server update instructions.
 
@@ -167,7 +167,7 @@ Catalogs can be marked inactive to remove them from new selection while preservi
 - `infra/docker/`: container configuration and install helper.
 - `Dockerfile`, `.dockerignore`, `compose.yaml`: release build/runtime definition.
 
-Real env files, installation secrets/certificates, uploads, logs, caches, dependencies, and builds stay outside Git and the image context. See [TESTING.md](TESTING.md) for source tests and container validation status.
+Real env files, installation secrets/certificates, uploads, logs, caches, dependencies, and builds stay outside Git and the image context. Automated source checks are defined in [.github/workflows/tests.yml](.github/workflows/tests.yml).
 
 ## Application maintenance screen
 

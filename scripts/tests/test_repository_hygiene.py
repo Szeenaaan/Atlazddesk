@@ -23,7 +23,8 @@ class RepositoryHygieneTests(unittest.TestCase):
             'backend-overlay/storage/logs/laravel.log': True,
             'backend-overlay/bootstrap/cache/config.php': True,
             'frontend/tsconfig.tsbuildinfo': True,
-            'notes/README.md': False,
+            'notes/README.md': True,
+            'TESTING.md': True,
             'docs/README.md': False,
             'docs/deployment/automatic-updates.md': False,
             'backend-overlay/.env.example': False,
@@ -45,7 +46,7 @@ class RepositoryHygieneTests(unittest.TestCase):
         paths = subprocess.check_output(['git', 'ls-files', '-z'], cwd=ROOT).decode().split('\0')
         for name in filter(None, paths):
             with self.subTest(path=name):
-                self.assertFalse(name.startswith(('notes/local/', 'installation/', 'release-evidence/', 'frontend/dist/', 'frontend/node_modules/', 'backend-overlay/vendor/')))
+                self.assertFalse(name.startswith(('notes/', 'installation/', 'release-evidence/', 'frontend/dist/', 'frontend/node_modules/', 'backend-overlay/vendor/')))
                 filename = Path(name).name
                 self.assertFalse(filename in {'access.json', 'app.env', 'redis.env', 'database.env', 'compose.env', 'updates.env'})
                 self.assertFalse(filename.endswith(('.pem', '.key', '.tsbuildinfo')))
@@ -53,7 +54,7 @@ class RepositoryHygieneTests(unittest.TestCase):
                 self.assertFalse(filename.startswith('.env') and not filename.endswith('.example'))
 
     def test_current_documentation_links_resolve(self):
-        docs = [ROOT / name for name in ['README.md', 'ROLES.md', 'TESTING.md', 'notes/README.md']]
+        docs = [ROOT / name for name in ['README.md', 'ROLES.md']]
         # AGENTS.md contains local assistant instructions and is intentionally ignored.
         if (ROOT / 'AGENTS.md').exists():
             docs.append(ROOT / 'AGENTS.md')
