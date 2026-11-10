@@ -49,6 +49,22 @@ Route::prefix('v2')->middleware(['auth:sanctum','amc.active','amc.role','amc.bou
     Route::post('/directory/{resource}', [DirectoryWriteController::class,'store'])->middleware('throttle:amc-write');
     Route::patch('/directory/{resource}/{id}', [DirectoryWriteController::class,'update'])
         ->middleware('throttle:amc-write')->whereNumber('id');
+    Route::delete('/directory/assets/{id}', [DirectoryWriteController::class,'destroyAsset'])
+        ->middleware('throttle:amc-write')->whereNumber('id');
+    Route::get('/designations', [\App\Http\Controllers\Api\V2\TechnicianDesignationController::class, 'index']);
+    Route::get('/technician-assignment-limits', [\App\Http\Controllers\Api\V2\TechnicianAssignmentLimitController::class, 'index']);
+    Route::put('/technician-assignment-limits', [\App\Http\Controllers\Api\V2\TechnicianAssignmentLimitController::class, 'updateDefault'])->middleware('throttle:amc-write');
+    Route::get('/technician-assignment-limits/{id}', [\App\Http\Controllers\Api\V2\TechnicianAssignmentLimitController::class, 'show'])->whereNumber('id');
+    Route::put('/technician-assignment-limits/{id}', [\App\Http\Controllers\Api\V2\TechnicianAssignmentLimitController::class, 'update'])->middleware('throttle:amc-write')->whereNumber('id');
+    Route::post('/designations', [\App\Http\Controllers\Api\V2\TechnicianDesignationController::class, 'store'])->middleware('throttle:amc-write');
+    Route::patch('/designations/{id}', [\App\Http\Controllers\Api\V2\TechnicianDesignationController::class, 'update'])->middleware('throttle:amc-write')->whereNumber('id');
+    Route::delete('/designations/{id}', [\App\Http\Controllers\Api\V2\TechnicianDesignationController::class, 'destroy'])->middleware('throttle:amc-write')->whereNumber('id');
+    Route::patch('/users/{id}/workforce', [\App\Http\Controllers\Api\V2\TechnicianDesignationController::class, 'workforce'])->middleware('throttle:amc-write')->whereNumber('id');
+    Route::get('/escalations', [\App\Http\Controllers\Api\V2\TicketEscalationController::class, 'all']);
+    Route::get('/tickets/{ticket}/escalations', [\App\Http\Controllers\Api\V2\TicketEscalationController::class, 'index'])->whereNumber('ticket');
+    Route::get('/tickets/{ticket}/escalations/eligible', [\App\Http\Controllers\Api\V2\TicketEscalationController::class, 'eligible'])->whereNumber('ticket');
+    Route::post('/tickets/{ticket}/escalations', [\App\Http\Controllers\Api\V2\TicketEscalationController::class, 'store'])->middleware('throttle:amc-write')->whereNumber('ticket');
+    Route::patch('/tickets/{ticket}/escalations/{escalation}', [\App\Http\Controllers\Api\V2\TicketEscalationController::class, 'decide'])->middleware('throttle:amc-write')->whereNumber(['ticket', 'escalation']);
     Route::get('/tickets', [TicketWorkspaceController::class,'index']);
     Route::get('/tickets/inbox', [TicketWorkspaceController::class,'inbox']);
     Route::get('/tickets/{ticket}', [TicketWorkspaceController::class,'show'])->whereNumber('ticket');
@@ -69,8 +85,11 @@ Route::prefix('v2')->middleware(['auth:sanctum','amc.active','amc.role','amc.bou
     Route::get('/tickets/{id}/attachments/{attachment}/download', [OperationsController::class,'download'])
         ->whereNumber(['id','attachment']);
     Route::get('/reports/summary', [ReportsController::class,'summary']);
+    Route::get('/reports/technicians', [\App\Http\Controllers\Api\V2\TechnicianPerformanceController::class, 'index']);
+    Route::get('/reports/technicians.{format}', [\App\Http\Controllers\Api\V2\TechnicianPerformanceController::class, 'export'])->where('format', 'csv|xlsx|docx|pdf');
     Route::get('/reports/tickets', [ReportsController::class,'tickets']);
     Route::get('/reports/tickets.csv', [ReportsController::class,'ticketCsv']);
+    Route::get('/reports/tickets.{format}', [ReportsController::class,'ticketDocument'])->where('format', 'docx|xlsx|pdf');
     Route::get('/health', [HealthController::class,'index']);
     Route::get('/admin/metrics', [AdminOperationsController::class,'metrics']);
     Route::get('/admin/audit', [AdminOperationsController::class,'audit']);
@@ -126,6 +145,8 @@ Route::prefix('v2')->middleware(['auth:sanctum','amc.active','amc.role','amc.bou
     Route::get('/users', [UsersController::class,'index']);
     Route::get('/users/{id}', [UsersController::class,'show'])->whereNumber('id');
     Route::post('/users', [UsersController::class,'store'])->middleware('throttle:amc-write');
+    Route::post('/users/{id}/deletion/otp', [UsersController::class,'sendDeleteOtp'])->middleware('throttle:amc-mfa')->whereNumber('id');
+    Route::delete('/users/{id}', [UsersController::class,'destroy'])->middleware('throttle:amc-write')->whereNumber('id');
     Route::patch('/users/{id}/status', [UsersController::class,'changeStatus'])
         ->middleware('throttle:amc-write')->whereNumber('id');
     Route::post('/users/{id}/details/otp', [UsersController::class,'sendDetailsOtp'])

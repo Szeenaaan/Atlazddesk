@@ -17,7 +17,7 @@ class WorkspaceController extends Controller
         return response()->json([
             'features' => ['maintenance_enabled' => (bool) config('amc.maintenance_enabled', false)],
             'user' => $user->only(['id', 'name', 'email', 'role', 'customer_id']),
-            'tickets' => AmcTicketResource::collection(TicketQueries::visible($user)->latest()->limit(50)->get())->resolve(),
+            'tickets' => AmcTicketResource::collection(TicketQueries::withPendingFlag(TicketQueries::visible($user), $user)->latest()->limit(50)->get())->resolve(),
             'customers' => $user->role === 'technician' ? [] : AmcAccess::scopeCustomers(Customer::query(), $user)->limit(100)->get(),
             'assets' => $user->role === 'technician' ? [] : AmcAccess::scopeAssets(Asset::with('type'), $user)->limit(100)->get()
                 ->map(fn ($a) => [...$a->toArray(), 'type' => $a->type?->name]),

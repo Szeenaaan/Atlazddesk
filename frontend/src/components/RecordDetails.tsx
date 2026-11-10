@@ -1,20 +1,22 @@
+import TechnicianWorkforceEditor from './TechnicianWorkforceEditor';
 import { useFeedbackState } from './feedbackContext';
-import { UIState } from './ui';
-import { Button } from './ui';
+import { Button, CloseButton, RefreshButton, UIState } from './ui';
+import { Dialog } from './ui/Dialog';
 import { useEffect, useState } from 'react';
 import { client } from '../api/client';
 import { getApiErrorMessage } from '../api/contracts';
 import SlidingDrawer from './SlidingDrawer';
 import ContractDocuments from './ContractDocuments';
 import ContractEditor from './ContractEditor';
+import SortableTable from './SortableTable';
 import { formatInstallationDateTime } from '../utils/installationTime';
 
 type Row = Record<string, any>;
 type Resource = 'customers' | 'assets' | 'contracts' | 'technicians';
 const fields: Record<Resource, [string, string][]> = {
-  technicians: [['name', 'Name'], ['email', 'Email'], ['status', 'Status'], ['phone', 'Phone'], ['last_login_at', 'Last sign-in']],
+  technicians: [['designation.name', 'Designation'], ['designation.level', 'Hierarchy level'], ['workforce_type', 'Workforce classification'], ['name', 'Name'], ['email', 'Email'], ['status', 'Status'], ['phone', 'Phone'], ['last_login_at', 'Last sign-in']],
   customers: [['company_name', 'Company'], ['customer_code', 'Client code'], ['city', 'Location'], ['status', 'Status'], ['email', 'Email'], ['phone', 'Phone'], ['website', 'Website'], ['address', 'Address'], ['country', 'Country'], ['trade_license_no', 'Trade license'], ['vat_no', 'VAT number']],
-  assets: [['name', 'Asset'], ['asset_tag', 'Asset tag'], ['category.name', 'Category'], ['customer.company_name', 'Client'], ['status', 'Status'], ['location.name', 'Location'], ['manufacturer', 'Manufacturer'], ['model', 'Model'], ['serial_number', 'Serial number'], ['ip_address', 'IP address'], ['mac_address', 'MAC address'], ['purchase_date', 'Purchased'], ['warranty_expiry', 'Warranty expiry'], ['license_expiry', 'License expiry']],
+  assets: [['name', 'Asset'], ['asset_tag', 'Asset tag'], ['category.name', 'Category'], ['customer.company_name', 'Client'], ['assignment_mode', 'Assignment type'], ['status', 'Status'], ['location.name', 'Location'], ['manufacturer', 'Manufacturer'], ['model', 'Model'], ['serial_number', 'Serial number'], ['ip_address', 'IP address'], ['mac_address', 'MAC address'], ['purchase_date', 'Purchased'], ['warranty_expiry', 'Warranty expiry'], ['license_expiry', 'License expiry']],
   contracts: [['contract_number', 'Contract number'], ['customer.company_name', 'Client'], ['contract_type', 'Contract type'], ['end_date', 'Expiry'], ['status', 'Status'], ['start_date', 'Start date'], ['contract_value', 'Value'], ['currency', 'Currency'], ['sla_policy.name', 'SLA policy']],
 };
 
@@ -24,8 +26,12 @@ export default function RecordDetails({ resource, id, onClose, onChanged, canMan
   const [record, setRecord] = useState<Row | null>(null);
   const [error, setError] = useFeedbackState('error');
   const [revision, setRevision] = useState(0);
+  const [editingWorkforce, setEditingWorkforce] = useState(false);
   const [documents, setDocuments] = useState(false);
   const [editingContract, setEditingContract] = useState(false);
+  const [addingContract, setAddingContract] = useState(false);
+  const [viewingClientContracts, setViewingClientContracts] = useState(false);
+  const [clientContractId, setClientContractId] = useState<number | null>(null);
   useEffect(() => {
     const controller = new AbortController();
     client.get(`/directory/${resource}/${id}`, { signal: controller.signal })
@@ -48,7 +54,7 @@ export default function RecordDetails({ resource, id, onClose, onChanged, canMan
   };
   const title = resource === 'customers' ? 'Client details' : resource === 'assets' ? 'Asset details' : resource === 'technicians' ? 'Technician details' : 'Contract details';
   return <SlidingDrawer title={title} onClose={onClose}><div className="drawer-body record-details">
-    {error ? <div role="alert"><p className="error">{error}</p><Button type="button" className="btn btn-secondary" onClick={() => setRevision(value => value + 1)}>Retry</Button></div> : !record ? <UIState tone="loading">Loading details…</UIState> : <>
+    {error ? <div role="alert"><p className="error">{error}</p><RefreshButton label="Retry loading record details" onClick={() => setRevision(value => value + 1)}/></div> : !record ? <UIState tone="loading">Loading details…</UIState> : <>
       <h2>{record.company_name || record.name || record.contract_number}</h2>
       {sections.filter(([, entries]) => entries.some(([key]) => hasValue(key))).map(([heading, entries]) => <section key={heading} className={resource === 'contracts' ? 'contract-detail-section' : undefined}>
       {heading && <h3>{heading}</h3>}
@@ -66,7 +72,10 @@ export default function RecordDetails({ resource, id, onClose, onChanged, canMan
         if (key === 'last_login_at') value = formatInstallationDateTime(String(value));
         return <div key={key}><dt>{label}</dt><dd>{String(value)}</dd></div>;
       })}</dl></section>)}
-      {typeof record.notes === 'string' && record.notes.trim() && <section><h3>Notes</h3><p className="record-notes">{record.notes}</p></section>}
+      {resource === 'customers' && canManageContracts && <div className="ui-actions">
+        <Button type="button" disabled={!record.contracts?.length} onClick={() => setViewingClientContracts(true)}>View contracts</Button>
+        <Button type="button" variant="primary" onClick={() => setAddingContract(true)}>Add contract</Button>
+      </div>}
       {resource === 'contracts' && record.services?.length > 0 && <section className="contract-detail-section"><h3>Covered services</h3><ul className="contract-service-list">
         {record.services.map((service: Row) => <li key={service.id}>
           <h4>{service.name}{service.is_active === false ? ' (inactive)' : ''}</h4>
@@ -78,7 +87,23 @@ export default function RecordDetails({ resource, id, onClose, onChanged, canMan
         <Button type="button" className="btn btn-secondary" onClick={() => setEditingContract(true)}>Edit contract</Button>
         <Button type="button" className="btn btn-primary" onClick={() => setDocuments(true)}>Documents</Button>
       </div>}
+      {resource === 'technicians' && <Button type="button" onClick={() => setEditingWorkforce(true)}>Edit designation and classification</Button>}
+      {typeof record.notes === 'string' && record.notes.trim() && <section><h3>Notes</h3><p className="record-notes">{record.notes}</p></section>}
+      {editingWorkforce && <TechnicianWorkforceEditor user={{ id, name: String(record.name), designation_id: record.designation_id, workforce_type: record.workforce_type }} onClose={() => setEditingWorkforce(false)} onSaved={() => { setRevision(v => v + 1); onChanged?.(); }}/>}
       {editingContract && <ContractEditor record={record} onClose={() => setEditingContract(false)} onSaved={() => { setEditingContract(false); setRevision(v => v + 1); onChanged?.(); }}/>}
+      {addingContract && <ContractEditor customer={{ id, company_name: String(record.company_name) }} onClose={() => setAddingContract(false)} onSaved={() => { setAddingContract(false); setRevision(v => v + 1); onChanged?.(); }}/>}
+      {viewingClientContracts && <Dialog label="Client contracts" className="client-contracts-dialog" onClose={() => setViewingClientContracts(false)}>
+        <div className="drawer-top"><h2>Client contracts</h2><CloseButton aria-label="Close client contracts" onClick={() => setViewingClientContracts(false)}/></div>
+        <div className="modal-body"><p className="muted">{record.company_name}</p></div>
+        <SortableTable className="client-contract-table" aria-label="Contracts assigned to this client">
+          <thead><tr><th>Contract</th><th>Type</th><th>Expiry</th><th>Status</th></tr></thead>
+          <tbody>{(record.contracts || []).map((contract: Row) => <tr key={contract.id}>
+            <td><button type="button" className="record-link" onClick={() => setClientContractId(Number(contract.id))}>{contract.contract_number}</button></td>
+            <td>{contract.contract_type}</td><td data-sort-value={contract.end_date}>{contract.end_date ? String(contract.end_date).slice(0, 10) : '—'}</td><td>{contract.status}</td>
+          </tr>)}{!record.contracts?.length && <tr><td colSpan={4}>No contracts are assigned to this client.</td></tr>}</tbody>
+        </SortableTable>
+      </Dialog>}
+      {clientContractId !== null && <RecordDetails key={clientContractId} resource="contracts" id={clientContractId} canManageContracts onClose={() => setClientContractId(null)} onChanged={() => { setRevision(v => v + 1); onChanged?.(); }}/>}
       {documents && <ContractDocuments contractId={id} contractNumber={String(record.contract_number)} onClose={() => setDocuments(false)}/>}
     </>}
   </div></SlidingDrawer>;

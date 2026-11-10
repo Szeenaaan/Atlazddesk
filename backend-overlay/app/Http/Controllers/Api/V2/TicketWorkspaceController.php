@@ -25,8 +25,10 @@ class TicketWorkspaceController extends Controller
         $query = TicketQueries::visible($request->user());
         if ($request->filled('search')) {
             $search = str_replace(['%', '_'], ['\\%', '\\_'], (string) $request->input('search'));
+            $ticketId = Ticket::searchId((string) $request->input('search'));
             $query->where(fn ($q) => $q->where('subject', 'like', "%{$search}%")
-                ->orWhere('ticket_number', 'like', "%{$search}%"));
+                ->orWhere('ticket_number', 'like', "%{$search}%")
+                ->when($ticketId, fn ($q) => $q->orWhere('id', $ticketId)));
         }
         if ($request->filled('status')) {
             $query->whereHas('status', fn ($status) => $status->where('name', $request->input('status')));
@@ -34,7 +36,7 @@ class TicketWorkspaceController extends Controller
         if ($request->filled('priority')) {
             $query->whereHas('priority', fn ($priority) => $priority->where('name', $request->input('priority')));
         }
-        return AmcTicketResource::collection(\App\Support\GridSort::apply($query, $request, ['ticket_number', 'created_at'], ['customer' => ['customer', 'company_name'], 'priority' => ['priority', 'level'], 'status' => ['status', 'name'], 'assignee' => ['assignee', 'name']], 'created_at')->paginate($request->integer('per_page', 25)));
+        return AmcTicketResource::collection(\App\Support\GridSort::apply(TicketQueries::withPendingFlag($query, $request->user()), $request, ['id', 'ticket_number', 'created_at'], ['customer' => ['customer', 'company_name'], 'priority' => ['priority', 'level'], 'status' => ['status', 'name'], 'assignee' => ['assignee', 'name']], 'created_at')->paginate($request->integer('per_page', 25)));
     }
 
     /** A dedicated inbox endpoint makes assignment-only technician access explicit. */
@@ -88,6 +90,7 @@ class TicketWorkspaceController extends Controller
         $internal = (bool) ($data['is_internal'] ?? false);
         abort_if($internal && AmcAccess::isCustomer($request->user()), 403);
         $comment = DB::transaction(function () use ($request, $model, $data, $internal) {
+            $model = TicketQueries::locked($request->user(), $model->id);
             $comment = TicketComment::create([
                 'ticket_id' => $model->id, 'user_id' => AmcAudit::actorId($request),
                 'comment' => $data['comment'], 'is_internal' => $internal,

@@ -20,9 +20,10 @@ return new class extends Migration {
     public function down(): void
     {
         Schema::table('users', function (Blueprint $table) {
+            // MariaDB may use the composite index to enforce this foreign key.
+            $table->dropForeign(['customer_id']);
             $table->dropIndex(['customer_id', 'role']);
-            $table->dropConstrainedForeignId('customer_id');
-            $table->dropColumn(['role', 'phone', 'status', 'last_login_at']);
+            $table->dropColumn(['customer_id', 'role', 'phone', 'status', 'last_login_at']);
         });
     }
 };

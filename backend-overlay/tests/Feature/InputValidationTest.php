@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Models\{AmcContract, Asset, Customer, Ticket, TicketCategory, TicketPriority, TicketStatus, User};
+use App\Models\{AmcContract, Asset, Customer, TechnicianDesignation, Ticket, TicketCategory, TicketPriority, TicketStatus, User};
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\{Queue, Storage};
@@ -148,7 +148,9 @@ final class InputValidationTest extends TestCase
     public function test_user_password_minimum_is_eight_characters(): void
     {
         $this->actingAs(\App\Models\User::factory()->create(['role'=>'admin','status'=>'active']));
+        $designation = TechnicianDesignation::create(['name' => 'Technician', 'level' => 1, 'is_active' => true]);
         $payload = ['name'=>'Password boundary','email'=>'boundary@example.test','role'=>'technician',
+            'designation_id'=>$designation->id,'workforce_type'=>'employee',
             'password'=>'Abcd12!x','password_confirmation'=>'Abcd12!x'];
         $this->postJson('/api/v2/users', array_replace($payload, ['password'=>'Abcd12!','password_confirmation'=>'Abcd12!']))
             ->assertUnprocessable()->assertJsonValidationErrors('password');

@@ -35,6 +35,17 @@ class UserAssetAssignmentsTest extends TestCase {
             $this->actingAs($actor)->putJson('/api/v2/users/'.$user->id.'/assets',['asset_ids'=>[]])->assertForbidden();
         }
     }
+    public function test_assigned_asset_delete_requires_confirmation_and_customer_scope(): void {
+        [$a, $b, $category, $assets, $user, $admin] = $this->fixtures();
+        $user->assignedAssets()->attach($assets[0]->id);
+        $otherAdmin = User::factory()->create(['role' => 'customer_admin', 'customer_id' => $b->id]);
+        $this->actingAs($otherAdmin)->deleteJson('/api/v2/directory/assets/'.$assets[0]->id, ['confirm_assigned' => true])->assertNotFound();
+        $this->actingAs($admin)->deleteJson('/api/v2/directory/assets/'.$assets[0]->id)->assertStatus(409);
+        $this->assertDatabaseHas('asset_user', ['asset_id' => $assets[0]->id, 'user_id' => $user->id]);
+        $this->deleteJson('/api/v2/directory/assets/'.$assets[0]->id, ['confirm_assigned' => true])->assertNoContent();
+        $this->assertDatabaseMissing('assets', ['id' => $assets[0]->id]);
+        $this->assertDatabaseMissing('asset_user', ['asset_id' => $assets[0]->id]);
+    }
     public function test_customer_asset_reads_and_ticket_creation_require_assignment(): void {
         [$a,$b,$category,$assets,$user,$admin] = $this->fixtures();
         $user->assignedAssets()->attach($assets[0]->id);
@@ -54,6 +65,28 @@ class UserAssetAssignmentsTest extends TestCase {
         $body['asset_id']=null;
         $this->postJson('/api/v2/tickets',$body)->assertUnprocessable()->assertJsonValidationErrors('asset_id');
     }
+    public function test_client_user_only_sees_categories_with_available_assets(): void {
+        [$a, $b, $assignedCategory, $assets, $user, $admin] = $this->fixtures();
+        $commonCategory = TicketCategory::create(['name' => 'Shared equipment', 'slug' => 'shared-equipment']);
+        $unavailableCategory = TicketCategory::create(['name' => 'Restricted equipment', 'slug' => 'restricted-equipment']);
+        Asset::create(['customer_id' => $a->id, 'category_id' => $commonCategory->id,
+            'name' => 'Reception camera', 'asset_tag' => 'CAM-1', 'assignment_mode' => 'common']);
+        Asset::create(['customer_id' => $a->id, 'category_id' => $unavailableCategory->id,
+            'name' => 'Private laptop', 'asset_tag' => 'LAP-1']);
+        Asset::create(['customer_id' => $b->id, 'category_id' => $unavailableCategory->id,
+            'name' => 'Other client laptop', 'asset_tag' => 'LAP-2', 'assignment_mode' => 'common']);
+
+        $this->actingAs($user)->getJson('/api/v2/lookups')->assertOk()
+            ->assertJsonPath('categories.0.id', $commonCategory->id)->assertJsonCount(1, 'categories');
+        $user->assignedAssets()->attach($assets[0]->id);
+        $categories = $this->getJson('/api/v2/lookups')->assertOk()->json('categories');
+        $this->assertEqualsCanonicalizing([$assignedCategory->id, $commonCategory->id], array_column($categories, 'id'));
+        $user->assignedAssets()->detach();
+        $this->getJson('/api/v2/lookups')->assertJsonCount(1, 'categories');
+
+        $customerAdmin = User::factory()->create(['role' => 'customer_admin', 'customer_id' => $a->id, 'status' => 'active']);
+        $this->actingAs($customerAdmin)->getJson('/api/v2/lookups')->assertJsonCount(3, 'categories');
+    }
     public function test_new_tickets_require_an_asset_for_each_creating_role(): void {
         [$a,$b,$category,$assets,$user,$admin] = $this->fixtures();
         $priority = TicketPriority::create(['name'=>'Medium','slug'=>'medium','level'=>2]);
@@ -66,6 +99,26 @@ class UserAssetAssignmentsTest extends TestCase {
             $this->postJson('/api/v2/tickets', [...$body, 'asset_id'=>null])->assertUnprocessable()->assertJsonValidationErrors('asset_id');
         }
         $this->assertDatabaseCount('tickets', 0);
+    }
+
+    public function test_individual_assets_allow_one_user_and_common_assets_allow_every_client_user(): void {
+        [$a, $b, $category, $assets, $user, $admin] = $this->fixtures();
+        $assets[0]->update(['assignment_mode' => 'individual']);
+        $assets[1]->update(['assignment_mode' => 'common']);
+        $peer = User::factory()->create(['role' => 'customer_user', 'customer_id' => $a->id, 'status' => 'active']);
+        $this->actingAs($admin)->putJson('/api/v2/users/'.$user->id.'/assets', ['asset_ids' => [$assets[0]->id]])->assertOk();
+        $this->patchJson('/api/v2/directory/assets/'.$assets[0]->id, ['assignment_mode' => 'common'])->assertUnprocessable();
+        $this->putJson('/api/v2/users/'.$peer->id.'/assets', ['asset_ids' => [$assets[0]->id]])->assertUnprocessable();
+        $this->putJson('/api/v2/users/'.$peer->id.'/assets', ['asset_ids' => [$assets[1]->id]])->assertUnprocessable();
+        $this->actingAs($peer)->getJson('/api/v2/directory/assets')->assertJsonPath('total', 1)
+            ->assertJsonPath('data.0.id', $assets[1]->id);
+        $this->getJson('/api/v2/directory/assets/'.$assets[2]->id)->assertNotFound();
+        TicketStatus::create(['name' => 'New', 'slug' => 'new', 'sort_order' => 1]);
+        $priority = TicketPriority::create(['name' => 'Medium', 'slug' => 'medium', 'level' => 2]);
+        $body = ['subject' => 'Reception CCTV', 'description' => 'Needs service', 'category_id' => $category->id,
+            'priority_id' => $priority->id, 'asset_id' => $assets[1]->id];
+        $this->postJson('/api/v2/tickets', $body)->assertCreated();
+        $this->postJson('/api/v2/tickets', [...$body, 'asset_id' => $assets[0]->id])->assertUnprocessable();
     }
 
     public function test_creation_with_assignments_is_atomic_and_tenant_scoped(): void {

@@ -3,7 +3,7 @@
 namespace Tests\Feature;
 
 use App\Http\Middleware\EnsureMfaCompleted;
-use App\Models\{Asset, AssetType, Customer, Ticket, TicketCategory, TicketPriority, TicketStatus, User};
+use App\Models\{Asset, AssetType, Customer, TechnicianDesignation, Ticket, TicketCategory, TicketPriority, TicketStatus, User};
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -105,15 +105,19 @@ final class AmcRoleMatrixV6Test extends TestCase
 
     public function test_admin_can_register_technician_but_cannot_create_super_admin(): void
     {
+        $designation = TechnicianDesignation::create(['name' => 'Technician', 'level' => 1, 'is_active' => true]);
         $this->actingAs($this->account('admin'))
             ->postJson('/api/v2/users', [
                 'name'=>'Technician One','email'=>'tech1@example.test','role'=>'technician',
+                'designation_id'=>$designation->id,'workforce_type'=>'employee',
                 'password'=>'SecurePassword#2026','password_confirmation'=>'SecurePassword#2026',
             ])->assertCreated();
+        $this->assertDatabaseHas('users', ['email' => 'tech1@example.test', 'role' => 'technician',
+            'designation_id' => $designation->id, 'workforce_type' => 'employee']);
         $this->postJson('/api/v2/users', [
             'name'=>'Attack','email'=>'attack@example.test','role'=>'super_admin',
             'password'=>'SecurePassword#2026','password_confirmation'=>'SecurePassword#2026',
-        ])->assertUnprocessable();
+        ])->assertUnprocessable()->assertJsonValidationErrors('role');
         $this->assertDatabaseMissing('users', ['email'=>'attack@example.test']);
     }
 

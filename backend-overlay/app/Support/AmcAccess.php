@@ -44,7 +44,9 @@ final class AmcAccess
     public static function scopeAssets(Builder $query, User $user): Builder
     {
         $query = self::scopeCustomer($query, $user);
-        if ($user->role === 'customer_user') $query->whereIn('assets.id', $user->assignedAssets()->select('assets.id'));
+        if ($user->role === 'customer_user') $query->where(fn ($assets) => $assets
+            ->where('assets.assignment_mode', 'common')
+            ->orWhereIn('assets.id', $user->assignedAssets()->select('assets.id')));
         return $query;
     }
 
@@ -74,7 +76,7 @@ final class AmcAccess
 
     private static function assignedCustomerIds(User $user): Builder
     {
-        return Ticket::query()->select('customer_id')->where('assigned_to', $user->id);
+        return self::scopeTicket(Ticket::query(), $user)->select('customer_id');
     }
 
     public static function customerId(User $user, ?int $requested): int

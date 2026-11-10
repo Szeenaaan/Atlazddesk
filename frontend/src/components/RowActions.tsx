@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { MoreHorizontal } from 'lucide-react';
+import { MoreVertical } from 'lucide-react';
+import { Button } from './ui';
 
 type Action = { label: string; icon: ReactNode; onClick: () => void; disabled?: boolean; danger?: boolean };
-export default function RowActions({ name, actions }: { name: string; actions: Action[] }) {
+export default function RowActions({ name, actions, triggerLabel }: { name: string; actions: Action[]; triggerLabel?: string }) {
   const trigger = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
@@ -14,8 +15,9 @@ export default function RowActions({ name, actions }: { name: string; actions: A
       top: rect.bottom + height + 8 > window.innerHeight ? Math.max(8, rect.top - height - 8) : rect.bottom + 8 };
   }
   const open = position !== null;
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!open) return;
+    if (trigger.current) setPosition(placement(trigger.current.getBoundingClientRect()));
     menu.current?.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus({ preventScroll: true });
     const pointer = (event: PointerEvent) => { if (!menu.current?.contains(event.target as Node) && !trigger.current?.contains(event.target as Node)) setPosition(null); };
     const dismiss = () => setPosition(null);
@@ -31,8 +33,10 @@ export default function RowActions({ name, actions }: { name: string; actions: A
     return () => { document.removeEventListener('pointerdown', pointer); window.removeEventListener('resize', dismiss); window.removeEventListener('scroll', scroll, true); };
   }, [open, actions.length]);
   return <>
-    <button ref={trigger} type="button" className="row-actions-trigger" aria-label={`Actions for ${name}`} aria-haspopup="menu" aria-expanded={!!position}
-      onClick={() => { if (open) { close(); return; } setPosition(placement(trigger.current!.getBoundingClientRect())); }}><MoreHorizontal size={20}/></button>
+    {triggerLabel ? <Button ref={trigger} type="button" className="btn btn-secondary" aria-label={triggerLabel === 'Actions' ? `Actions for ${name}` : triggerLabel} aria-haspopup="menu" aria-expanded={!!position}
+      onClick={() => { if (open) { close(); return; } setPosition(placement(trigger.current!.getBoundingClientRect())); }}>{triggerLabel}<MoreVertical size={20}/></Button>
+      : <button ref={trigger} type="button" className="row-actions-trigger" aria-label={`Actions for ${name}`} aria-haspopup="menu" aria-expanded={!!position}
+        onClick={() => { if (open) { close(); return; } setPosition(placement(trigger.current!.getBoundingClientRect())); }}><MoreVertical size={20}/></button>}
     {position && createPortal(<div ref={menu} className="row-actions-menu" role="menu" aria-label={`Actions for ${name}`} style={position}
       onKeyDown={event => {
         if (event.key === 'Escape' || event.key === 'Tab') { event.preventDefault(); close(); }
@@ -43,6 +47,6 @@ export default function RowActions({ name, actions }: { name: string; actions: A
           buttons[index]?.focus();
         }
       }}>{actions.map(action => <button key={action.label} type="button" role="menuitem" className={action.danger ? 'is-danger' : ''} disabled={action.disabled}
-        onClick={() => { close(); action.onClick(); }}>{action.icon}<span>{action.label}</span></button>)}</div>, document.body)}
+        onClick={() => { close(); action.onClick(); }}>{action.icon}<span>{action.label}</span></button>)}</div>, trigger.current?.closest('dialog') ?? document.body)}
   </>;
 }
