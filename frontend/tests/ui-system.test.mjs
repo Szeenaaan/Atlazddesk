@@ -14,8 +14,8 @@ test('theme has one stylesheet entry, explicit cascade layers and no important o
 test('shared primitives preserve native form attributes and semantic variants',()=>{
   const compiled=buildSync({stdin:{contents:`
     import React from 'react';import {renderToStaticMarkup} from 'react-dom/server';
-    import {Button,Input,Textarea,Checkbox,Switch,FileUpload,UIState,Field} from './components/ui';
-    export const html=renderToStaticMarkup(<><Button type="submit" disabled variant="danger">Delete</Button><Field htmlFor="contact">Email<Input id="contact" type="email" name="contact" required/></Field><Textarea rows={4} name="notes"/><Checkbox defaultChecked aria-label="Covered"/><Switch aria-label="Enabled"/><FileUpload accept=".pdf"/><UIState tone="error">Invalid input</UIState></>);
+    import {Button,Input,Textarea,Checkbox,Switch,FileUpload,UIState,Field,Tabs} from './components/ui';
+    export const html=renderToStaticMarkup(<><Button type="submit" disabled variant="danger">Delete</Button><Field htmlFor="contact">Email<Input id="contact" type="email" name="contact" required/></Field><Textarea rows={4} name="notes"/><Checkbox defaultChecked aria-label="Covered"/><Switch aria-label="Enabled"/><FileUpload accept=".pdf"/><UIState tone="error">Invalid input</UIState><Tabs id="ticket-1" label="Ticket sections" items={[["summary","Summary"],["attachments","Attachments"]]} value="attachments" onChange={()=>{}}/></>);
   `,resolveDir:root,loader:'tsx'},write:false,bundle:true,platform:'node',format:'cjs'}).outputFiles[0].text;
   const module={exports:{}};
   new Function('require','module','exports',compiled)(createRequire(import.meta.url),module,module.exports);
@@ -24,6 +24,43 @@ test('shared primitives preserve native form attributes and semantic variants',(
   assert.match(html,/type="email"/);assert.match(html,/name="contact"/);assert.match(html,/required=""/);assert.match(html,/ui-required/);assert.match(html,/for="contact"/);
   assert.match(html,/rows="4"/);assert.match(html,/type="checkbox"/);assert.match(html,/role="switch"/);
   assert.match(html,/type="file"/);assert.match(html,/accept=".pdf"/);assert.match(html,/role="alert"/);
+  assert.match(html,/id="ticket-1-attachments-tab" aria-controls="ticket-1-attachments-panel" aria-selected="true" tabindex="0"/);
+  assert.match(html,/id="ticket-1-summary-tab" aria-controls="ticket-1-summary-panel" aria-selected="false" tabindex="-1"/);
+});
+test('password inputs have an accessible reveal button without nesting it in the label',()=>{
+  const compiled=buildSync({stdin:{contents:`
+    import React from 'react';import {renderToStaticMarkup} from 'react-dom/server';
+    import {Field,Input} from './components/ui';
+    export const html=renderToStaticMarkup(<Field title="Current password">Current password<Input type="password" name="password" required autoComplete="current-password" minLength={8}/></Field>);
+  `,resolveDir:root,loader:'tsx'},write:false,bundle:true,platform:'node',format:'cjs'}).outputFiles[0].text;
+  const module={exports:{}};
+  new Function('require','module','exports',compiled)(createRequire(import.meta.url),module,module.exports);
+  const html=module.exports.html;
+  assert.match(html,/<label[^>]*title="Current password"[^>]*for="([^"]+)"[^>]*>Current password/);
+  const inputId=html.match(/<input[^>]*id="([^"]+)"/i)?.[1];
+  assert.ok(inputId);
+  assert.match(html,new RegExp(`for="${inputId}"`));
+  const input=html.match(/<input[^>]*>/i)?.[0] || '';
+  for(const attribute of ['type="password"','name="password"','required=""','autoComplete="current-password"','minLength="8"']) assert.ok(input.includes(attribute),attribute);
+  const button=html.match(/<button[^>]*>/i)?.[0] || '';
+  for(const attribute of ['type="button"','aria-label="Show password"','aria-pressed="false"']) assert.ok(button.includes(attribute),attribute);
+  assert.ok(html.indexOf('</label>')<html.indexOf('<button'));
+});
+
+test('refresh control uses an icon with an accessible action name',()=>{
+  const compiled=buildSync({stdin:{contents:`
+    import React from 'react';import {renderToStaticMarkup} from 'react-dom/server';
+    import {RefreshButton} from './components/ui';
+    export const html=renderToStaticMarkup(<RefreshButton label="Refresh escalations" disabled/>);
+  `,resolveDir:root,loader:'tsx'},write:false,bundle:true,platform:'node',format:'cjs'}).outputFiles[0].text;
+  const module={exports:{}};
+  new Function('require','module','exports',compiled)(createRequire(import.meta.url),module,module.exports);
+  const html=module.exports.html;
+  assert.match(html,/aria-label="Refresh escalations"/);
+  assert.match(html,/type="button"/);
+  assert.match(html,/disabled=""/);
+  assert.match(html,/ui-refresh-button/);
+  assert.doesNotMatch(html,/>Refresh escalations</);
 });
 
 test('shared light-theme text and action colors meet normal text contrast',()=>{

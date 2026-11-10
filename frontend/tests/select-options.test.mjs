@@ -16,3 +16,12 @@ test('disabled placeholders cannot be selected but empty optional choices remain
   const options = [{value:'',label:'Select',disabled:true},{value:'',label:'None'},{value:'1',label:'Active'}];
   assert.deepEqual(filterSelectOptions(options,''), options.slice(1));
 });
+test('asset metadata is searchable while unavailable options stay excluded', () => {
+  const options = [
+    {value:'1',label:'Reception printer',description:'PR-1 · Printers · Shared'},
+    {value:'2',label:'Laptop',description:'LT-2 · Computers · Individual',disabled:true},
+  ];
+  assert.deepEqual(filterSelectOptions(options,'pr-1'), [options[0]]);
+  assert.deepEqual(filterSelectOptions(options,'printers'), [options[0]]);
+  assert.deepEqual(filterSelectOptions(options,'individual'), []);
+});

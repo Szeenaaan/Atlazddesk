@@ -40,6 +40,7 @@ class DirectoryWriteController extends Controller
                 'name' => ['required','string','max:255'],
                 'asset_tag' => ['required','string','max:80',Rule::unique('assets','asset_tag')->ignore($id)],
                 'category_id' => ['required','integer','exists:ticket_categories,id'],
+                'assignment_mode' => ['sometimes', Rule::in(['shared', 'individual', 'common'])],
                 'asset_type_id' => ['sometimes','nullable','integer','exists:asset_types,id'],
                 'location_id' => ['nullable','integer','exists:locations,id'],
                 'manufacturer' => ['nullable','string','max:255'], 'model' => ['nullable','string','max:255'],
@@ -163,6 +164,11 @@ class DirectoryWriteController extends Controller
                 if (isset($data['customer_id']) && (int) $data['customer_id'] !== (int) $record->customer_id) {
                     abort_if(DB::table('asset_user')->where('asset_id', $record->id)->exists(), 422, 'Remove user assignments before transferring this asset.');
                 }
+                if (isset($data['assignment_mode']) && $data['assignment_mode'] !== $record->assignment_mode) {
+                    $assignmentCount = DB::table('asset_user')->where('asset_id', $record->id)->count();
+                    abort_if($data['assignment_mode'] === 'common' && $assignmentCount > 0, 422, 'Remove assignments before making this asset common.');
+                    abort_if($data['assignment_mode'] === 'individual' && $assignmentCount > 1, 422, 'Keep one assignment before making this asset individual.');
+                }
             }
             $services = $data['service_ids'] ?? null;
             unset($data['service_ids']);
@@ -171,5 +177,25 @@ class DirectoryWriteController extends Controller
             AmcAudit::record($request, $resource.'.updated', $record, ['fields'=>array_merge(array_keys($data), $resource === 'contracts' && $services !== null ? ['service_ids'] : [])]);
         });
         return response()->json(['data' => $record->fresh()]);
+    }
+
+    public function destroyAsset(Request $request, int $id)
+    {
+        $actor = $request->user();
+        abort_unless(AmcAccess::mayManageAssets($actor), 403);
+        $data = $request->validate(['confirm_assigned' => ['sometimes', 'boolean']]);
+        DB::transaction(function () use ($request, $actor, $data, $id) {
+            $query = Asset::query();
+            if ($actor->role === 'customer_admin') {
+                abort_unless($actor->customer_id, 403);
+                $query->where('customer_id', $actor->customer_id);
+            }
+            $asset = $query->lockForUpdate()->findOrFail($id);
+            $assigned = DB::table('asset_user')->where('asset_id', $asset->id)->exists();
+            abort_if($assigned && empty($data['confirm_assigned']), 409, 'This asset is assigned to users. Confirm deletion to remove their assignments.');
+            AmcAudit::record($request, 'assets.deleted', $asset, ['assigned_users_removed' => $assigned]);
+            $asset->delete();
+        });
+        return response()->noContent();
     }
 }

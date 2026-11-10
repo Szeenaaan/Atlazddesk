@@ -1,10 +1,10 @@
 import { useFeedbackState } from './feedbackContext';
 import { Field, InlineNotice } from './ui';
 import { formatInstallationDateTime } from '../utils/installationTime';
-import { Button, Card, Input } from './ui';
+import { Button, Card, Input, RefreshButton } from './ui';
 import SearchableDropdown from './SearchableDropdown';
 import { useCallback, useEffect, useState } from 'react';
-import { AlertCircle, AlertTriangle, CheckCircle2, RefreshCw } from 'lucide-react';
+import { AlertCircle, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { client } from '../api/client';
 
 type Category = 'all' | 'application' | 'security' | 'jobs' | 'mail' | 'audit';
@@ -70,6 +70,7 @@ export default function SystemLogs() {
   return <Card className="panel support-section support-log-explorer">
     <div className="support-section-title">
       <h3>System logs</h3>
+      <RefreshButton label="Refresh system logs" onClick={() => void load()} disabled={loading}/>
     </div>
     <p>Recent technical events from this installation. Secrets, client data, stack traces and raw log files are intentionally excluded.</p>
     <form className="support-search-form" role="search" onSubmit={e => {
@@ -102,9 +103,6 @@ export default function SystemLogs() {
           {levels.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
         </SearchableDropdown>
       </Field>
-      <Button className="btn btn-secondary" type="button" onClick={() => void load()} disabled={loading}>
-        <RefreshCw size={16}/> Refresh
-      </Button>
     </div>
     {error && <InlineNotice tone="error">{error}</InlineNotice>}
     {loading && <p role="status" className="hint">Loading system logs…</p>}

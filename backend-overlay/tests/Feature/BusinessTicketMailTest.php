@@ -149,7 +149,7 @@ final class BusinessTicketMailTest extends TestCase
         $this->assertSame(['shared@example.test'], array_unique(array_column($this->messages, 'to')));
         foreach ($this->messages as $message) {
             $this->assertSame('sender@example.test', $message['from']);
-            $this->assertStringContainsString('MAIL-1', $message['body']);
+            $this->assertStringContainsString($ticket->displayNumber(), $message['body']);
             $this->assertStringContainsString('Mail customer', $message['body']);
             $this->assertStringContainsString($actor->name, $message['body']);
             $this->assertStringContainsString('/?ticket='.$ticket->id, $message['body']);
@@ -161,6 +161,27 @@ final class BusinessTicketMailTest extends TestCase
         $this->assertSame(8, DB::table('amc_ticket_mail_deliveries')->where('status', 'sent')->count());
         $this->assertDatabaseMissing('amc_user_notifications', ['event' => 'internal_note', 'user_id' => $ticket->created_by]);
         $this->getJson('/api/v2/tickets/'.$ticket->id)->assertUnauthorized();
+    }
+
+    public function test_escalation_and_status_email_subjects_identify_the_action(): void
+    {
+        $this->configured(); $this->captureMail();
+        $ticket = $this->ticket();
+        $headings = [
+            'escalation_pending' => 'Ticket escalation requested',
+            'escalation_approved' => 'Ticket escalation approved',
+            'escalation_rejected' => 'Ticket escalation rejected',
+            'status_changed' => 'Ticket status changed',
+            'unassigned' => 'Technician unassigned',
+        ];
+        foreach ($headings as $event => $heading) {
+            app(TicketBusinessMail::class)->enqueue($ticket->id, $event, 'meaningful:'.$event);
+            $message = $this->messages[array_key_last($this->messages)];
+            $this->assertSame($heading.' · '.$ticket->displayNumber(), $message['subject']);
+            $this->assertStringContainsString('Event: '.$heading, $message['body']);
+            $this->assertStringNotContainsString('Ticket updated', $message['subject']);
+        }
+        $this->assertCount(count($headings), $this->messages);
     }
 
     public function test_smtp_failure_does_not_fail_a_comment_and_retries_do_not_duplicate_an_ambiguous_send(): void
@@ -327,10 +348,10 @@ final class BusinessTicketMailTest extends TestCase
         }
         Http::assertSentCount(2);
         Http::assertSent(fn ($request) => str_contains($request->url(), 'resend.com')
-            && str_contains($request['html'], 'View ticket') && str_contains($request['text'], 'MAIL-1')
+            && str_contains($request['html'], 'View ticket') && str_contains($request['text'], $ticket->displayNumber())
             && $request['to'] === ['shared@example.test']);
         Http::assertSent(fn ($request) => str_contains($request->url(), 'postmarkapp.com')
-            && str_contains($request['HtmlBody'], 'View ticket') && str_contains($request['TextBody'], 'MAIL-1')
+            && str_contains($request['HtmlBody'], 'View ticket') && str_contains($request['TextBody'], $ticket->displayNumber())
             && $request['To'] === 'shared@example.test');
     }
 }

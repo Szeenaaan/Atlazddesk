@@ -17,6 +17,6 @@ export function Dialog({children, label, onClose, className = ''}: {children:Rea
   return <dialog ref={element} aria-label={label} className={`ui-dialog ${className}`} onCancel={event => {event.preventDefault();close.current();}}
     onClick={event => {if(event.target === event.currentTarget){const rect=event.currentTarget.getBoundingClientRect();if(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom)close.current();}}}>{children}</dialog>;
 }
-export function ConfirmationDialog({title, children, confirmLabel, busy = false, onConfirm, onClose}: {title:string;children:ReactNode;confirmLabel:string;busy?:boolean;onConfirm:()=>void;onClose:()=>void}) {
-  return <Dialog label={title} onClose={onClose}><div className="ui-dialog-body"><h2>{title}</h2>{children}<div className="ui-actions"><Button type="button" disabled={busy} onClick={onClose}>Cancel</Button><Button type="button" variant="danger" disabled={busy} onClick={onConfirm}>{confirmLabel}</Button></div></div></Dialog>;
+export function ConfirmationDialog({title, children, confirmLabel, busy = false, confirmDisabled = false, onConfirm, onClose}: {title:string;children:ReactNode;confirmLabel:string;busy?:boolean;confirmDisabled?:boolean;onConfirm:()=>void;onClose:()=>void}) {
+  return <Dialog label={title} onClose={onClose}><div className="ui-dialog-body"><h2>{title}</h2>{children}<div className="ui-actions"><Button type="button" disabled={busy} onClick={onClose}>Cancel</Button><Button type="button" variant="danger" disabled={busy || confirmDisabled} onClick={onConfirm}>{confirmLabel}</Button></div></div></Dialog>;
 }

@@ -11,9 +11,11 @@ type WorkLog = { id: number; description: string; duration_minutes: number; star
 type Props = {
   ticketId: number;
   role: Role;
+  readOnly?: boolean;
+  section: 'all' | 'attachments' | 'logs' | null;
 };
 
-export default function TicketOperations({ ticketId, role }: Props) {
+export default function TicketOperations({ ticketId, role, readOnly = false, section }: Props) {
   const isCustomer = role.startsWith('customer');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [workLogs, setWorkLogs] = useState<WorkLog[]>([]);
@@ -55,6 +57,7 @@ export default function TicketOperations({ ticketId, role }: Props) {
   }, [ticketId, role]);
 
   const upload = async () => {
+    if (readOnly) return;
     const file = fileRef.current?.files?.[0];
     if (!file) return;
     if (file.size > 10 * 1024 * 1024) {
@@ -98,6 +101,7 @@ export default function TicketOperations({ ticketId, role }: Props) {
   };
 
   const addLog = async () => {
+    if (readOnly) return;
     if (!description.trim() || !startTime || !endTime) {
       setMessage('Start, end and description are required.');
       return;
@@ -122,37 +126,40 @@ export default function TicketOperations({ ticketId, role }: Props) {
   if (DEMO) return null;
 
   return (
-    <section className="ticket-operations">
+    <section className="ticket-operations" hidden={section === null}>
+      <div role={section === 'all' ? undefined : 'tabpanel'} tabIndex={0} id={`ticket-${ticketId}-attachments-panel`} aria-labelledby={section === 'all' ? undefined : `ticket-${ticketId}-attachments-tab`} hidden={section !== 'all' && section !== 'attachments'}>
       <h3 id={`ticket-${ticketId}-attachments`}>Attachments</h3>
-      {loading && <p role="status">Loading attachments and work logs…</p>}
+      {loading && <p role="status">Loading attachments…</p>}
       {!loading && !operationError && !attachments.length && <p className="muted">No attachments yet.</p>}
 
-      <div className="amc-attachment-picker">
+      {!readOnly && <div className="amc-attachment-picker">
         <FileUpload ref={fileRef} id={`ticket-file-${ticketId}`} className="amc-file-input" type="file"
           accept=".pdf,.png,.jpg,.jpeg,.txt,.docx,.xlsx" aria-label="Select attachment"
           onChange={e => { setSelectedFile(e.target.files?.[0]?.name || ''); setOperationError(false); setMessage(''); }}/>
         <Button className="btn btn-secondary" type="button" onClick={() => fileRef.current?.click()} disabled={busy}>Choose file</Button>
         <span className="amc-attachment-name" title={selectedFile}>{selectedFile || 'No file selected'}</span>
         <Button className="btn btn-primary" type="button" disabled={busy || !selectedFile} onClick={upload}>{busy ? 'Uploading…' : 'Upload'}</Button>
-      </div>
+      </div>}
       {attachments.map(file => (
         <div className="operation-row" key={file.id}>
           <span>{file.file_name} ({Math.round(file.file_size / 1024)} KB)</span>
           <Button className="btn btn-secondary" onClick={() => download(file)}>Download</Button>
         </div>
       ))}
+      </div>
       {!isCustomer && (
-        <>
+        <div role={section === 'all' ? undefined : 'tabpanel'} tabIndex={0} id={`ticket-${ticketId}-logs-panel`} aria-labelledby={section === 'all' ? undefined : `ticket-${ticketId}-logs-tab`} hidden={section !== 'all' && section !== 'logs'}>
           <h3 id={`ticket-${ticketId}-logs`}>Work logs</h3>
+          {loading && <p role="status">Loading work logs…</p>}
           {!loading && !operationError && workLogs.length === 0 && <p className="amc-muted-empty">No work logs recorded.</p>}
           <div className="amc-worklog-list">{workLogs.map(log => (
             <div className="amc-worklog-item" key={log.id}><span>{log.description}</span><small>{log.duration_minutes} min</small></div>
           ))}</div>
-          {role === 'technician' && <><Field>Start time<Input type="datetime-local" value={startTime} onChange={e => setStartTime(e.target.value)} /></Field>
+          {role === 'technician' && !readOnly && <><Field>Start time<Input type="datetime-local" value={startTime} onChange={e => setStartTime(e.target.value)} /></Field>
           <Field>End time<Input type="datetime-local" value={endTime} onChange={e => setEndTime(e.target.value)} /></Field>
           <Field>Work description<Textarea value={description} onChange={e => setDescription(e.target.value)} /></Field>
           <Button className="btn btn-secondary" disabled={busy} onClick={addLog}>Add work log</Button></>}
-        </>
+        </div>
       )}
 
     </section>

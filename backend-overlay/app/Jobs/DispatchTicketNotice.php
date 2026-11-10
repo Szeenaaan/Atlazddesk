@@ -6,6 +6,7 @@ use App\Models\{Ticket, User, AmcUserNotification};
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use App\Services\Mail\TicketBusinessMail;
+use App\Support\TicketNoticeText;
 use Illuminate\Support\Str;
 
 class DispatchTicketNotice implements ShouldQueue
@@ -15,19 +16,25 @@ class DispatchTicketNotice implements ShouldQueue
     public int $timeout = 25;
     public array $backoff = [30, 120, 300];
     public ?string $occurredAt = null;
+    public array $changes = [];
 
-    public function __construct(public int $ticketId, public string $event, public ?int $assignedTechnicianId = null, public ?int $commentId = null, public ?int $actorId = null, public ?string $eventKey = null)
+    public function __construct(public int $ticketId, public string $event, public ?int $assignedTechnicianId = null, public ?int $commentId = null, public ?int $actorId = null, public ?string $eventKey = null, public ?int $escalationId = null, array $changes = [])
     {
         $this->onConnection(config('amc.ticket_mail_queue_connection', 'database'));
         $this->onQueue('notifications');
         $this->occurredAt = now()->toDateTimeString();
+        $this->changes = $changes;
         $this->eventKey ??= $commentId !== null ? 'comment:'.$commentId
             : ($event === 'created' ? 'created:'.$ticketId : null);
     }
 
     public function handle(): void
     {
-        if (! in_array($this->event, ['created','assigned','updated','commented','internal_note','sla_warning','sla_breach','contract_expiry','attachment_uploaded','work_logged'], true)) return;
+        if (in_array($this->event, ['escalation_pending', 'escalation_approved', 'escalation_rejected'], true)) {
+            $this->escalation();
+            return;
+        }
+        if (! in_array($this->event, ['created','assigned','unassigned','status_changed','updated','commented','internal_note','sla_warning','sla_breach','contract_expiry','attachment_uploaded','work_logged'], true)) return;
         $ticket = Ticket::query()->find($this->ticketId);
         if (! $ticket) return;
         // A delayed queue worker must never deliver an old assignment to a newly assigned technician.
@@ -63,12 +70,40 @@ class DispatchTicketNotice implements ShouldQueue
             AmcUserNotification::firstOrCreate(['deduplication_key'=>$key], [
                 'user_id'=>$recipient->id, 'ticket_id'=>$ticket->id,
                 'event'=>$this->event,
-                'title'=>$this->event === 'assigned' ? ($recipient->role === 'technician' ? 'Ticket assigned to you' : 'Ticket assignment updated') : 'Ticket update',
-                'message'=>"Ticket {$ticket->ticket_number} • ".($excerpt ?? $this->event),
+                'title'=>$this->event === 'assigned' && $recipient->role === 'technician' ? 'Ticket assigned to you' : TicketNoticeText::heading($this->event, $this->changes),
+                'message'=>TicketNoticeText::message($this->event, $ticket, $excerpt, $this->changes),
             ]);
         }
         app(TicketBusinessMail::class)->enqueue($ticket->id, $this->event,
             $this->eventKey ?? ($this->commentId !== null ? 'comment:'.$this->commentId : (string) $ticket->updated_at),
             $this->actorId ?? ($this->event === 'created' ? $ticket->created_by : null), $this->commentId, $this->occurredAt);
+    }
+    private function escalation(): void
+    {
+        $record = \App\Models\TicketEscalation::find($this->escalationId);
+        if (! $record || (int) $record->ticket_id !== $this->ticketId || 'escalation_'.$record->state !== $this->event) return;
+        $ticket = Ticket::find($this->ticketId);
+        if (! $ticket) return;
+        $recipients = User::where('status', 'active')->whereNull('customer_id');
+        if ($record->state === 'pending') $recipients->where('role', 'admin');
+        else $recipients->where('role', 'technician')->whereKey($record->requester_id);
+        foreach ($recipients->cursor() as $recipient) {
+            // An approval revokes ticket access. Send an account-only acknowledgment with no ticket data/link.
+            $accountOnly = $record->state === 'approved'
+                || ($record->state === 'rejected' && (int) $ticket->assigned_to !== (int) $record->requester_id);
+            AmcUserNotification::firstOrCreate([
+                'deduplication_key' => hash('sha256', 'escalation:'.$record->id.':'.$record->state.':'.$recipient->id),
+            ], [
+                'user_id' => $recipient->id, 'ticket_id' => $accountOnly ? null : $ticket->id,
+                'event' => $this->event,
+                'title' => TicketNoticeText::heading($this->event),
+                'message' => $record->state === 'pending' ? 'A technician requested escalation for '.$ticket->displayNumber().'. Review the request in Escalations.'
+                    : ($record->state === 'approved' ? 'Your escalation request was approved and the ticket was reassigned.'
+                        : TicketNoticeText::REJECTED_ESCALATION_MESSAGE),
+            ]);
+        }
+        // Existing shared-inbox policy; no reasons or decision notes are included in mail.
+        app(TicketBusinessMail::class)->enqueue($ticket->id, $this->event,
+            'escalation:'.$record->id.':'.$record->state, $this->actorId, null, $this->occurredAt);
     }
 }

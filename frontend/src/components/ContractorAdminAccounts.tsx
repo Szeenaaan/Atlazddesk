@@ -2,7 +2,7 @@ import { useFeedbackState } from './feedbackContext';
 import { Field, InlineNotice } from './ui';
 import RowActions from './RowActions';
 import { UserCheck, UserX } from 'lucide-react';
-import { Button, Card, Input } from './ui';
+import { Button, Card, Input, RefreshButton } from './ui';
 import SortableTable from './SortableTable';
 import { useEffect, useState } from 'react';
 import { client } from '../api/client';
@@ -39,7 +39,7 @@ export default function ContractorAdminAccounts() {
     finally { setBusy(false); }
   }
   return <Card className="panel user-management contractor-admin-accounts">
-    <h3>Contractor Admin accounts</h3>
+    <div className="panel-head"><h3>Contractor Admin accounts</h3><RefreshButton label="Refresh contractor Admin accounts" disabled={busy} onClick={() => void load().then(() => setError('')).catch(() => setError('Unable to load contractor Admin accounts.'))}/></div>
     <p>Create or disable contractor Admin accounts. This system-level provisioning does not grant access to client operations.</p>
     <form className="admin-form" onSubmit={create}>
       <Field>Full name<Input required maxLength={255} value={form.name} onChange={e => setForm(p => ({...p,name:e.target.value}))} /></Field>

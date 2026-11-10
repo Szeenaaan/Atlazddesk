@@ -24,7 +24,7 @@ export default function SortableTable({ children, onSort, ...props }: TableHTMLA
         if (!isValidElement(cell) || !labels[column]?.trim() || /^(actions?|documents)$/i.test(labels[column].trim())) return cell;
         const active = sort?.column === column;
         return cloneElement(cell as ReactElement<any>, { 'aria-sort': active ? sort.direction === 'asc' ? 'ascending' : 'descending' : 'none' },
-          <button type="button" className="grid-sort" onClick={() => { const next: GridSort = { column, direction: active && sort.direction === 'desc' ? 'asc' : 'desc' }; setSort(next); onSort?.(next); }}>{(cell.props as any).children}<span aria-hidden="true">{active ? sort.direction === 'asc' ? ' ↑' : ' ↓' : ' ↕'}</span></button>);
+          <button type="button" className="grid-sort" onClick={() => { const next: GridSort = { column, direction: active && sort.direction === 'desc' ? 'asc' : 'desc' }; setSort(next); onSort?.(next); }}>{(cell.props as any).children}{active && <span aria-hidden="true">{sort.direction === 'asc' ? ' ↑' : ' ↓'}</span>}</button>);
       }));
     }));
     if (section.type === 'tbody' && sort && !onSort) {

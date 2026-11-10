@@ -4,6 +4,7 @@ namespace App\Services\Mail;
 
 use App\Jobs\SendTicketBusinessEmail;
 use App\Models\{Ticket, User};
+use App\Support\TicketNoticeText;
 use Illuminate\Support\Facades\{DB, Log};
 
 /** One shared-inbox delivery per committed ticket event; no user-recipient mail fan-out. */
@@ -11,7 +12,7 @@ final class TicketBusinessMail
 {
     public function enqueue(int $ticketId, string $event, string $eventKey, ?int $actorId = null, ?int $commentId = null, ?string $occurredAt = null): void
     {
-        if (! in_array($event, ['created', 'assigned', 'updated', 'commented', 'internal_note', 'attachment_uploaded', 'work_logged', 'work_report', 'sla_warning', 'sla_breach'], true)) return;
+        if (! in_array($event, ['created', 'assigned', 'unassigned', 'status_changed', 'updated', 'commented', 'internal_note', 'attachment_uploaded', 'work_logged', 'work_report', 'sla_warning', 'sla_breach', 'escalation_pending', 'escalation_approved', 'escalation_rejected'], true)) return;
         try {
             if (! DB::table('amc_mail_settings')->where('id', 1)->value('notifications_enabled')) return;
             $key = hash('sha256', $ticketId.':'.$event.':'.$eventKey);
@@ -50,19 +51,13 @@ final class TicketBusinessMail
                 return;
             }
             [$provider, $inbox] = $route;
-            $private = in_array($delivery->event, ['internal_note', 'work_logged', 'work_report'], true);
-            $event = $delivery->event === 'internal_note' ? 'Internal note' : ucfirst(str_replace('_', ' ', $delivery->event));
-            $heading = match ($delivery->event) {
-                'created' => 'New ticket created', 'assigned' => 'Ticket assignment updated',
-                'commented' => 'New ticket comment', 'internal_note' => 'New internal note',
-                'work_report' => 'Work report submitted', 'work_logged' => 'Work log added',
-                'attachment_uploaded' => 'Attachment added', 'sla_warning' => 'Ticket SLA warning',
-                'sla_breach' => 'Ticket SLA breached', default => 'Ticket updated',
-            };
+            $private = in_array($delivery->event, ['internal_note', 'work_logged', 'work_report', 'escalation_pending', 'escalation_approved', 'escalation_rejected'], true);
+            $heading = TicketNoticeText::heading($delivery->event);
+            $event = $heading;
             $actor = $delivery->actor_id ? User::find($delivery->actor_id)?->name : null;
             $url = rtrim((string) (config('amc.frontend_url') ?: config('app.url')), '/').'/?ticket='.$ticket->id;
             // No comment body, work report or uploaded file is copied into an email.
-            $text = "Ticket: {$ticket->ticket_number}\nCustomer: {$ticket->customer?->company_name}\n"
+            $text = 'Ticket: '.$ticket->displayNumber()."\nCustomer: {$ticket->customer?->company_name}\n"
                 ."Actor: ".($actor ?? 'System')."\nEvent: {$event}\nRecorded at: {$delivery->occurred_at} UTC\n"
                 .($private ? "Internal staff update. Sign in with authorized staff access.\n" : '')
                 ."View ticket: {$url}";
@@ -72,7 +67,7 @@ final class TicketBusinessMail
                 'url' => $url, 'private' => $private, 'senderName' => $provider->from_name,
             ])->render();
             $transportStarted = true;
-            app(ContractorMailService::class)->sendWithProvider($provider, $inbox, "{$heading} · {$ticket->ticket_number}", $text, $html);
+            app(ContractorMailService::class)->sendWithProvider($provider, $inbox, $heading.' · '.$ticket->displayNumber(), $text, $html);
             DB::table('amc_ticket_mail_deliveries')->where('id', $id)->update([
                 'status' => 'sent', 'sent_at' => now(), 'updated_at' => now(),
             ]);

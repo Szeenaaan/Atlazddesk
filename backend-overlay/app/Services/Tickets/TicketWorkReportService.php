@@ -2,7 +2,7 @@
 
 namespace App\Services\Tickets;
 
-use App\Models\{AmcUserNotification, Ticket, TicketWorkReport, User};
+use App\Models\{AmcUserNotification, TicketWorkReport, User};
 use App\Support\{AmcAccess, AmcAudit, ServiceResult, TicketQueries};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -31,11 +31,7 @@ final class TicketWorkReportService
 
         $report = DB::transaction(function () use ($request, $ticketId, $data): TicketWorkReport {
             // Re-check the current assignment under a lock to prevent stale access.
-            $ticket = Ticket::query()->lockForUpdate()->findOrFail($ticketId);
-            abort_unless((int) $ticket->assigned_to === (int) $request->user()->id, 404);
-            abort_if(in_array($ticket->status()->value('slug'), ['closed', 'cancelled'], true),
-                422, 'Cannot report on a closed or cancelled ticket.');
-
+            $ticket = TicketQueries::locked($request->user(), $ticketId);
             $report = TicketWorkReport::create([
                 ...$data,
                 'ticket_id' => $ticket->id,
@@ -55,7 +51,7 @@ final class TicketWorkReportService
                     'ticket_id' => $ticket->id,
                     'event' => 'work_report',
                     'title' => 'Technician work report submitted',
-                    'message' => "{$ticket->ticket_number} • {$report->progress} / {$report->outcome}",
+                    'message' => 'Work report submitted for '.$ticket->displayNumber().': '.\Illuminate\Support\Str::headline($report->progress).'. Result: '.\Illuminate\Support\Str::headline($report->outcome).'.',
                     'deduplication_key' => hash('sha256', "work_report:{$report->id}:{$adminId}"),
                 ]);
             }
