@@ -71,7 +71,7 @@ final class UsersController extends Controller
             'designation_id' => $target->role === 'technician'
                 ? ['required', 'integer', Rule::exists('technician_designations', 'id')->where('is_active', true)] : ['prohibited'],
             'name' => ['sometimes','required','string','max:255'],
-            'email' => ['sometimes','required','email','max:255', Rule::unique('users','email')->ignore($target->id)],
+            'email' => ['sometimes','required','email','max:255', Rule::unique('users','email')->ignoreModel($target)],
             'password' => ['sometimes','required','string','max:1024','confirmed', Password::min(8)->mixedCase()->numbers()->symbols()],
             'current_password' => ['nullable','string','max:1024'],
             'otp_code' => ['nullable','string','max:12'],

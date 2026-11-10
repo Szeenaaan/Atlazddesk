@@ -2,6 +2,7 @@ version: 2
 updates:
   - package-ecosystem: composer
     directory: /backend-overlay
+    target-branch: development
     schedule:
       interval: daily
     open-pull-requests-limit: 5
@@ -10,6 +11,7 @@ updates:
         update-types: [version-update:semver-major]
   - package-ecosystem: npm
     directory: /frontend
+    target-branch: development
     schedule:
       interval: daily
     open-pull-requests-limit: 5
@@ -18,11 +20,13 @@ updates:
         update-types: [version-update:semver-major]
   - package-ecosystem: docker
     directory: /
+    target-branch: development
     schedule:
       interval: weekly
     open-pull-requests-limit: 3
   - package-ecosystem: github-actions
     directory: /
+    target-branch: development
     schedule:
       interval: weekly
     open-pull-requests-limit: 3
