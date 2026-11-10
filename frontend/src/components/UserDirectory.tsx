@@ -4,7 +4,7 @@ import TechnicianAssignmentLimitSettings from './TechnicianAssignmentLimitSettin
 import type { Designation } from '../api/escalations';
 import { getWorkforceErrorMessage } from '../api/escalations';
 import { useFeedbackState } from './feedbackContext';
-import { Button, Card, Field, Input, InlineNotice, Pagination, RefreshButton } from './ui';
+import { Button, Card, CloseButton, Field, Input, InlineNotice, Pagination, RefreshButton } from './ui';
 import SearchableDropdown from './SearchableDropdown';
 import SortableTable from './SortableTable';
 import UserDetails from './UserDetails';
@@ -14,7 +14,7 @@ import { useEffect, useState } from 'react';
 import { client } from '../api/client';
 import type { Role, RecordItem } from '../data';
 import { HardDrive, LayoutDashboard, ShieldCheck, UserCheck, UserX, Pencil, Trash2 } from 'lucide-react';
-import { ConfirmationDialog } from './ui/Dialog';
+import { ConfirmationDialog, Dialog } from './ui/Dialog';
 import { reloadCustomerWorkspace } from '../auth/customerWorkspace';
 import { ROLE_LABELS as labels } from '../auth/rolePermissions';
 import { getApiErrorMessage } from '../api/contracts';
@@ -239,7 +239,7 @@ export default function UserDirectory({ role, customerId, customers }: Props) {
   const detailAccount = accounts.find(user => user.id === detailId);
   if (roles.length === 0) return <Card className="panel user-management"><p>Not authorized to manage client users.</p></Card>;
   return <Card className="panel user-management user-directory tickets-panel">
-    <div className="panel-head"><h3>{role === 'customer_admin' ? 'My client users' : 'User administration'}</h3><RefreshButton label="Refresh users" disabled={busy} onClick={() => setListRevision(value => value + 1)}/></div>
+    <div className="panel-head"><h3>{role === 'customer_admin' ? 'Users' : 'User administration'}</h3><RefreshButton label="Refresh users" disabled={busy} onClick={() => setListRevision(value => value + 1)}/></div>
 
     <form className="admin-form" onSubmit={create} onKeyDown={event => { if (event.key === 'Enter' && event.target instanceof HTMLInputElement) event.preventDefault(); }}>
       {role === 'admin' && <Field>User<SearchableDropdown required value={form.role} onChange={e => { setForm(p => ({ ...p, role: e.target.value as Role, designation_id: '', workforce_type: '' })); setAssetIds([]); }}>
@@ -264,7 +264,10 @@ export default function UserDirectory({ role, customerId, customers }: Props) {
     {assignmentLimitTarget && <TechnicianAssignmentLimitSettings technician={assignmentLimitTarget} onClose={() => setAssignmentLimitTarget(null)}/>}
     {detailId !== null && <UserDetails hideAssets={role === 'admin'} hideRole={role === 'customer_admin'} hideCompany={role === 'customer_admin'} key={detailId} id={detailId} onClose={() => setDetailId(null)}
       actions={detailAccount && <RowActions name={detailAccount.name} triggerLabel="Actions" actions={userActions(detailAccount, true)}/>}/>}
-    {assetTarget && <SlidingDrawer title={`Assign assets · ${assetTarget.name}`} onClose={() => setAssetTarget(null)}>{close => <div className="drawer-body user-action-panel"><UserAssetEditor key={assetTarget.id} user={assetTarget} onClose={close}/></div>}</SlidingDrawer>}
+    {assetTarget && <Dialog label={`Assign assets to ${assetTarget.name}`} className="asset-assignment-dialog" onClose={() => setAssetTarget(null)}>
+      <div className="drawer-top"><h2>Assign assets · {assetTarget.name}</h2><CloseButton aria-label="Close asset assignment" onClick={() => setAssetTarget(null)}/></div>
+      <div className="ui-dialog-body"><UserAssetEditor key={assetTarget.id} user={assetTarget} onClose={() => setAssetTarget(null)}/></div>
+    </Dialog>}
     {deleteTarget && <ConfirmationDialog title="Delete user?" confirmLabel="Delete user" busy={busy}
       confirmDisabled={!deleteMethods || (deleteMethods.totp && !/^\d{6}$/.test(deleteTotpCode)) || (deleteMethods.email && (!deleteOtpSent || !/^\d{6}$/.test(deleteEmailCode)))}
       onConfirm={() => void removeUser()} onClose={() => { if (!busy) setDeleteTarget(null); }}>
@@ -323,7 +326,7 @@ export default function UserDirectory({ role, customerId, customers }: Props) {
       <span className="result-count">{total} users</span>
     </div>
     <div className="table-scroll"><SortableTable onSort={({column, direction}) => { setSort({sort: (role === 'customer_admin' ? ['name','email','status'] : ['name','email','role','customer','status'])[column], direction}); setPageNumber(1); }}><thead><tr><th>Name</th><th>Email</th>{role !== 'customer_admin' && <th>User</th>}{role !== 'customer_admin' && <th>Client</th>}<th>Status</th><th>Action</th></tr></thead>
-      <tbody>{accounts.map(u => <tr key={u.id} className="record-row" onClick={() => setDetailId(u.id)}><td><button type="button" className="record-link" onClick={event => { event.stopPropagation(); setDetailId(u.id); }}>{u.name}</button>{u.designation && <div>{u.designation.name}</div>}</td><td>{u.email}</td>{role !== 'customer_admin' && <td>{labels[u.role] || u.role}</td>}{role !== 'customer_admin' && <td>{u.customer_id ? String(customers.find(c => Number(c.id) === Number(u.customer_id))?.company_name || 'Client #' + u.customer_id) : 'Contractor workforce'}</td>}<td><span className={`record-status ${u.status === 'active' ? 'is-active' : ''}`}>{updatingUser === u.id ? 'Updating…' : u.status}</span></td><td onClick={event => event.stopPropagation()}><RowActions name={u.name} actions={userActions(u)}/></td></tr>)}</tbody></SortableTable>{accounts.length === 0 && <div className="amc-muted-empty">No matching accounts.</div>}</div>
+      <tbody>{accounts.map(u => <tr key={u.id} className="record-row" onClick={() => setDetailId(u.id)}><td><button type="button" className="record-link" onClick={event => { event.stopPropagation(); setDetailId(u.id); }}>{u.name}</button>{u.designation && <div>{u.designation.name}</div>}</td><td>{u.email}</td>{role !== 'customer_admin' && <td>{labels[u.role] || u.role}</td>}{role !== 'customer_admin' && <td>{u.customer_id ? String(customers.find(c => Number(c.id) === Number(u.customer_id))?.company_name || 'Client #' + u.customer_id) : 'Contractor workforce'}</td>}<td><span className={`record-status ${u.status === 'active' ? 'is-active' : ''}`}>{updatingUser === u.id ? 'Updating…' : u.status === 'active' ? 'Active' : 'Inactive'}</span></td><td onClick={event => event.stopPropagation()}><RowActions name={u.name} actions={userActions(u)}/></td></tr>)}</tbody></SortableTable>{accounts.length === 0 && <div className="amc-muted-empty">No matching accounts.</div>}</div>
     <Pagination page={pageNumber} last={lastPage} onPage={setPageNumber} label="User list pages"/>
 
   </Card>;

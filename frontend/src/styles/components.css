@@ -348,7 +348,7 @@ input[type=file]::file-selector-button {
 :is(.app,.sliding-drawer,.modal,.login-panel,.ui-dialog,.contract-documents) :is(.btn,.text-button) {
   min-height: 44px;
   padding: var(--space-2) var(--space-4);
-  border-radius: var(--radius-control);
+  border-radius: var(--radius-small);
   font-size: var(--text-body);
   line-height: var(--leading-body);
   font-weight: 600;
@@ -559,7 +559,7 @@ button:disabled {
   min-height: var(--control-height);
   padding: var(--space-2) var(--space-4);
   font: 600 var(--text-body)/var(--leading-body) var(--font-body);
-  border-radius: var(--radius-control);
+  border-radius: var(--radius-small);
   white-space: normal;
   text-align: center;
   overflow-wrap: anywhere;
@@ -696,7 +696,8 @@ input.ui-input[role=switch] {
   margin-top: 0
   }
 .ui-pagination {
-  justify-content: flex-end;
+  justify-content: center;
+  padding-bottom: var(--space-4);
   font-size: var(--text-label);
   line-height: var(--leading-label)
   }
@@ -925,9 +926,6 @@ input.ui-input[role=switch] {
     width: var(--dialog-width,calc(100vw - 24px));
     max-width: calc(100vw - 24px);
     max-height: calc(100dvh - 24px)
-    }
-  .ui-pagination {
-    justify-content: space-between
     }
   .drawer-body,.modal-body,.support-section,.support-intro,.info-panel,.user-management:not(.user-directory) {
     padding: var(--space-4)

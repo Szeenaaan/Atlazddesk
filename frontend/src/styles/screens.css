@@ -162,12 +162,6 @@
   grid-template-columns: 1fr;
   margin-top: 0
   }
-.user-action-panel .asset-assignment-editor {
-  margin: 0;
-  padding: 0;
-  border: 0;
-  background: transparent
-  }
 .user-action-panel h4 {
   font-size: var(--text-body)
   }
@@ -3487,9 +3481,9 @@ tr:last-child td {
   padding: 0 var(--space-6)
   }
 .directory-pagination {
-  justify-content: flex-end;
+  justify-content: center;
   flex-wrap: wrap;
-  padding-block: var(--space-3);
+  padding: var(--space-3) var(--space-6);
   border-top: 1px solid var(--palette-border-soft);
   font-size: var(--text-label);
   color: var(--palette-muted)
@@ -4226,7 +4220,7 @@ tr:last-child td {
   padding-block: 0;
 }
 .escalations-panel { margin-block: var(--gap-sections); }
-.escalation-review-dialog,.designation-dialog,.category-dialog {
+.escalation-review-dialog,.designation-dialog,.category-dialog,.asset-assignment-dialog {
   --dialog-width: min(520px,calc(100vw - 32px));
 }
 .escalation-review-dialog .record-detail-list {
